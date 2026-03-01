@@ -10,6 +10,8 @@ import { GetCashIn } from "../../services/Cash";
 import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
 import { selectIsLockedForOperations } from "../../store/checkReconcile";
 import { useSelector } from "react-redux";
+import toast from "react-hot-toast";
+import { GetCashInLedger } from "../../services/Ledger";
 
 /*******  1a95057d-95d6-49d7-bca0-0934b457d050  *******/
 const CashIn = () => {
@@ -30,7 +32,6 @@ const CashIn = () => {
   // Step 2: Amounts entered per order
   const [amounts, setAmounts] = useState({}); // { orderId: amount }
   const isLocked = useSelector(selectIsLockedForOperations);
-
 
   // Step 3: Denominations
   const [denominations, setDenominations] = useState({
@@ -147,7 +148,6 @@ const CashIn = () => {
     fetchOrders();
   }, [fetchOrders]);
 
-
   const handlePageChange = (page) => {
     setSearchParams((prev) => {
       const newParams = new URLSearchParams(prev);
@@ -240,11 +240,369 @@ const CashIn = () => {
     window.print();
   };
 
+  const downloadCashInLedger = async (cashIn) => {
+    try {
+      // Show loading state (if you have toast library)
+      // const loadingToast = toast.loading?.('Generating ledger...');
+
+      // Fetch ledger data from API
+      const response = await GetCashInLedger(cashIn.id);
+
+      if (!response.success) {
+        throw new Error(response.message || "Failed to fetch ledger data");
+      }
+
+      const { data } = response;
+      const { ledger_rows, opening_balance, closing_balance, vault, is_approved, verifiers, approvers } = data;
+
+      // Dismiss loading toast
+      // if (loadingToast) toast.dismiss?.(loadingToast);
+
+      // Generate and open print window
+      const printWindow = window.open("", "_blank");
+      printWindow.document.write(`
+      <html>
+        <head>
+          <title>Ledger Statement - ${cashIn.tran_id}</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 40px 20px; 
+              color: #1f2937;
+            }
+            h1 { 
+              text-align: center; 
+              color: #1e40af; 
+              margin-bottom: 10px;
+            }
+            .header-info {
+              text-align: center; 
+              color: #4b5563;
+              margin-bottom: 30px;
+            }
+            .status-badge {
+              display: inline-block;
+              padding: 4px 12px;
+              border-radius: 9999px;
+              font-size: 12px;
+              font-weight: 600;
+              margin-left: 10px;
+            }
+            .status-approved {
+              background-color: #dcfce7;
+              color: #166534;
+            }
+            .status-pending {
+              background-color: #fef3c7;
+              color: #92400e;
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin-top: 20px; 
+            }
+            th, td { 
+              border: 1px solid #d1d5db; 
+              padding: 12px; 
+              text-align: right; 
+            }
+            th { 
+              background: #f3f4f6; 
+              text-align: center; 
+              font-weight: 600;
+            }
+            .left { text-align: left; }
+            
+            /* Updated signature section */
+            .signature-section { 
+              margin-top: 20px;
+              page-break-inside: avoid;
+            }
+            .signature-title {
+              font-size: 16px;
+              font-weight: 600;
+              color: #1e40af;
+              margin-bottom: 20px;
+              padding-bottom: 10px;
+              border-bottom: 2px solid #e5e7eb;
+            }
+            .signature-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 30px;
+              margin-bottom: 40px;
+            }
+            .signature-box { 
+              border: 1px solid #d1d5db;
+              border-radius: 8px;
+              padding: 20px;
+              background: #f9fafb;
+              min-height: 140px;
+            }
+            .signature-name {
+              font-weight: 600;
+              color: #1f2937;
+              margin-bottom: 5px;
+              font-size: 14px;
+            }
+            .signature-email {
+              font-size: 12px;
+              color: #6b7280;
+              margin-bottom: 15px;
+            }
+            .signature-line {
+              border-top: 2px solid #000;
+              margin-top: 40px;
+              padding-top: 8px;
+              text-align: center;
+              font-size: 11px;
+              color: #6b7280;
+            }
+            .verified-badge {
+              display: inline-block;
+              padding: 2px 8px;
+              border-radius: 4px;
+              font-size: 11px;
+              font-weight: 600;
+              margin-left: 8px;
+            }
+            .verified-yes {
+              background-color: #dcfce7;
+              color: #166534;
+            }
+            .verified-no {
+              background-color: #fee2e2;
+              color: #991b1b;
+            }
+            .verified-date {
+              font-size: 11px;
+              color: #059669;
+              margin-top: 5px;
+              font-style: italic;
+            }
+            
+            .opening { 
+              background: #dbeafe; 
+              font-weight: 600; 
+            }
+            .closing { 
+              background: #dcfce7; 
+              font-weight: 600; 
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 20px;
+              margin: 20px 0;
+              padding: 20px;
+              background: #f9fafb;
+              border-radius: 8px;
+            }
+            .info-item {
+              display: flex;
+              justify-content: space-between;
+            }
+            .info-label {
+              color: #6b7280;
+              font-weight: 500;
+            }
+            .info-value {
+              font-weight: 600;
+              color: #1f2937;
+            }
+            @media print {
+              body { margin: 20px; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Cash-In Ledger Statement</h1>
+          
+          <div class="header-info">
+            Transaction ID: <strong>${cashIn.tran_id}</strong>
+            <span class="status-badge ${is_approved ? "status-approved" : "status-pending"}">
+              ${is_approved ? "APPROVED" : "PENDING"}
+            </span>
+            <br>
+            Date: ${dayjs(cashIn.created_at).format("DD MMM YYYY, hh:mm A")}
+          </div>
+
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">Vault ID:</span>
+              <span class="info-value">${vault.vault_id || "—"}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Bag Barcode:</span>
+              <span class="info-value">${cashIn.bags?.barcode || "—"}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Rack Number:</span>
+              <span class="info-value">RN${cashIn.bags?.rack_number || "—"}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Cash-In Amount:</span>
+              <span class="info-value">৳${parseFloat(cashIn.cash_in_amount).toFixed(2)}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Current Vault Balance:</span>
+              <span class="info-value">৳${parseFloat(vault.current_balance).toFixed(2)}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Number of Orders:</span>
+              <span class="info-value">${cashIn.orders?.length || 0}</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 80px;">SL</th>
+                <th style="width: 120px;">Date</th>
+                <th style="width: 140px;">Debit (৳)</th>
+                <th style="width: 140px;">Credit (৳)</th>
+                <th style="width: 140px;">Balance (৳)</th>
+                <th class="left">Particulars</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ledger_rows
+                .map(
+                  (row) => `
+                <tr class="${row.sl === "Opening" ? "opening" : row.sl === "Closing" ? "closing" : ""}">
+                  <td style="text-align: center;">${row.sl}</td>
+                  <td style="text-align: center;">${row.date}</td>
+                  <td>${row.debit || "—"}</td>
+                  <td>${row.credit || "—"}</td>
+                  <td><strong>${row.balance}</strong></td>
+                  <td class="left">${row.note}</td>
+                </tr>
+              `,
+                )
+                .join("")}
+            </tbody>
+          </table>
+
+          ${
+            cashIn.orders && cashIn.orders.length > 0
+              ? `
+            <div style="margin-top: 30px;">
+              <h3 style="color: #1e40af; margin-bottom: 15px;">Order Details</h3>
+              <table style="margin-top: 10px;">
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Amount (৳)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${cashIn.orders
+                    .map(
+                      (order) => `
+                    <tr>
+                      <td class="left">${order.order_id || "—"}</td>
+                      <td>৳${parseFloat(order.amount || 0).toFixed(2)}</td>
+                    </tr>
+                  `,
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            </div>
+          `
+              : ""
+          }
+
+          <!-- Verifiers Section -->
+          ${
+            verifiers && verifiers.length > 0
+              ? `
+            <div class="signature-section">
+              <div class="signature-title">Verifiers (${verifiers.length})</div>
+              <div class="signature-grid">
+                ${verifiers
+                  .map(
+                    (verifier) => `
+                  <div class="signature-box">
+                    <div class="signature-name">
+                      ${verifier.name}
+                      <span class="verified-badge ${verifier.verified ? "verified-yes" : "verified-no"}">
+                        ${verifier.verified ? "✓ Verified" : "Pending"}
+                      </span>
+                    </div>
+                    <div class="signature-email">${verifier.email}</div>
+                    ${verifier.verified && verifier.verified_at ? `<div class="verified-date">Verified on: ${verifier.verified_at}</div>` : ""}
+                    <div class="signature-line">
+                      Signature & Date
+                    </div>
+                  </div>
+                `,
+                  )
+                  .join("")}
+              </div>
+            </div>
+          `
+              : ""
+          }
+
+          <!-- Approvers Section -->
+          ${
+            approvers && approvers.length > 0
+              ? `
+            <div class="signature-section">
+              <div class="signature-title">Approvers (${approvers.length})</div>
+              <div class="signature-grid">
+                ${approvers
+                  .map(
+                    (approver) => `
+                  <div class="signature-box">
+                    <div class="signature-name">
+                      ${approver.name}
+                      <span class="verified-badge ${approver.approved ? "verified-yes" : "verified-no"}">
+                        ${approver.approved ? "✓ Approved" : "Pending"}
+                      </span>
+                    </div>
+                    <div class="signature-email">${approver.email}</div>
+                    ${approver.approved && approver.approved_at ? `<div class="verified-date">Approved on: ${approver.approved_at}</div>` : ""}
+                    <div class="signature-line">
+                      Signature & Date
+                    </div>
+                  </div>
+                `,
+                  )
+                  .join("")}
+              </div>
+            </div>
+          `
+              : ""
+          }
+
+          <div style="text-align: center; margin-top: 40px; color: #9ca3af; font-size: 12px;">
+            Generated on ${dayjs().format("DD MMM YYYY, hh:mm A")}
+          </div>
+
+          <script>
+            window.onload = () => {
+              setTimeout(() => window.print(), 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+
+      printWindow.document.close();
+    } catch (error) {
+      console.error("Error generating ledger:", error);
+      alert("Failed to generate ledger statement. Please try again.");
+    }
+  };
+
   const columnsStep0 = [
     {
       title: "Vault",
       key: "vault_id",
-      className: "w-20",
+      className: "w-14",
       render: (row) => <span className="font-mono text-cyan-400">{row.vault?.vault_id}</span>,
     },
     {
@@ -266,7 +624,7 @@ const CashIn = () => {
     {
       title: "Order Ids",
       key: "orders.order_id",
-      className: "w-[250px]",
+      className: "w-[200px]",
       render: (row) => (
         <div className="flex flex-wrap gap-2">
           {row?.orders?.map((order, index) => (
@@ -285,15 +643,15 @@ const CashIn = () => {
     },
 
     {
-      title: "Requested at",
+      title: "Req at",
       key: "created_at",
-      className: "w-34",
+      className: "w-28",
       render: (row) => <span className="">{dayjs(row.created_at).format("DD MMM, YYYY")}</span>,
     },
     {
-      title: "Vault Verifier",
+      title: "Verifiers",
       key: "required_verifiers",
-      className: "w-40",
+      className: "w-24 ",
       render: (row) => {
         const requiredVerifiers = row.required_verifiers || [];
 
@@ -301,9 +659,9 @@ const CashIn = () => {
       },
     },
     {
-      title: "Verifier Approver",
+      title: "Approvers",
       key: "required_verifiers",
-      className: "w-40",
+      className: "w-24 ",
       render: (row) => {
         const requiredApprovers = row.required_approvers || [];
 
@@ -327,7 +685,7 @@ const CashIn = () => {
     {
       title: "Approvers",
       key: "status",
-      className: "w-32",
+      className: "w-24",
       render: (row) => (
         <span
           className={`capitalize text-xs ${
@@ -343,6 +701,8 @@ const CashIn = () => {
       key: "actions",
       className: "w-24 ",
       render: (row) => {
+        const isOneVerified = row?.required_verifiers?.some((verifier) => verifier?.verified);
+
         const handleEdit = (e) => {
           e.stopPropagation();
           // Your edit logic her
@@ -360,14 +720,20 @@ const CashIn = () => {
           }
         };
 
+        const downloadLedger = (e) => {
+          e.stopPropagation();
+          // We'll implement the real download logic below
+          downloadCashInLedger(row);
+        };
+
         return (
-          <div className="flex items-center justify-center gap-3 py-2">
+          <div className="flex items-center  gap-3 py-2">
             {/* Edit Button */}
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleEdit}
-              className="p-2 rounded-lg bg-blue-500/10 cursor-pointer hover:bg-blue-500/20 text-blue-600 border border-blue-400/20 transition-all "
+              className={`p-2 rounded-lg ${isOneVerified ? "hidden" : ""} bg-blue-500/10 cursor-pointer hover:bg-blue-500/20 text-blue-600 border border-blue-400/20 transition-all`}
               aria-label="Edit vault"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -385,7 +751,7 @@ const CashIn = () => {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleDelete}
-              className="p-2 rounded-lg bg-red-500/10 cursor-pointer hover:bg-red-500/20 text-red-600 border border-red-400/20 transition-all "
+              className={`p-2 rounded-lg ${isOneVerified ? "hidden" : ""} bg-red-500/10 cursor-pointer hover:bg-red-500/20 text-red-600 border border-red-400/20 transition-all`}
               aria-label="Delete vault"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -397,6 +763,30 @@ const CashIn = () => {
                 />
               </svg>
             </motion.button>
+
+            <div className="relative group">
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={downloadLedger}
+                className="p-2 cursor-pointer rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 border border-emerald-400/20 transition-all"
+                title="Ledger Statement"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+              </motion.button>
+
+              {/* Tooltip */}
+              <div className="absolute bottom-full z-100 left-1/2 -translate-x-1/2 mb-2 px-3 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                Ledger Statement
+              </div>
+            </div>
           </div>
         );
       },
@@ -546,8 +936,6 @@ const CashIn = () => {
       ),
     },
   ];
-
-  
 
   return (
     <div>

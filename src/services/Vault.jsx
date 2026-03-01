@@ -8,9 +8,9 @@ export const GetVaults = async () => {
     console.error(error?.response?.data?.message);
   }
 };
-export const GetVaultBagById = async (vaultId, query = {}) => {
+export const GetVaultBagById = async (vaultId) => {
   try {
-    const response = await axiosConfig.get(`/bag/${vaultId}${query ? `?${query}` : ""}`);
+    const response = await axiosConfig.get(`/vault/bag/${vaultId}`);
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);
