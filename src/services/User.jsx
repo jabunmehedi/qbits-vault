@@ -11,7 +11,7 @@ export const GetUsers = async () => {
 };
 export const GetUser = async (id) => {
   try {
-    const response = await axios.get(`/user/${id}`);
+    const response = await axios.get(`/users/${id}`);
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);
@@ -20,7 +20,7 @@ export const GetUser = async (id) => {
 };
 export const ChangePassword = async (id, data) => {
   try {
-    const response = await axios.post(`/users/change-password/${id}`, data);
+    const response = await axios.post(`/users/${id}/password`, data);
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);

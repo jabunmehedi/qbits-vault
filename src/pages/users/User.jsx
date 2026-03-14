@@ -1,490 +1,415 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useToast } from "../../hooks/useToast";
 import DataTable from "../../components/global/dataTable/DataTable";
 import CustomModal from "../../components/global/modal/CustomModal";
 import axiosConfig from "../../utils/axiosConfig";
 import { GetRoles, GetUsers } from "../../services/User";
-import { Check, ChevronDown, Shield, UserIcon, X } from "lucide-react";
+import { Check, ChevronDown, Shield, X, Camera, UserIcon } from "lucide-react";
 import PermissionButton from "../../components/global/permissionButton/PermissionButton";
 import { CiEdit } from "react-icons/ci";
 import { MdDelete } from "react-icons/md";
+import StatusBadge from "../../components/user/StatusBadge";
+import TabContent from "../../components/user/TabContent";
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+const TABS = ["profile", "permissions", "migrate"];
+
+const INITIAL_FORM = { name: "", email: "", password: "", role: [] };
+
+const INITIAL_EDIT = {
+  name: "",
+  email: "",
+  status: "active",
+  permissions: [],
+  rolePermissions: [],
+  directPermissions: [],
+};
+
+// ─── Small helpers ─────────────────────────────────────────────────────────────
+const Avatar = ({ src, name, size = "sm" }) => {
+  const dim = size === "lg" ? "w-20 h-20" : "w-9 h-9";
+  const icon = size === "lg" ? "w-10 h-10" : "w-4 h-4";
+  return src ? (
+    <img src={src} alt={name} className={`${dim} rounded-full object-cover border border-gray-200`} />
+  ) : (
+    <div className={`${dim} rounded-full border border-gray-200 bg-gray-100 flex items-center justify-center`}>
+      <UserIcon className={`${icon} text-gray-400`} />
+    </div>
+  );
+};
+
+// ─── Main component ────────────────────────────────────────────────────────────
 const User = () => {
   const { addToast } = useToast();
+
+  // ── Data state ──
   const [roles, setRoles] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [permissions, setPermissions] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // ── Create modal state ──
   const [openModel, setOpenModel] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
+  const [formData, setFormData] = useState(INITIAL_FORM);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [roleSearch, setRoleSearch] = useState("");
-  const [permissions, setPermissions] = useState([]);
-  const [users, setUsers] = useState([]);
+  const dropdownRef = useRef(null);
+
+  // ── Edit modal state ──
+  const [editOpen, setEditOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [editFormData, setEditFormData] = useState(INITIAL_EDIT);
   const [activeTab, setActiveTab] = useState("profile");
-  const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    role: [], // Changed to array for multiple roles
-  });
-  const [editFormData, setEditFormData] = useState({
-    name: "",
-    email: "",
-    status: "active",
-    permissions: [],
-    rolePermissions: [], // NEW: for comparison
-    directPermissions: [], // NEW: for marking overrides
-  });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPerm, setSavingPerm] = useState(false);
+  const [migrating, setMigrating] = useState(false);
+  const [imgPreview, setImgPreview] = useState(null);
+  const imgInputRef = useRef(null);
 
-  const initialFormState = {
-    name: "",
-    email: "",
-    password: "",
-    role: [],
-  };
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleEditChange = (e) => {
-    setEditFormData({ ...editFormData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    // Validate role selection
-    if (!formData.role || formData.role.length === 0) {
-      addToast({ type: "error", message: "Please select at least one role" });
-      return;
-    }
-
-    try {
-      // Send role as array of IDs
-      const submitData = {
-        ...formData,
-        role: formData.role, // This will be an array of role IDs
-      };
-
-      await axiosConfig.post("/users", submitData);
-      addToast({ type: "success", message: "User created successfully" });
-
-      // Reset form and close modal
-      setFormData(initialFormState);
-      setOpenModel(false);
-
-      // Refresh users list
-      GetUsers().then((res) => setUsers(res?.data?.data));
-    } catch (error) {
-      addToast({
-        type: "error",
-        message: error.response?.data?.message || "Failed to create user",
-      });
-    }
-  };
-
-  useEffect(() => {
-    GetRoles().then((res) => setRoles(res?.data));
-  }, []);
-
-  useEffect(() => {
+  // ── Fetch data ──
+  const fetchUsers = useCallback(() => {
     setIsLoading(true);
-    try {
-      GetUsers().then((res) => setUsers(res?.data?.data));
-      setIsLoading(false);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
+    GetUsers()
+      .then((res) => setUsers(res?.data?.data || []))
+      .catch(console.error)
+      .finally(() => setIsLoading(false));
   }, []);
 
   useEffect(() => {
-    if (!selectedUser || !selectedUser.data) return;
+    fetchUsers();
+    GetRoles().then((res) => setRoles(res?.data || []));
+    axiosConfig.get("/permissions").then((res) => setPermissions(res.data.data || res.data || []));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Sync editFormData when selectedUser changes ──
+  useEffect(() => {
+    if (!selectedUser?.data) return;
     const user = selectedUser.data;
 
-    // Role permissions
-    const rolePermissionIds = (user.roles || []).flatMap((role) => role.permissions || []).map((perm) => perm.id);
+    const rolePermissionIds = (user.roles || []).flatMap((r) => r.permissions || []).map((p) => p.id);
 
-    // Direct permissions
     const directPermissionIds = (user.permissions || []).map((p) => p.id);
 
-    // Effective permissions from backend (convert object to array)
-    const effectivePermissionIds = selectedUser.effective_permissions
+    const effectiveIds = selectedUser.effective_permissions
       ? Object.values(selectedUser.effective_permissions).map(Number)
       : [...new Set([...rolePermissionIds, ...directPermissionIds])];
 
-    setEditFormData((prev) => ({
-      ...prev,
+    setEditFormData({
       name: user.name || "",
       email: user.email || "",
       status: user.status || "active",
       rolePermissions: rolePermissionIds,
       directPermissions: directPermissionIds,
-      permissions: effectivePermissionIds,
-    }));
+      permissions: effectiveIds,
+    });
+    setImgPreview(user.img || null);
   }, [selectedUser]);
 
+  // ── Close dropdown on outside click ──
   useEffect(() => {
-    // Assuming you have a service to get all permissions
-    axiosConfig.get("/permissions").then((res) => {
-      setPermissions(res.data.data || res.data); // adjust based on your API
-    });
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // ─── Handlers ────────────────────────────────────────────────────────────────
+
+  const handleCreateSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.role.length) {
+      addToast({ type: "error", message: "Please select at least one role" });
+      return;
+    }
+    try {
+      await axiosConfig.post("/users", formData);
+      addToast({ type: "success", message: "User created successfully" });
+      setFormData(INITIAL_FORM);
+      setOpenModel(false);
+      fetchUsers();
+    } catch (err) {
+      addToast({ type: "error", message: err.response?.data?.message || "Failed to create user" });
+    }
+  };
 
   const handleEdit = async (e, row) => {
     e.stopPropagation();
     try {
-      const res = await axiosConfig.get(`/user/${row.id}`);
-      setSelectedUser(res.data.data); // Updated to res.data.data based on new structure
-      setEditOpen(true);
+      const res = await axiosConfig.get(`/users/${row.id}`);
+      setSelectedUser(res.data.data);
       setActiveTab("profile");
-    } catch (error) {
+      setEditOpen(true);
+    } catch {
       addToast({ type: "error", message: "Failed to load user details" });
     }
   };
 
-  const toggleRole = (roleId) => {
-    setFormData((prev) => {
-      const currentRoles = prev.role || [];
-      const isSelected = currentRoles.includes(roleId);
+  const handleSaveProfile = async () => {
+    setSavingProfile(true);
+    try {
+      const payload = new FormData();
+      payload.append("name", editFormData.name);
+      payload.append("email", editFormData.email);
+      payload.append("status", editFormData.status);
+      if (imgInputRef.current?.files?.[0]) {
+        payload.append("img", imgInputRef.current.files[0]);
+      }
+      await axiosConfig.post(`/users/${selectedUser.data.id}?_method=PUT`, payload, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
-      return {
-        ...prev,
-        role: isSelected ? currentRoles.filter((id) => id !== roleId) : [...currentRoles, roleId],
-      };
-    });
+      addToast({ type: "success", message: "Profile updated" });
+      fetchUsers();
+    } catch (err) {
+      addToast({ type: "error", message: err.response?.data?.message || "Failed to update profile" });
+    } finally {
+      setEditOpen(false);
+      setSavingProfile(false);
+    }
   };
 
-  const removeRole = (roleId) => {
+  const handleTogglePermission = async (permId) => {
+    const prev = editFormData.permissions;
+    const next = prev.includes(permId) ? prev.filter((id) => id !== permId) : [...prev, permId];
+
+    // Optimistic update
+    setEditFormData((p) => ({ ...p, permissions: next }));
+    setSavingPerm(true);
+    try {
+      await axiosConfig.put(`/users/${selectedUser.data.id}`, { permissions: next });
+      const res = await axiosConfig.get(`/users/${selectedUser.data.id}`);
+      setSelectedUser(res.data.data);
+      addToast({ type: "success", message: "Permission updated" });
+    } catch {
+      setEditFormData((p) => ({ ...p, permissions: prev })); // rollback
+      addToast({ type: "error", message: "Failed to update permission" });
+    } finally {
+      setSavingPerm(false);
+    }
+  };
+
+  const handleMigrate = async (targetUser) => {
+    setMigrating(true);
+    try {
+      await axiosConfig.post(`/users/${selectedUser.data.id}/migrate-verifications`, {
+        target_user_id: targetUser.id,
+      });
+      addToast({ type: "success", message: `Verifications migrated to ${targetUser.name}` });
+      // Reload user to reflect cleared verifications
+      const res = await axiosConfig.get(`/users/${selectedUser.data.id}`);
+      setSelectedUser(res.data.data);
+    } catch (err) {
+      addToast({ type: "error", message: err.response?.data?.message || "Migration failed" });
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  const toggleRole = (roleId) => {
     setFormData((prev) => ({
       ...prev,
-      role: prev.role.filter((id) => id !== roleId),
+      role: prev.role.includes(roleId) ? prev.role.filter((id) => id !== roleId) : [...prev.role, roleId],
     }));
   };
 
+  const filteredRoles = roles.filter((r) => r.name.toLowerCase().includes(roleSearch.toLowerCase()));
+
+  const selectedRoleNames = roles.filter((r) => formData.role.includes(r.id)).map((r) => r.name);
+
+  // ─── Table columns ────────────────────────────────────────────────────────────
   const columns = [
     {
-      title: "Avatar",
-      key: "avatar",
-      className: "w-20",
-      render: (row) => {
-        return (
-          <div>
-            {row?.img ? (
-              <img src={row.img} alt={row?.name} className="w-10 h-10 rounded-full border border-cyan-200 object-cover" />
-            ) : (
-              <div className="w-10 h-10 text-gray-400 flex justify-center items-center rounded-full border border-gray-300 bg-gray-50">
-                <UserIcon className="w-5 h-5" />
-              </div>
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      title: "Name",
+      title: "User",
       key: "name",
-      className: "w-40",
-      render: (row) => <span className="">{row?.name}</span>,
+      className: "w-56",
+      render: (row) => (
+        <div className="flex items-center gap-3">
+          <Avatar src={row.img} name={row.name} />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-700 truncate">{row.name}</p>
+            <p className="text-xs text-gray-400 truncate">{row.email}</p>
+          </div>
+        </div>
+      ),
     },
     {
-      title: "Role",
-      key: "role",
-      className: "w-40",
+      title: "Roles",
+      key: "roles",
+      className: "w-48",
       render: (row) => (
         <div className="flex flex-wrap gap-1">
-          {row?.roles?.map((role, index) => (
-            <span key={index} className="px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-xs border border-cyan-200">
-              {role?.name}
+          {row.roles?.map((role) => (
+            <span key={role.id} className="text-xs px-2 py-0.5 bg-cyan-50 text-cyan-700 border border-cyan-200 rounded-full">
+              {role.name}
             </span>
           ))}
         </div>
       ),
     },
     {
-      title: "Email",
-      key: "email",
-      className: "w-40",
-      render: (row) => <span className="">{row?.email}</span>,
-    },
-    {
       title: "Status",
       key: "status",
-      className: "w-32",
-      render: (row) => (
-        <span className={`capitalize px-4 py-2 ${row.status === "active" ? "text-green-500 bg-green-50" : "text-yellow-500"} rounded-full text-xs`}>
-          {row?.status}
-        </span>
-      ),
+      className: "w-28",
+      render: (row) => <StatusBadge status={row.status} />,
     },
     {
       title: "Action",
       key: "actions",
-      className: "w-40",
-      render: (row) => {
-        return (
-          <div className="flex items-center justify-start gap-3 py-2">
-            <PermissionButton permission="user.edit">
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={(e) => handleEdit(e, row)}
-                // className="p-2 rounded-lg bg-blue-500/10 cursor-pointer hover:bg-blue-500/20 text-blue-600 border border-blue-400/20 transition-all"
-                aria-label="Edit user"
-              >
-                <CiEdit size={16}/>
-              </motion.button>
-            </PermissionButton>
-
-            <PermissionButton permission="user.delete">
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                className="cursor-pointer hover:text-red-400"
-                // onClick={handleDelete}
-                // className="p-2 rounded-lg bg-red-500/10 cursor-pointer hover:bg-red-500/20 text-red-600 border border-red-400/20 transition-all"
-                aria-label="Delete user"
-              >
-                <MdDelete size={16}/>
-              </motion.button>
-            </PermissionButton>
-          </div>
-        );
-      },
+      className: "w-24",
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <PermissionButton permission="user.edit">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={(e) => handleEdit(e, row)}
+              className="p-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+              aria-label="Edit user"
+            >
+              <CiEdit size={16} />
+            </motion.button>
+          </PermissionButton>
+          <PermissionButton permission="user.delete">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+              aria-label="Delete user"
+            >
+              <MdDelete size={16} />
+            </motion.button>
+          </PermissionButton>
+        </div>
+      ),
     },
   ];
 
-
-  const togglePermission = async (permId) => {
-    // Get current effective permissions
-    const currentPermissions = editFormData.permissions;
-    const currentlyHas = currentPermissions.includes(permId);
-
-    let newPermissionsList;
-
-    if (currentlyHas) {
-      newPermissionsList = currentPermissions.filter((id) => id !== permId);
-    } else {
-      newPermissionsList = [...currentPermissions, permId];
-    }
-
-    // Optimistic UI update
-    setEditFormData((prev) => ({
-      ...prev,
-      permissions: newPermissionsList,
-    }));
-
-
-    try {
-      // Correct ID: selectedUser.data.id
-      await axiosConfig.put(`/user/${selectedUser.data.id}`, {
-        permissions: newPermissionsList,
-      });
-
-      // Reload fresh user data
-      const res = await axiosConfig.get(`/user/${selectedUser.data.id}`);
-
-      // res.data.data is the { data: user, effective_permissions: {...} }
-      setSelectedUser(res.data.data);
-
-      addToast({ type: "success", message: "Permission updated" });
-    } catch (error) {
-      console.error("Update failed:", error);
-
-      // Rollback
-      setEditFormData((prev) => ({
-        ...prev,
-        permissions: currentPermissions,
-      }));
-
-      addToast({ type: "error", message: "Failed to update permission" });
-    }
-  };
-
-  const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const filteredRoles = roles?.filter((role) => role?.name.toLowerCase().includes(roleSearch.toLowerCase()));
-
-  const getSelectedRoleNames = () => {
-    return roles.filter((role) => formData.role.includes(role.id)).map((role) => role.name);
-  };
-
+  // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <div>
-      <div className="flex justify-between mb-2">
+      {/* Page header */}
+      <div className="flex justify-between items-start mb-3">
         <div>
-          <p className="text-[#424242] text-lg font-medium">Users</p>
-          <span className="text-gray-400 text-sm">Manage your users</span>
+          <p className="text-gray-700 text-base font-semibold">Users</p>
+          <span className="text-gray-400 text-xs">Manage system users and permissions</span>
         </div>
         <PermissionButton permission="user.create">
-          <button
-            onClick={() => setOpenModel(true)}
-            className="bg-[#424242] border text-white py-2 px-3 mb-2 text-sm rounded-lg hover:bg-black cursor-pointer transition-colors"
-          >
-            Create User
+          <button onClick={() => setOpenModel(true)} className="text-sm px-3 py-1.5 bg-gray-800 hover:bg-black text-white rounded-lg transition-colors">
+            + Create User
           </button>
         </PermissionButton>
       </div>
+
       <DataTable columns={columns} data={users} isLoading={isLoading} paginationData={{}} className="h-[calc(100vh-100px)]" />
 
+      {/* ── Create User Modal ──────────────────────────────────────────────── */}
       {openModel && (
         <CustomModal
           isCloseModal={() => {
             setOpenModel(false);
-            setFormData(initialFormState);
+            setFormData(INITIAL_FORM);
           }}
         >
-          <h2 className="text-xl font-bold text-gray-800 mb-8 text-center">Create New User</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-5">Create New User</h2>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-              <input
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                className="w-full px-5 py-2 border border-gray-200 rounded-lg focus:border-cyan-500 outline-none transition-colors"
-                placeholder="e.g. Md. Rahman"
-              />
-            </div>
+          <form onSubmit={handleCreateSubmit} className="space-y-4">
+            {[
+              { label: "Full name", name: "name", type: "text", placeholder: "Md. Rahman" },
+              { label: "Email", name: "email", type: "email", placeholder: "user@example.com" },
+              { label: "Password", name: "password", type: "password", placeholder: "Min 6 characters", minLength: 6 },
+            ].map((f) => (
+              <div key={f.name}>
+                <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
+                <input
+                  name={f.name}
+                  type={f.type}
+                  value={formData[f.name]}
+                  onChange={(e) => setFormData((p) => ({ ...p, [e.target.name]: e.target.value }))}
+                  required
+                  minLength={f.minLength}
+                  placeholder={f.placeholder}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-cyan-400 outline-none transition-colors"
+                />
+              </div>
+            ))}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-              <input
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="w-full px-5 py-2 border border-gray-200 rounded-lg focus:border-cyan-500 outline-none transition-colors"
-                placeholder="user@example.com"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-              <input
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                minLength={6}
-                className="w-full px-5 py-2 border border-gray-200 rounded-lg focus:border-cyan-500 outline-none transition-colors"
-                placeholder="Enter secure password (min 6 characters)"
-              />
-            </div>
-
+            {/* Role selector */}
             <div ref={dropdownRef}>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Assign Roles <span className="text-red-500">*</span>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Roles <span className="text-red-400">*</span>
               </label>
 
-              {/* Selected Roles Display */}
-              {formData.role.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {getSelectedRoleNames().map((roleName, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      exit={{ scale: 0 }}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-cyan-50 text-cyan-700 rounded-lg border border-cyan-200"
-                    >
-                      <span className="text-sm font-medium">{roleName}</span>
+              {selectedRoleNames.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {selectedRoleNames.map((name) => (
+                    <span key={name} className="flex items-center gap-1 text-xs px-2 py-1 bg-cyan-50 text-cyan-700 border border-cyan-200 rounded-full">
+                      {name}
                       <button
                         type="button"
                         onClick={() => {
-                          const roleToRemove = roles.find((r) => r.name === roleName);
-                          if (roleToRemove) removeRole(roleToRemove.id);
+                          const r = roles.find((r) => r.name === name);
+                          if (r) toggleRole(r.id);
                         }}
-                        className="hover:bg-cyan-100 rounded-full p-0.5 transition-colors"
+                        className="hover:text-cyan-900"
                       >
-                        <X className="w-3 h-3" />
+                        <X className="w-2.5 h-2.5" />
                       </button>
-                    </motion.div>
+                    </span>
                   ))}
                 </div>
               )}
 
               <div className="relative">
-                <motion.button
+                <button
                   type="button"
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="w-full px-5 py-4 bg-white border-2 border-gray-200 rounded-xl focus:border-cyan-500 outline-none flex items-center justify-between transition-all hover:border-cyan-400"
+                  onClick={() => setDropdownOpen((o) => !o)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg flex items-center justify-between text-gray-600 hover:border-cyan-400 transition-colors bg-white outline-none"
                 >
-                  <div className="flex items-center gap-4">
-                    {formData.role.length > 0 ? (
-                      <>
-                        <Shield className="w-6 h-6 text-cyan-600" />
-                        <span className="font-medium text-gray-800">
-                          {formData.role.length} role{formData.role.length > 1 ? "s" : ""} selected
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-gray-500">Select roles...</span>
-                    )}
-                  </div>
-                  <ChevronDown className={`w-5 h-5 text-gray-600 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
-                </motion.button>
+                  <span className={formData.role.length ? "text-gray-700" : "text-gray-400"}>
+                    {formData.role.length ? `${formData.role.length} selected` : "Select roles..."}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+                </button>
 
                 <AnimatePresence>
                   {dropdownOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute top-full mt-2 w-full bg-white rounded-xl shadow-2xl border-2 border-gray-200 z-50 overflow-hidden"
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
                     >
-                      <div className="p-3 border-b border-gray-200">
+                      <div className="p-2 border-b border-gray-100">
                         <input
                           type="text"
                           placeholder="Search roles..."
                           value={roleSearch}
                           onChange={(e) => setRoleSearch(e.target.value)}
-                          className="w-full px-4 py-2 bg-gray-50 rounded-lg text-sm outline-none focus:ring-2 focus:ring-cyan-500"
+                          className="w-full px-2 py-1.5 text-xs bg-gray-50 rounded outline-none"
                           autoFocus
                         />
                       </div>
-
-                      <div className="max-h-[200px] overflow-y-auto">
+                      <div className="max-h-[180px] overflow-y-auto">
                         {filteredRoles.length === 0 ? (
-                          <p className="text-center py-8 text-gray-500 text-sm">No roles found</p>
+                          <p className="text-center py-4 text-xs text-gray-400">No roles found</p>
                         ) : (
                           filteredRoles.map((role) => {
-                            const isSelected = formData.role.includes(role.id);
+                            const sel = formData.role.includes(role.id);
                             return (
-                              <motion.div
+                              <div
                                 key={role.id}
-                                whileHover={{ backgroundColor: "#f0f9ff" }}
                                 onClick={() => toggleRole(role.id)}
-                                className={`px-5 py-3 flex items-center gap-4 cursor-pointer border-b border-gray-100 last:border-0 ${
-                                  isSelected ? "bg-cyan-50" : ""
-                                }`}
+                                className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer text-sm border-b border-gray-50 last:border-0 transition-colors ${sel ? "bg-cyan-50" : "hover:bg-gray-50"}`}
                               >
-                                <Shield className="w-4 h-4 text-cyan-600 flex-shrink-0" />
-                                <div className="flex-1">
-                                  <p className="text-gray-800">{role.name}</p>
-                                </div>
-                                {isSelected && <Check className="w-5 h-5 text-cyan-600 ml-auto" />}
-                              </motion.div>
+                                <Shield className="w-3.5 h-3.5 text-cyan-500 flex-shrink-0" />
+                                <span className="flex-1 text-gray-700">{role.name}</span>
+                                {sel && <Check className="w-3.5 h-3.5 text-cyan-500" />}
+                              </div>
                             );
                           })
                         )}
@@ -495,162 +420,86 @@ const User = () => {
               </div>
             </div>
 
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              type="submit"
-              className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-shadow"
-            >
+            <button type="submit" className="w-full py-2.5 bg-gray-800 hover:bg-black text-white rounded-lg text-sm font-medium transition-colors">
               Create User
-            </motion.button>
+            </button>
           </form>
         </CustomModal>
       )}
 
+      {/* ── Edit User Modal ────────────────────────────────────────────────── */}
       {editOpen && selectedUser && (
         <CustomModal
           isCloseModal={() => {
             setEditOpen(false);
             setSelectedUser(null);
-            setActiveTab("profile");
           }}
         >
-          <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">Edit User</h2>
+          {/* Modal header with user info */}
+          <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
+            {/* Avatar with upload overlay */}
+            <div className="relative group cursor-pointer" onClick={() => imgInputRef.current?.click()}>
+              <Avatar src={imgPreview} name={selectedUser.data?.name} size="lg" />
+              <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <Camera className="w-5 h-5 text-white" />
+              </div>
+              <input
+                ref={imgInputRef}
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) setImgPreview(URL.createObjectURL(file));
+                }}
+              />
+            </div>
 
-          <div className="flex mb-4">
-            {["profile", "permissions", "verifications", "history"].map((tab) => (
-              <motion.button
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-gray-800 truncate">{selectedUser.data?.name}</p>
+              <p className="text-xs text-gray-400 truncate">{selectedUser.data?.email}</p>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {selectedUser.data?.roles?.map((r) => (
+                  <span key={r.id} className="text-[10px] px-1.5 py-0.5 bg-cyan-50 text-cyan-600 border border-cyan-100 rounded-full">
+                    {r.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <StatusBadge status={selectedUser.data?.status} />
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1">
+            {TABS.map((tab) => (
+              <button
                 key={tab}
-                whileTap={{ scale: 0.98 }}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-2 capitalize ${activeTab === tab ? "border-b-2 border-cyan-600 text-cyan-600 font-medium" : "text-gray-600"}`}
+                className={`flex-1 py-1.5 text-xs font-medium rounded-md capitalize transition-all ${
+                  activeTab === tab ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                }`}
               >
                 {tab}
-              </motion.button>
+              </button>
             ))}
           </div>
 
-          <div className="min-h-[300px]">
-            {activeTab === "profile" && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                <div className="flex justify-center">
-                  {selectedUser?.img ? (
-                    <img src={selectedUser?.img} alt={selectedUser.name} className="w-20 h-20 rounded-full border border-cyan-200 object-cover" />
-                  ) : (
-                    <div className="w-20 h-20 flex justify-center items-center rounded-full border border-gray-300 bg-gray-50">
-                      <UserIcon className="w-10 h-10 text-gray-400" />
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                  <input
-                    name="name"
-                    value={editFormData.name}
-                    onChange={handleEditChange}
-                    className="w-full px-5 py-2 border border-gray-200 rounded-lg focus:border-cyan-500 outline-none transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                  <input
-                    name="email"
-                    type="email"
-                    value={editFormData.email}
-                    onChange={handleEditChange}
-                    className="w-full px-5 py-2 border border-gray-200 rounded-lg focus:border-cyan-500 outline-none transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Roles</label>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedUser?.roles?.map((role) => (
-                      <span key={role.id} className="px-3 py-1.5 bg-cyan-50 text-cyan-700 rounded-lg border border-cyan-200 text-sm">
-                        {role.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                  <select
-                    value={editFormData.status}
-                    onChange={handleEditChange}
-                    name="status"
-                    className="w-full px-5 py-2 border border-gray-200 rounded-lg focus:border-cyan-500 outline-none transition-colors"
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="disabled">Disabled</option>
-                  </select>
-                </div>
-              </motion.div>
-            )}
-
-            {activeTab === "permissions" && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 max-h-[500px] overflow-y-auto pb-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1">
-                  {(() => {
-                    const grouped = permissions.reduce((acc, perm) => {
-                      const [group] = perm.name.split(".");
-                      const key = group.replace(/-/g, " ");
-                      if (!acc[key]) acc[key] = [];
-                      acc[key].push(perm);
-                      return acc;
-                    }, {});
-
-                    const sortedGroups = Object.keys(grouped).sort();
-
-                    return sortedGroups.map((groupName) => {
-                      const permsInGroup = grouped[groupName];
-
-                      return (
-                        <div key={groupName} className="bg-white rounded-xl border border-gray-300 shadow hover:shadow-lg transition-shadow">
-                          <div className="p-5 border-b border-gray-200 bg-gradient-to-r from-cyan-50 to-blue-50">
-                            <h4 className="font-bold text-gray-800 capitalize flex items-center gap-2">
-                              <Shield className="w-6 h-6 text-cyan-600" />
-                              {groupName.replace(/\b\w/g, (l) => l.toUpperCase())}
-                            </h4>
-                          </div>
-
-                          <div className="p-5 space-y-4">
-                            {permsInGroup.map((perm) => {
-                              const isChecked = editFormData.permissions.includes(perm.id);
-
-                              // if (wasFromRole && isChecked) {
-                              //   badge = <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">from role</span>;
-                              // } else if (isChecked) {
-                              //   badge = <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">added</span>;
-                              // } else if (wasFromRole) {
-                              //   badge = <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">removed</span>;
-                              // }
-
-                              return (
-                                <div key={perm.id} className="flex items-center justify-between p-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
-                                  <div className="flex items-center gap-4">
-                                    <input
-                                      type="checkbox"
-                                      id={`perm-${perm.id}`}
-                                      checked={isChecked}
-                                      onChange={() => togglePermission(perm.id)}
-                                      className="w-5 h-5 text-cyan-600 rounded focus:ring-cyan-500 cursor-pointer"
-                                    />
-                                    <label htmlFor={`perm-${perm.id}`} className="text-sm font-medium text-gray-800 cursor-pointer">
-                                      {perm.name.split(".").pop().replace(/-/g, " ")}
-                                    </label>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              </motion.div>
-            )}
-          </div>
+          {/* Tab content */}
+          <TabContent
+            activeTab={activeTab}
+            editFormData={editFormData}
+            setEditFormData={setEditFormData}
+            handleSaveProfile={handleSaveProfile}
+            savingProfile={savingProfile}
+            permissions={permissions}
+            handleTogglePermission={handleTogglePermission}
+            savingPerm={savingPerm}
+            selectedUser={selectedUser}
+            users={users}
+            handleMigrate={handleMigrate}
+            migrating={migrating}
+          />
         </CustomModal>
       )}
     </div>

@@ -280,7 +280,7 @@ const Verifications = () => {
       render: (row) => <span className="font-mono text-cyan-400">{row.vault?.vault_id || row.vault_id}</span>,
     },
     {
-      title: "Transaction Id",
+      title: "Trans Id",
       key: "trans_id",
       className: "w-28",
       render: (row) => <span className="">{row?.tran_id}</span>,
@@ -288,7 +288,7 @@ const Verifications = () => {
     {
       title: "Bag",
       key: "bag_barcode",
-      className: "w-28",
+      className: "w-34",
       render: (row) => (
         <span className="">
           {row.bags?.barcode}-RN{row.bags?.rack_number}
@@ -298,7 +298,7 @@ const Verifications = () => {
     {
       title: "Order Ids",
       key: "orders.order_id",
-      className: "w-[220px]",
+      className: "",
       render: (row) => (
         <div className="flex flex-wrap gap-2">
           {row?.orders?.map((order, index) => (
@@ -680,8 +680,8 @@ const Verifications = () => {
                 key={tab.id}
                 whileHover={{ scale: 1.05 }}
                 onClick={() => handleTabChange(tab.id)}
-                className={`flex items-center gap-3 lg:pb-4 px-2 border-b-2 transition-all  ${
-                  activeTab === tab.id ? "border-cyan-600 text-cyan-600" : "border-transparent text-gray-600 hover:text-gray-800"
+                className={`flex items-center gap-3 lg:pb-4 px-2 border-b-1 transition-all  ${
+                  activeTab === tab.id ? "border-gray-600 text-gray-800" : "border-transparent text-gray-400 hover:text-gray-800"
                 }`}
               >
                 {tab.label}
