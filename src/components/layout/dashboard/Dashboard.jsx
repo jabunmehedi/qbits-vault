@@ -30,7 +30,7 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className=" h-screen bg-gray-50 px-4">
+    <div className=" h-screen">
       {/* Mobile Sidebar Overlay */}
 
       {/* Main Content */}

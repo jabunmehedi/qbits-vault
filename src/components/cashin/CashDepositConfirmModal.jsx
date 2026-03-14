@@ -169,15 +169,15 @@ export default function CashDepositConfirmModal({
 
           {/* Summary info - you should get real values from API if possible */}
           <div style={{ lineHeight: "1.6" }}>
-            <div>
+            {/* <div>
               <strong>Attempts:</strong> 18
-            </div>
-            <div>
+            </div> */}
+            {/* <div>
               <strong>Last Cash In:</strong> 17 Jan 2026 14:30 by Rahim
             </div>
             <div>
               <strong>Last Cash Out:</strong> 15 Jan 2026 09:15 by Karim
-            </div>
+            </div> */}
             <div>
               <strong>Current Bag Amount:</strong> ৳{totalEnteredAmount.toLocaleString("en-US")}
             </div>
@@ -375,7 +375,7 @@ export default function CashDepositConfirmModal({
           </div>
 
           {/* Amount Summary */}
-          <div className="bg-gray-50 rounded-xl p-6 mb-8 border border-gray-100">
+          <div className="bg-gray-50 rounded-xl p-6 mb-8 border border-gray-200">
             <div className="flex justify-between text-lg">
               <span className="text-gray-600">Total Amount</span>
               <strong className="text-cyan-500">৳{totalEnteredAmount.toFixed(2)}</strong>

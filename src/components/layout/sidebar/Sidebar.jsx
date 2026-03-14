@@ -1,30 +1,32 @@
-// Sidebar.jsx
 import { motion } from "framer-motion";
-import { FiHome, FiSettings, FiLogOut, FiSend, FiDownload, FiRefreshCw, FiX, FiMenu } from "react-icons/fi";
+import { useLocation, Link } from "react-router-dom";
+import { FiHome, FiSettings, FiLogOut, FiSend, FiRefreshCw, FiX, FiMenu } from "react-icons/fi";
 import { AiOutlineAudit, AiOutlineUser } from "react-icons/ai";
-import { Link, useLocation } from "react-router-dom";
 import { CiInboxOut, CiVault } from "react-icons/ci";
-import { Logout } from "../../../services/Auth";
 import { Shield } from "lucide-react";
 
-const Sidebar = ({ isMobile, isMinimized, isDrawerOpen, setIsDrawerOpen, sidebarWidthClass }) => {
+import { Logout } from "../../../services/Auth";
+
+const menuItems = [
+  { icon: FiHome, label: "Overview", path: "/" },
+  { icon: AiOutlineUser, label: "Users", path: "/users" },
+  { icon: CiVault, label: "Vaults", path: "/vault" },
+  { icon: FiSend, label: "Cash In", path: "/cashin" },
+  { icon: CiInboxOut, label: "Cash Out", path: "/cashout" },
+  { icon: AiOutlineAudit, label: "Reconcile", path: "/reconcile" },
+  { icon: Shield, label: "Verifications", path: "/verifications" },
+  { icon: FiRefreshCw, label: "History" },
+  { icon: FiSettings, label: "Permissions", path: "/role-and-permissions" },
+  { icon: FiSettings, label: "Settings" },
+  { icon: FiRefreshCw, label: "Activity Log", path: "/activity-log" },
+];
+
+export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDrawerOpen, sidebarWidthClass }) {
   const { pathname } = useLocation();
-  const user = JSON.parse(localStorage.getItem("auth"))?.user || {};
+  const user = JSON.parse(localStorage.getItem("auth"))?.user ?? {};
+  const showLabel = !isMinimized || isMobile;
 
-  const isActive = (path) => path && (pathname === path || pathname.startsWith(path + "/"));
-
-  const menuItems = [
-    { icon: FiHome, label: "Overview", path: "/" },
-    { icon: AiOutlineUser, label: "Users", path: "/users" },
-    { icon: CiVault, label: "Vaults", path: "/vault" },
-    { icon: FiSend, label: "Cash In", path: "/cashin" },
-    { icon: CiInboxOut, label: "Cash Out", path: "/cashout" },
-    { icon: AiOutlineAudit, label: "Reconcile", path: "/reconcile" },
-    { icon: Shield, label: "Verifications", path: "/verifications" },
-    { icon: FiRefreshCw, label: "History" },
-    { icon: FiSettings, label: "Permissions", path: "/role-and-permissions" },
-    { icon: FiSettings, label: "Settings" },
-  ];
+  const isActive = (path) => path && (pathname === path || pathname.startsWith(`${path}/`));
 
   const handleLogout = () => {
     Logout().then(() => {
@@ -33,99 +35,101 @@ const Sidebar = ({ isMobile, isMinimized, isDrawerOpen, setIsDrawerOpen, sidebar
     });
   };
 
-  const positionClasses = isMobile
-    ? `fixed inset-y-0 left-0 z-50 w-[280px] max-w-[85vw] transform transition-transform duration-300 ease-in-out lg:hidden
+  const asideClasses = isMobile
+    ? `fixed inset-y-0 left-0 z-50 w-[280px] max-w-[85vw] transform transition-transform duration-300 lg:hidden
        ${isDrawerOpen ? "translate-x-0" : "-translate-x-full"}`
     : `relative z-30 ${sidebarWidthClass}`;
 
   return (
     <motion.aside
-      className={`
-        h-full bg-white/10 backdrop-blur-3xl border-r border-gray-100
-        flex flex-col overflow-y-auto ${positionClasses}
-      `}
+      className={`h-full backdrop-blur-3xl border-r border-gray-200 flex flex-col overflow-y-auto ${asideClasses}`}
       animate={isMobile ? undefined : { width: isMinimized ? 64 : 220 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
     >
-      <div className="p-4 py-6 flex flex-col h-full">
+      <div className="flex flex-col h-full p-4 py-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-10 px-2">
-          <h1 className={`text-xl font-semibold text-gray-500 ${isMinimized && !isMobile ? "hidden" : "block"}`}>
-            {isMinimized && !isMobile ? "QBV" : "QBits Vault"}
-          </h1>
+          <h1 className={`text-xl font-semibold text-gray-400 ${showLabel ? "block" : "hidden"}`}>{isMinimized && !isMobile ? "QBV" : "QBits Vault"}</h1>
 
           {isMobile ? (
-            <button onClick={() => setIsDrawerOpen(false)} className="p-2 rounded-lg hover:bg-white/10 text-gray-300 -mr-2" aria-label="Close menu">
-              <FiX size={24} />
+            <button onClick={() => setIsDrawerOpen(false)} className="p-2 -mr-2 rounded-lg hover:bg-white/10">
+              <FiX size={24} className="text-gray-300" />
             </button>
           ) : (
             <button
-              onClick={() => setIsMinimized(!isMinimized)}
+              onClick={() => setIsMinimized((v) => !v)}
               className="p-2 rounded-lg hover:bg-white/10 text-gray-400"
-              aria-label={isMinimized ? "Expand sidebar" : "Minimize sidebar"}
+              aria-label={isMinimized ? "Expand" : "Minimize"}
             >
               {isMinimized && <FiMenu size={20} />}
             </button>
           )}
         </div>
 
-        {/* Navigation */}
-        <nav className="space-y-1.5 flex-1">
-          {menuItems.map((item) => (
-            <Link key={item.label} to={item.path ?? "#"} onClick={isMobile ? () => setIsDrawerOpen(false) : undefined} className="block">
-              <motion.div
-                whileHover={{ x: 6 }}
-                className={`
-                  flex items-center gap-4 px-4 py-3  transition-colors
-                  ${isActive(item.path) ? "text-cyan-400 border-l-2 border-cyan-500/70" : "text-gray-600 hover:bg-white/10"}
-                `}
-              >
-                <item.icon size={20} className={isActive(item.path) ? "text-cyan-400" : "text-gray-500"} />
-                <span className={`text-sm ${isMinimized && !isMobile ? "hidden" : "block"}`}>{item.label}</span>
-              </motion.div>
-            </Link>
-          ))}
+        {/* Menu */}
+        <nav className="flex-1 space-y-1">
+          {menuItems.map((item) => {
+            const active = isActive(item.path);
+
+            return (
+              <Link key={item.label} to={item.path ?? "#"} onClick={isMobile ? () => setIsDrawerOpen(false) : undefined} className="block">
+                <div
+                  className={`
+            group text-[14px] flex items-center gap-4 px-4 py-2 rounded-lg transition-all duration-200
+            ${active ? "bg-[#e8f3ff93] text-indigo-500 " : "text-gray-500 hover:bg-gray-50 hover:text-indigo-500"}
+          `}
+                >
+                  <item.icon
+                    size={16}
+                    className={`
+              transition-colors duration-200
+              ${active ? "text-indigo-500" : "text-gray-500 group-hover:text-indigo-500"}
+            `}
+                  />
+                  {showLabel && <span className="text-sm">{item.label}</span>}
+                </div>
+              </Link>
+            );
+          })}
         </nav>
 
-        {/* Bottom - Profile + Logout */}
-        <div className="mt-auto pt-6 border-t border-gray-100">
+        {/* Footer */}
+        <div className="mt-auto pt-6 border-t border-gray-100/20">
           <Link
             to="/profile"
             onClick={isMobile ? () => setIsDrawerOpen(false) : undefined}
             className={`
-              flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-white/10 
-              rounded-lg transition mb-2
-              ${isMinimized && !isMobile ? "justify-center px-2" : ""}
+              flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
+              text-gray-500 hover:bg-white/10 hover:text-gray-200 mb-2
+              ${!showLabel && "justify-center px-2"}
             `}
           >
-            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-300 flex-shrink-0">
+            <div className="w-10 h-10 rounded-full border-2 border-gray-600/40 overflow-hidden flex-shrink-0">
               <img
                 src="https://images.unsplash.com/photo-1633332755192-727a05c4013d?auto=format&fit=crop&w=880&q=80"
-                alt="User avatar"
+                alt="Avatar"
                 className="w-full h-full object-cover"
               />
             </div>
-            <span className={`${isMinimized && !isMobile ? "hidden" : "block"}`}>{user.name || "User"}</span>
+            {showLabel && <span className="text-sm truncate">{user.name || "User"}</span>}
           </Link>
 
           <button
             onClick={() => {
               handleLogout();
-              if (isMobile) setIsDrawerOpen(false);
+              isMobile && setIsDrawerOpen(false);
             }}
             className={`
-              w-full flex items-center gap-3 px-4 py-3 text-gray-600 
-               hover:text-red-500 cursor-pointer rounded-lg transition
-              ${isMinimized && !isMobile ? "justify-center px-2" : ""}
+              w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
+              text-gray-500 hover:bg-red-950/30 hover:text-red-400
+              ${!showLabel && "justify-center px-2"}
             `}
           >
             <FiLogOut size={20} />
-            <span className={`${isMinimized && !isMobile ? "hidden" : "block"}`}>Logout</span>
+            {showLabel && <span className="text-sm">Logout</span>}
           </button>
         </div>
       </div>
     </motion.aside>
   );
-};
-
-export default Sidebar;
+}

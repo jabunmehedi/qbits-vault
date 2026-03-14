@@ -7,6 +7,8 @@ import axiosConfig from "../../utils/axiosConfig";
 import { GetRoles, GetUsers } from "../../services/User";
 import { Check, ChevronDown, Shield, UserIcon, X } from "lucide-react";
 import PermissionButton from "../../components/global/permissionButton/PermissionButton";
+import { CiEdit } from "react-icons/ci";
+import { MdDelete } from "react-icons/md";
 
 const User = () => {
   const { addToast } = useToast();
@@ -231,17 +233,10 @@ const User = () => {
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={(e) => handleEdit(e, row)}
-                className="p-2 rounded-lg bg-blue-500/10 cursor-pointer hover:bg-blue-500/20 text-blue-600 border border-blue-400/20 transition-all"
+                // className="p-2 rounded-lg bg-blue-500/10 cursor-pointer hover:bg-blue-500/20 text-blue-600 border border-blue-400/20 transition-all"
                 aria-label="Edit user"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                  />
-                </svg>
+                <CiEdit size={16}/>
               </motion.button>
             </PermissionButton>
 
@@ -249,18 +244,12 @@ const User = () => {
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
+                className="cursor-pointer hover:text-red-400"
                 // onClick={handleDelete}
-                className="p-2 rounded-lg bg-red-500/10 cursor-pointer hover:bg-red-500/20 text-red-600 border border-red-400/20 transition-all"
+                // className="p-2 rounded-lg bg-red-500/10 cursor-pointer hover:bg-red-500/20 text-red-600 border border-red-400/20 transition-all"
                 aria-label="Delete user"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
+                <MdDelete size={16}/>
               </motion.button>
             </PermissionButton>
           </div>
@@ -336,17 +325,21 @@ const User = () => {
 
   return (
     <div>
-      <div className="flex justify-end">
+      <div className="flex justify-between mb-2">
+        <div>
+          <p className="text-[#424242] text-lg font-medium">Users</p>
+          <span className="text-gray-400 text-sm">Manage your users</span>
+        </div>
         <PermissionButton permission="user.create">
           <button
             onClick={() => setOpenModel(true)}
-            className="bg-cyan-50 border border-cyan-200 text-cyan-600 py-2 px-3 mb-2 rounded-full hover:bg-cyan-100 cursor-pointer transition-colors"
+            className="bg-[#424242] border text-white py-2 px-3 mb-2 text-sm rounded-lg hover:bg-black cursor-pointer transition-colors"
           >
             Create User
           </button>
         </PermissionButton>
       </div>
-      <DataTable columns={columns} data={users} isLoading={isLoading} paginationData={{}} className="h-[calc(100vh-150px)]" />
+      <DataTable columns={columns} data={users} isLoading={isLoading} paginationData={{}} className="h-[calc(100vh-100px)]" />
 
       {openModel && (
         <CustomModal

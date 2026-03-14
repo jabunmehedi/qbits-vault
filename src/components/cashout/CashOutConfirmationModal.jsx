@@ -140,7 +140,7 @@ export default function CashOutConfirmationModal({ amounts, selectedRows, select
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="px-6 py-4 border-b border-gray-100 hover:bg-gray-50 transition"
+                className="px-6 py-4 border-b border-gray-200 hover:bg-gray-50 transition"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
@@ -172,7 +172,7 @@ export default function CashOutConfirmationModal({ amounts, selectedRows, select
           </div>
 
           {/* Amount Summary */}
-          <div className="bg-gray-50 rounded-xl p-6 mb-8 border border-gray-100">
+          <div className="bg-gray-50 rounded-xl p-6 mb-8 border border-gray-200">
             <div className="flex justify-between text-lg">
               <span className="text-gray-600">Total Amount</span>
               <strong className="text-cyan-500">৳{amounts}</strong>

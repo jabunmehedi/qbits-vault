@@ -12,6 +12,7 @@ import RolePermissionManager from "../pages/roleAndPermissions/RolePermissionMan
 import Verifications from "../pages/verifications/Verifications";
 import CashOut from "../pages/cashout/CashOut";
 import Reconcile from "../pages/reconcile/Reconcile";
+import ActivityLog from "../pages/activityLog/ActivityLog";
 
 const AppRoutes = () => {
   const Routes = [
@@ -63,6 +64,10 @@ const AppRoutes = () => {
         {
           path: "/role-and-permissions",
           element: <RolePermissionManager />,
+        },
+        {
+          path: "/activity-log",
+          element: <ActivityLog />,
         },
       ],
     },

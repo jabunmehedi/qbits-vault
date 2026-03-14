@@ -78,7 +78,7 @@ const Layout = () => {
           />
 
           <div className={`flex-1 flex flex-col ${contentMargin} transition-all duration-300 ease-in-out overflow-hidden`}>
-            <main className="flex-1 overflow-y-auto p-4 md:p-6">
+            <main className="flex-1 overflow-y-auto bg-[#F4F4F4] p-4 md:py-2">
               <Outlet />
             </main>
           </div>
@@ -97,7 +97,7 @@ const Layout = () => {
       {isMobile && (
         <header className="fixed top-0 left-0 right-0 z-50 border-b border-gray-100 lg:hidden">
           <div className="px-4 py-3 flex items-center justify-between">
-            <div className="text-lg font-medium text-gray-400">QBits Vault</div>
+            <div className="text-lg font-medium text-center text-gray-400">QBits Vault</div>
             <button
               onClick={() => setIsDrawerOpen(true)}
               className="p-2 rounded-lg hover:bg-white/10 transition-colors"
@@ -119,7 +119,7 @@ const Layout = () => {
         />
 
         <div className={`flex-1 flex flex-col ${contentMargin} transition-all duration-300 ease-in-out overflow-hidden`}>
-          <main className="flex-1 overflow-y-auto p-4 md:p-6 relative">
+          <main className="overflow-y-auto p-4 md:py-6 relative">
             <AnimatePresence>
               {/* Full centered warning + backdrop */}
               {!isNoteMinimized && (

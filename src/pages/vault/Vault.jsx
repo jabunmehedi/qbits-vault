@@ -1,116 +1,249 @@
 import { useEffect, useState } from "react";
 import DataTable from "../../components/global/dataTable/DataTable";
-import { CreateVault, GetVaults } from "../../services/Vault";
+import { CreateVault, GetVault, GetVaults, UpdateVault } from "../../services/Vault";
 import dayjs from "dayjs";
 import CustomModal from "../../components/global/modal/CustomModal";
 import { AiOutlineDelete, AiOutlinePlus } from "react-icons/ai";
 import { AnimatePresence, motion } from "framer-motion";
-// import JsBarcode from "jsbarcode";
 import { useForm } from "react-hook-form";
-import { ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronRight, History, Package, X } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronRight, History, Package, X, AlertTriangle, Clock, Edit3, Trash2, Plus } from "lucide-react";
+import toast from "react-hot-toast";
+import axiosConfig from "../../utils/axiosConfig";
 
+// ─── Bag History Drawer ───────────────────────────────────────────────────────
+const BagHistoryDrawer = ({ bag, onClose }) => {
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!bag) return;
+    setLoading(true);
+    axiosConfig
+      .get(`/activity-logs/bag/${bag.id}`)
+      .then((res) => setHistory(res.data?.history || []))
+      .catch(() => setHistory(bag.history || []))
+      .finally(() => setLoading(false));
+  }, [bag]);
+
+  const eventMeta = {
+    created: { color: "text-emerald-600 bg-emerald-50 border-emerald-200", icon: <Plus className="w-3 h-3" /> },
+    updated: { color: "text-blue-600 bg-blue-50 border-blue-200", icon: <Edit3 className="w-3 h-3" /> },
+    deleted: { color: "text-red-600 bg-red-50 border-red-200", icon: <Trash2 className="w-3 h-3" /> },
+    cash_in: { color: "text-green-600 bg-green-50 border-green-200", icon: <ArrowDownCircle className="w-3 h-3" /> },
+    cash_out: { color: "text-orange-600 bg-orange-50 border-orange-200", icon: <ArrowUpCircle className="w-3 h-3" /> },
+    rack_changed: { color: "text-purple-600 bg-purple-50 border-purple-200", icon: <Edit3 className="w-3 h-3" /> },
+  };
+
+  const getMeta = (event) => eventMeta[event] || { color: "text-gray-600 bg-gray-50 border-gray-200", icon: <Clock className="w-3 h-3" /> };
+
+  return (
+    <motion.div
+      initial={{ x: "100%" }}
+      animate={{ x: 0 }}
+      exit={{ x: "100%" }}
+      transition={{ type: "spring", damping: 30, stiffness: 300 }}
+      className="fixed right-0 top-0 h-full w-full max-w-xl bg-white shadow-2xl z-[60] flex flex-col"
+    >
+      <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-5 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg">
+            <History className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <p className="font-bold text-gray-900">{bag?.barcode} — History</p>
+            <p className="text-xs text-gray-400">{bag?.bag_identifier_barcode}</p>
+          </div>
+        </div>
+        <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition">
+          <X className="w-4 h-4 text-gray-600" />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-6 py-4">
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-cyan-500" />
+          </div>
+        ) : history.length === 0 ? (
+          <div className="text-center py-20 text-gray-400">
+            <History className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p>No history recorded yet.</p>
+          </div>
+        ) : (
+          <div className="relative">
+            {/* Timeline line */}
+            <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-100" />
+
+            <div className="space-y-4 pl-10">
+              {history.map((entry, i) => {
+                const meta = getMeta(entry.event);
+                const changes = entry.data?.changes || null;
+
+                return (
+                  <motion.div key={i} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }} className="relative">
+                    {/* Dot */}
+                    <div className={`absolute -left-7 top-1 w-5 h-5 rounded-full border flex items-center justify-center ${meta.color}`}>{meta.icon}</div>
+
+                    <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${meta.color}`}>
+                          {entry.event?.replace("_", " ").toUpperCase()}
+                        </span>
+                        <span className="text-xs text-gray-400 whitespace-nowrap">{dayjs(entry.timestamp).format("DD MMM YYYY, h:mm A")}</span>
+                      </div>
+
+                      <p className="text-sm text-gray-700 mt-1">{entry.description}</p>
+
+                      {/* Show field-level diff if available */}
+                      {changes && Object.keys(changes).length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {Object.entries(changes).map(([field, { from, to }]) => (
+                            <div key={field} className="text-xs flex items-center gap-1 text-gray-500">
+                              <span className="font-medium text-gray-600">{field}:</span>
+                              <span className="line-through text-red-400">{String(from)}</span>
+                              <span>→</span>
+                              <span className="text-green-600">{String(to)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Cash amounts */}
+                      {(entry.data?.amount || entry.data?.cash_in_amount || entry.data?.cash_out_amount) && (
+                        <div className="mt-2 text-sm font-bold text-green-600">
+                          ৳{(entry.data?.amount || entry.data?.cash_in_amount || entry.data?.cash_out_amount).toLocaleString()}
+                        </div>
+                      )}
+
+                      {entry.user_name && <p className="text-xs text-gray-400 mt-2">by {entry.user_name}</p>}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+};
+
+// ─── Main Vault Component ─────────────────────────────────────────────────────
 const Vault = () => {
   const [vaults, setVaults] = useState([]);
   const [isOpenModal, setIsOpenModal] = useState(false);
   const [totalRacks, setTotalRacks] = useState("");
   const [rackErrors, setRackErrors] = useState({});
   const [bags, setBags] = useState([]);
-  const [bagCounter, setBagCounter] = useState(1);
+  const [deleteErrors, setDeleteErrors] = useState([]); // bags that couldn't be deleted
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedVault, setSelectedVault] = useState(null);
   const [vaultBagsDetails, setVaultBagsDetails] = useState([]);
   const [loadingBags, setLoadingBags] = useState(false);
-  const [expandedBag, setExpandedBag] = useState(null); // for accordion
+  const [expandedBag, setExpandedBag] = useState(null);
+  const [historyBag, setHistoryBag] = useState(null); // bag whose history drawer is open
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    watch,
-    formState: { errors },
-  } = useForm();
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingVaultId, setEditingVaultId] = useState(null);
+
+  const { register, handleSubmit, reset, watch } = useForm();
 
   const watchedTotalRacks = watch("total_racks");
+  const watchedName = watch("name");
 
   useEffect(() => {
     setTotalRacks(watchedTotalRacks || "");
   }, [watchedTotalRacks]);
 
-  // const generateBarcode = () => {
-  //   const paddedNumber = String(bagCounter).padStart(2, "0");
-  //   const barcode = `BAG${paddedNumber}`;
-  //   setBagCounter((prev) => prev + 1); // Increment for next bag
-  //   return barcode;
-  // };
-  const generateBagCodes = () => {
+  // Re-generate barcodes ONLY in create mode
+  useEffect(() => {
+    if (isEditMode || bags.length === 0) return;
+    const prefix = getVaultPrefix(watchedName);
     const year = new Date().getFullYear();
+    setBags((prev) =>
+      prev.map((bag, index) => {
+        const n = String(index + 1).padStart(3, "0");
+        return { ...bag, barcode: `${prefix}${n}`, bag_identifier_barcode: `QVB-${year}-${prefix}-${n}` };
+      }),
+    );
+  }, [watchedName]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const randomPart = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-
-    const scannableBarcode = `QVB-${year}-${randomPart}`;
-
-    const humanBarcode = `BAG${randomPart}`; // or keep your old BAG01 style — up to you
-
-    return { humanBarcode, scannableBarcode };
-
-    // const year = new Date().getFullYear();
-    // const paddedNumber = String(bagCounter).padStart(4, "0"); // 0001, 0002, etc.
-
-    // const humanBarcode = `BAG${String(bagCounter).padStart(2, "0")}`; // BAG01
-    // const scannableBarcode = `QBV-${year}-${paddedNumber}`; // QBV-2026-0001
-
-    // setBagCounter((prev) => prev + 1);
-
-    // return { humanBarcode, scannableBarcode };
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+  const getVaultPrefix = (name) => {
+    if (!name?.trim()) return "VLT";
+    const trimmed = name.trim();
+    if (/^[A-Z]{2,4}$/.test(trimmed)) return trimmed;
+    const words = trimmed.split(/\s+/).filter(Boolean);
+    if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
+    return words
+      .map((w) => w[0].toUpperCase())
+      .slice(0, 4)
+      .join("");
   };
 
-  // const addBag = () => {
-  //   const newBag = {
-  //     id: Date.now(),
-  //     barcode: generateBarcode(),
-  //     rack_number: "",
-  //     current_amount: "",
-  //   };
-  //   setBags([...bags, newBag]);
-  // };
+  const generateBagCodes = (vaultName, seq) => {
+    const year = new Date().getFullYear();
+    const prefix = getVaultPrefix(vaultName);
+    const n = String(seq).padStart(3, "0");
+    return { humanBarcode: `${prefix}${n}`, scannableBarcode: `QVB-${year}-${prefix}-${n}` };
+  };
+
+  // ── Bag actions ──────────────────────────────────────────────────────────────
   const addBag = () => {
-    const { humanBarcode, scannableBarcode } = generateBagCodes();
-
-    const newBag = {
-      id: Date.now(),
-      barcode: humanBarcode, // BAG01 (displayed)
-      bag_identifier_barcode: scannableBarcode, // QBV-2026-0001 (for scanning)
-      rack_number: "",
-      current_amount: "",
-    };
-    setBags([...bags, newBag]);
+    const used = bags.map((b) => {
+      const m = b.barcode.match(/(\d+)$/);
+      return m ? parseInt(m[1]) : 0;
+    });
+    let seq = 1;
+    while (used.includes(seq)) seq++;
+    const { humanBarcode, scannableBarcode } = generateBagCodes(watchedName, seq);
+    setBags([
+      ...bags,
+      {
+        id: Date.now(),
+        originalId: null,
+        barcode: humanBarcode,
+        bag_identifier_barcode: scannableBarcode,
+        rack_number: "",
+        current_amount: "",
+      },
+    ]);
   };
+
   const removeBag = (id) => {
-    setBags(bags.filter((bag) => bag.id !== id));
+    const bag = bags.find((b) => b.id === id);
+    if (!bag) return;
+
+    const amount = parseFloat(bag.current_amount || 0);
+    if (amount > 0) {
+      alert(`Cannot remove "${bag.barcode}" — it has ৳${amount.toFixed(2)}. Zero the amount first.`);
+      return;
+    }
+    setBags(bags.filter((b) => b.id !== id));
   };
 
   const updateRack = (id, value) => {
-    const cleaned = value.replace(/[^0-9]/g, ""); // Only numbers
+    const cleaned = value.replace(/[^0-9]/g, "");
     const num = cleaned ? parseInt(cleaned, 10) : 0;
-
-    setBags((prev) => prev.map((bag) => (bag.id === id ? { ...bag, rack_number: cleaned } : bag)));
-
-    // Validate against total_racks
+    setBags((prev) => prev.map((b) => (b.id === id ? { ...b, rack_number: cleaned } : b)));
     if (totalRacks && num > parseInt(totalRacks)) {
-      setRackErrors((prev) => ({
-        ...prev,
-        [id]: `Rack cannot exceed ${totalRacks} (entered ${num})`,
-      }));
+      setRackErrors((prev) => ({ ...prev, [id]: `Rack cannot exceed ${totalRacks}` }));
     } else {
       setRackErrors((prev) => {
-        const updated = { ...prev };
-        delete updated[id];
-        return updated;
+        const u = { ...prev };
+        delete u[id];
+        return u;
       });
     }
   };
 
+  const updateBagAmount = (id, value) => {
+    const cleaned = value.replace(/[^0-9.]/g, "");
+    setBags((prev) => prev.map((b) => (b.id === id ? { ...b, current_amount: cleaned } : b)));
+  };
+
+  // ── Data fetching ────────────────────────────────────────────────────────────
   const fetchVaultData = async () => {
     const res = await GetVaults();
     setVaults(res?.data);
@@ -120,9 +253,32 @@ const Vault = () => {
     fetchVaultData();
   }, []);
 
-  const updateBagAmount = (id, value) => {
-    const cleaned = value.replace(/[^0-9.]/g, "");
-    setBags((prev) => prev.map((bag) => (bag.id === id ? { ...bag, current_amount: cleaned } : bag)));
+  const openEditModal = async (vault) => {
+    try {
+      const res = await GetVault(vault?.id);
+      const vaultData = res?.data ?? res;
+
+      reset({ name: vaultData.name || "", address: vaultData.address || "", total_racks: vaultData.total_racks || "" });
+
+      const existingBags = (vaultData.bags || []).map((bag) => ({
+        id: bag.id,
+        originalId: bag.id,
+        barcode: bag.barcode || "",
+        bag_identifier_barcode: bag.bag_identifier_barcode || "",
+        rack_number: String(bag.rack_number || ""),
+        current_amount: String(parseFloat(bag.current_amount || 0)),
+      }));
+
+      setBags(existingBags);
+      setRackErrors({});
+      setDeleteErrors([]);
+      setEditingVaultId(vault.id);
+      setIsEditMode(true);
+      setIsOpenModal(true);
+    } catch (err) {
+      console.error("Cannot load vault for edit", err);
+      alert("Failed to load vault details. Please try again.");
+    }
   };
 
   const openVaultDrawer = async (vault) => {
@@ -130,87 +286,151 @@ const Vault = () => {
     setDrawerOpen(true);
     setLoadingBags(true);
     setExpandedBag(null);
+    setHistoryBag(null);
 
-    // First, check if bags are already loaded with the vault
-    if (vault.bags && vault.bags.length > 0) {
+    if (vault.bags?.length > 0) {
       setVaultBagsDetails(vault.bags);
       setLoadingBags(false);
       return;
     }
 
-    // Otherwise, fetch from dedicated endpoint
     try {
-      const res = await GetVaultBagDetails(vault.vault_id);
-      // Adjust this based on your actual API response structure
-      // Common patterns: res.data, res.data.bags, res.bags, etc.
-      const bags = res?.data?.bags || res?.bags || [];
-      setVaultBagsDetails(bags);
-    } catch (err) {
-      console.error("Failed to fetch bag details:", err);
-      setVaultBagsDetails([]); // fallback to empty
+      const res = await GetVault(vault.id);
+      const vaultData = res?.data ?? res;
+      setVaultBagsDetails(vaultData?.bags || []);
+    } catch {
+      setVaultBagsDetails([]);
     } finally {
       setLoadingBags(false);
     }
   };
 
-  useEffect(() => {
-    if (isOpenModal) {
-      setBagCounter(1);
-      setBags([]);
-    }
-  }, [isOpenModal]);
+  const handleCloseModal = () => {
+    setIsOpenModal(false);
+    setIsEditMode(false);
+    setEditingVaultId(null);
+    setBags([]);
+    setRackErrors({});
+    setDeleteErrors([]);
+    reset();
+  };
 
+  // ── Submit ────────────────────────────────────────────────────────────────────
+  const onSubmit = async (data) => {
+    if (Object.keys(rackErrors).length > 0) {
+      alert("Please fix rack number errors before submitting.");
+      return;
+    }
+
+    const validBags = bags
+      .filter((b) => b.rack_number?.trim() !== "")
+      .map((b) => ({
+        ...(b.originalId ? { id: b.originalId } : {}),
+        barcode: b.barcode,
+        bag_identifier_barcode: b.bag_identifier_barcode,
+        rack_number: b.rack_number.trim(),
+        current_amount: parseFloat(b.current_amount || 0).toFixed(2),
+      }));
+
+    const payload = {
+      name: data.name.trim(),
+      address: data.address?.trim() || null,
+      total_racks: data.total_racks ? Number(data.total_racks) : null,
+      current_amount: validBags.reduce((s, b) => s + Number(b.current_amount), 0),
+      total_bags: validBags.length,
+      bags: validBags.length > 0 ? validBags : undefined,
+    };
+
+    try {
+      if (isEditMode && editingVaultId) {
+        const res = await UpdateVault(editingVaultId, payload);
+
+        // Backend may return 422 for bags with amounts
+        if (res?.errors?.length > 0) {
+          setDeleteErrors(res.errors);
+          // Still refresh — vault was partially updated
+          await fetchVaultData();
+          return; // keep modal open so user can see the warnings
+        }
+        toast.success("Vault updated successfully.");
+      } else {
+        await CreateVault(payload);
+
+        toast.success("Vault created successfully.");
+        if (validBags.length > 0) printBagBarcodes(validBags, data.name);
+      }
+
+      await fetchVaultData();
+      handleCloseModal();
+    } catch (error) {
+      // Handle 422 from backend delete guard
+      const serverErrors = error?.response?.data?.errors;
+      if (serverErrors?.length > 0) {
+        setDeleteErrors(serverErrors);
+        await fetchVaultData();
+        return;
+      }
+      console.error("Vault save failed:", error);
+      toast.error("Failed to save vault.");
+    }
+  };
+
+  const toggleBagExpand = (barcode) => setExpandedBag(expandedBag === barcode ? null : barcode);
+
+  const printBagBarcodes = (bags, vaultName) => {
+    const printWindow = window.open("", "_blank", "width=1000,height=900");
+    if (!printWindow) {
+      alert("Please allow popups for printing.");
+      return;
+    }
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Barcodes - ${vaultName}</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;padding:15mm}
+.label-container{display:flex;flex-direction:column;gap:25mm;max-width:180mm;margin:0 auto}
+.barcode-label{padding:5mm 20mm;text-align:center;page-break-inside:avoid}
+.barcode-label svg{width:100%;max-width:140mm;height:auto;margin:0 auto 10mm;display:block}
+@media print{@page{size:A4;margin:8mm}}</style></head><body>
+<div class="label-container">${bags.map((b) => `<div class="barcode-label"><svg class="barcode" data-code="${b.bag_identifier_barcode}"></svg></div>`).join("")}</div>
+<script>document.addEventListener("DOMContentLoaded",function(){
+document.querySelectorAll(".barcode").forEach(function(svg){
+const c=svg.getAttribute("data-code");if(!c)return;
+try{JsBarcode(svg,c,{format:"CODE128",width:3,height:110,displayValue:true,fontSize:24,textMargin:12,margin:10});}
+catch(e){svg.outerHTML="<div style='color:red'>Invalid: "+c+"</div>";}});
+setTimeout(()=>window.print(),2000);});</script></body></html>`;
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
+  // ── Table columns ─────────────────────────────────────────────────────────────
   const columns = [
-    {
-      title: "Vault ID",
-      key: "vault_id",
-      className: "w-24",
-      render: (row) => <span className=" text-cyan-500">{row.vault_id}</span>,
-    },
-    {
-      title: "Name",
-      key: "name",
-      className: "w-40",
-      render: (row) => <span className=" ">{row.name}</span>,
-    },
-    {
-      title: "Address",
-      key: "address",
-      className: "w-32",
-      render: (row) => <span className=" ">{row.address}</span>,
-    },
+    { title: "Vault ID", key: "vault_id", className: "w-24", render: (row) => <span className="text-cyan-500">{row.vault_id}</span> },
+    { title: "Name", key: "name", className: "w-40", render: (row) => <span>{row.name}</span> },
+    { title: "Address", key: "address", className: "w-32", render: (row) => <span>{row.address}</span> },
     {
       title: "Balance (৳)",
       key: "balance",
       className: "w-32",
       render: (row) => (
-        <span className=" ">
-          {row?.bags?.reduce((sum, bag) => sum + parseFloat(bag.current_amount || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-        </span>
+        <span>{row?.bags?.reduce((s, b) => s + parseFloat(b.current_amount || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
       ),
     },
-    {
-      title: "Racks",
-      key: "total_racks",
-      className: "w-20",
-      render: (row) => <span className=" ">{row.total_racks}</span>,
-    },
+    { title: "Racks", key: "total_racks", className: "w-20", render: (row) => <span>{row.total_racks}</span> },
     {
       title: "Bags",
       key: "total_bags",
       className: "w-36",
       render: (row) => {
-        const bagCount = row.bags?.length || 0;
-
+        const count = row.bags?.length || 0;
         return (
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => openVaultDrawer(row)}
-            className="px-3 py-2 bg-cyan-50 border border-cyan-200 cursor-pointer  text-cyan-500 text-xs rounded-full flex items-center gap-2 "
+            className="px-3 py-2 bg-green-50 border border-green-200 cursor-pointer text-green-500 text-xs rounded-full flex items-center gap-2"
           >
             <span>
-              {bagCount} Bag{bagCount !== 1 ? "s" : ""}
+              {count} Bag{count !== 1 ? "s" : ""}
             </span>
             <ChevronRight className="w-4 h-4" />
           </motion.button>
@@ -222,9 +442,9 @@ const Vault = () => {
       key: "last_cash_in",
       className: "w-34",
       render: (row) => (
-        <div className="flex flex-col ">
+        <div className="flex flex-col">
           <span className="font-mono">{row.last_cash_in?.amount}</span>
-          <span>{dayjs(row.last_cash_in?.created_at).format("DD MMM, YYYY")}</span>
+          <span>{row.last_cash_in?.created_at ? dayjs(row.last_cash_in.created_at).format("DD MMM, YYYY") : "—"}</span>
         </div>
       ),
     },
@@ -233,303 +453,134 @@ const Vault = () => {
       key: "last_cash_out",
       className: "w-34",
       render: (row) => (
-        <div className="flex flex-col ">
+        <div className="flex flex-col">
           <span className="font-mono">{row.last_cash_out?.amount}</span>
-          <span>{dayjs(row.last_cash_out?.created_at).format("DD MMM, YYYY")}</span>
+          <span>{row.last_cash_out?.created_at ? dayjs(row.last_cash_out.created_at).format("DD MMM, YYYY") : "—"}</span>
         </div>
       ),
     },
     {
       title: "Status",
-      key: "order_id",
+      key: "status",
       className: "w-32",
-      render: (row) => <span className=" bg-cyan-50 text-xs text-cyan-500 border border-cyan-200 py-1 px-2 rounded-full ">{"Active"}</span>,
+      render: () => <span className="bg-cyan-50 text-xs text-cyan-500 border border-cyan-200 py-1 px-2 rounded-full">Active</span>,
     },
     {
       title: "Action",
       key: "actions",
       className: "w-28",
-      render: (row) => {
-        const handleEdit = (e) => {
-          e.stopPropagation();
-          // Your edit logic here
-          // e.g., open edit modal with row data
-          // setEditData(row);
-          // setIsEditModalOpen(true);
-        };
-
-        const handleDelete = (e) => {
-          e.stopPropagation();
-          // Your delete logic here
-          // e.g., show confirm dialog then call API
-          if (window.confirm(`Delete vault "${row.name}"?`)) {
-            // DeleteVault(row.id).then(() => fetchVaultData());
-          }
-        };
-
-        return (
-          <div className="flex items-center justify-center gap-3 py-2">
-            {/* Edit Button */}
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleEdit}
-              className="p-2 rounded-lg bg-blue-500/10 cursor-pointer hover:bg-blue-500/20 text-blue-600 border border-blue-400/20 transition-all "
-              aria-label="Edit vault"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
-              </svg>
-            </motion.button>
-
-            {/* Delete Button */}
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleDelete}
-              className="p-2 rounded-lg bg-red-500/10 cursor-pointer hover:bg-red-500/20 text-red-600 border border-red-400/20 transition-all "
-              aria-label="Delete vault"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
-            </motion.button>
-          </div>
-        );
-      },
+      render: (row) => (
+        <div className="flex items-center justify-center gap-3 py-2">
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              openEditModal(row);
+            }}
+            className="p-2 rounded-lg bg-blue-500/10 cursor-pointer hover:bg-blue-500/20 text-blue-600 border border-blue-400/20 transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
+            </svg>
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (window.confirm(`Delete vault "${row.name}"?`)) {
+                /* DeleteVault */
+              }
+            }}
+            className="p-2 rounded-lg bg-red-500/10 cursor-pointer hover:bg-red-500/20 text-red-600 border border-red-400/20 transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
+          </motion.button>
+        </div>
+      ),
     },
   ];
 
-  const printBagBarcodes = (bags, vaultName) => {
-    const printWindow = window.open("", "_blank", "width=1000,height=900");
-
-    if (!printWindow) {
-      alert("Please allow popups for printing barcode labels.");
-      return;
-    }
-
-    const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Bag Barcodes - ${vaultName}</title>
-  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    body {
-      font-family: Arial, sans-serif;
-      padding: 15mm;
-      background: white;
-    }
-    h2 {
-      text-align: center;
-      margin-bottom: 20mm;
-      font-size: 28px;
-    }
-    .label-container {
-      display: flex;
-      flex-direction: column;
-      gap: 25mm;
-      max-width: 180mm;
-      margin: 0 auto;
-    }
-    .barcode-label {
-      background: white;
-      padding: 5mm 20mm;
-      text-align: center;
-      page-break-inside: avoid;
-      break-inside: avoid;
-      min-height: 40mm;
-    }
-    .barcode-label svg {
-      width: 100%;
-      max-width: 140mm;
-      height: auto;
-      margin: 0 auto 10mm;
-      display: block;
-    }
-    .barcode-info {
-      font-size: 22px;
-      font-weight: bold;
-      margin-top: 8px;
-      color: #000;
-      line-height: 1.6;
-    }
-    @media print {
-      body { 
-        padding: 8mm;
-      }
-      .label-container { 
-        gap: 15mm;
-      }
-
-      @page { 
-        size: A4;
-        margin: 8mm;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="label-container">
-    ${bags
-      .map(
-        (bag) => `
-      <div class="barcode-label">
-        <svg class="barcode" data-code="${bag.bag_identifier_barcode}"></svg>
-      </div>
-    `,
-      )
-      .join("")}
-  </div>
-
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const barcodes = document.querySelectorAll(".barcode");
-
-      if (!window.JsBarcode) {
-        alert("JsBarcode library failed to load!");
-        return;
-      }
-
-      barcodes.forEach(function (svg) {
-        const code = svg.getAttribute("data-code");
-
-        if (!code || code.trim() === "") {
-          svg.outerHTML = "<div style='color:red'>No barcode data</div>";
-          return;
-        }
-
-        try {
-          JsBarcode(svg, code, {
-            format: "CODE128",
-            width: 3,              // MUCH thicker bars
-            height: 110,           // MUCH taller barcode
-            displayValue: true,
-            fontSize: 24,          // Larger text
-            textMargin: 12,
-            margin: 10,            // Large quiet zone
-            background: "#FFFFFF",
-            lineColor: "#000000"
-          });
-        } catch (e) {
-          console.error("Barcode generation error:", e);
-          svg.outerHTML = "<div style='color:red'>Invalid: " + code + "</div>";
-        }
-      });
-
-      // Auto-print after barcodes render
-      setTimeout(() => {
-        window.print();
-      }, 2000);
-    });
-  </script>
-</body>
-</html>
-  `;
-
-    printWindow.document.open();
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    printWindow.focus();
-  };
-
-  const onSubmit = async (data) => {
-    if (Object.keys(rackErrors).length > 0) {
-      alert("Please fix rack number errors before submitting.");
-      return;
-    }
-
-    // Build bags array (only include if rack is filled)
-    const validBags = bags
-      .filter((bag) => bag.rack_number.trim() !== "")
-      .map((bag) => ({
-        barcode: bag.barcode,
-        bag_identifier_barcode: bag.bag_identifier_barcode,
-        rack_number: bag.rack_number.trim(),
-        current_amount: parseFloat(bag.current_amount || 0).toFixed(2),
-      }));
-
-    const payload = {
-      name: data.name.trim(),
-      address: data.address?.trim() || null,
-      current_amount: validBags.reduce((total, bag) => total + parseFloat(bag.current_amount || 0), 0),
-      total_bags: validBags.length || null,
-      bags: validBags.length > 0 ? validBags : null,
-      total_racks: data.total_racks || null,
-    };
-
-    try {
-      await CreateVault(payload);
-      fetchVaultData();
-      handleCloseModal();
-
-      if (validBags.length > 0) {
-        printBagBarcodes(validBags, data.name); // vault name for header
-      }
-    } catch (error) {
-      console.error("Create failed:", error);
-      //   alert("Failed to create vault");
-    }
-  };
-
-  const handleCloseModal = () => {
-    setIsOpenModal(false);
-    setBags([]);
-    reset();
-  };
-  const toggleBagExpand = (barcode) => {
-    setExpandedBag(expandedBag === barcode ? null : barcode);
-  };
-
+  // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div>
-      <div className="mb-6 flex justify-end">
+      <div className="mb-6 flex justify-between">
+        <div>
+          <p className="text-[#424242] text-lg font-medium">Vault Lists</p>
+          <span className="text-gray-400 text-sm capitalize">Manage your All vault and bags</span>
+        </div>
         <button
-          onClick={() => setIsOpenModal(true)}
-          className="px-6 py-2 bg-cyan-50 text-cyan-400 border border-cyan-200  rounded-full transition flex items-center gap-2"
+          onClick={() => {
+            setIsEditMode(false);
+            setIsOpenModal(true);
+          }}
+          className="bg-[#424242] border text-white py-2 px-3 mb-2 text-sm rounded-lg hover:bg-black cursor-pointer transition-colors"
         >
           Create Vault
         </button>
       </div>
 
-      <DataTable columns={columns} data={vaults} paginationData={{}} className="h-[calc(100vh-180px)]" />
+      <DataTable columns={columns} data={vaults} paginationData={{}} className="h-[calc(100vh-120px)]" />
 
-      {/* Create Vault Modal */}
+      {/* ── Create / Edit Modal ── */}
       {isOpenModal && (
         <CustomModal isCloseModal={handleCloseModal}>
           <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+            {/* Delete errors banner */}
+            {deleteErrors.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                  <p className="text-sm font-semibold text-amber-700">Some bags could not be deleted</p>
+                </div>
+                <ul className="space-y-1">
+                  {deleteErrors.map((err, i) => (
+                    <li key={i} className="text-xs text-amber-600">
+                      • {err.message}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-amber-500 mt-2">Zero the bag amount first, then save again.</p>
+              </div>
+            )}
+
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-600 mb-2">Vault Name *</label>
+                  <label className="block text-sm text-gray-600 mb-2">
+                    Vault Name <span className="text-red-400">*</span>
+                  </label>
                   <input
                     {...register("name", { required: true })}
                     required
-                    className="w-full px-4 py-2 border border-gray-100 rounded-lg focus:outline-none focus:border-cyan-500 transition"
-                    placeholder="e.g. Main Downtown Vault"
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg placeholder:text-xs focus:outline-none focus:border-cyan-500 transition"
+                    placeholder="e.g. SM Office"
                   />
+                  {!isEditMode && watchedName && (
+                    <p className="text-xs text-cyan-500 mt-1">
+                      Prefix: <span className="font-bold">{getVaultPrefix(watchedName)}</span>
+                      <span className="text-gray-400 ml-1">→ e.g. {getVaultPrefix(watchedName)}001</span>
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 mb-2">Address</label>
                   <input
                     {...register("address")}
-                    className="w-full px-4 py-2 border border-gray-100 rounded-lg focus:outline-none focus:border-cyan-500"
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg placeholder:text-xs focus:outline-none focus:border-cyan-500"
                     placeholder="123 Bank Street..."
                   />
                 </div>
@@ -541,69 +592,87 @@ const Vault = () => {
                   <input
                     type="number"
                     {...register("total_racks")}
-                    className="w-full px-4 py-2 border border-gray-100 rounded-lg focus:border-cyan-500"
+                    className="w-full px-4 py-2 border border-gray-200 placeholder:text-xs rounded-lg focus:border-cyan-500"
                     placeholder="e.g. 10"
                   />
                 </div>
               </div>
 
-              {/* Dynamic Bags */}
+              {/* Bags */}
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <label className="text-sm text-gray-600">Cash Bags</label>
                   <button
                     type="button"
                     onClick={addBag}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg text-sm text-zinc-400 hover:text-cyan-300 transition"
+                    className="flex items-center gap-2 cursor-pointer px-4 py-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg text-sm text-zinc-400 hover:text-black transition"
                   >
-                    <AiOutlinePlus className="w-4 h-4" />
-                    Add Bag
+                    <AiOutlinePlus className="w-4 h-4" /> Add Bag
                   </button>
                 </div>
 
                 <div className="overflow-y-auto max-h-96 space-y-3 pr-2">
                   {bags.length === 0 && <p className="text-center text-gray-400 text-sm py-8">No bags added yet. Click "Add Bag" to start.</p>}
 
-                  {bags.map((bag) => (
-                    <motion.div
-                      key={bag.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, x: -100 }}
-                      className="px-5 py-4 bg-gray-50 border border-gray-100 rounded-lg"
-                    >
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="text-cyan-500 font-medium">{bag.barcode}</p>
+                  {bags.map((bag) => {
+                    const amount = parseFloat(bag.current_amount || 0);
+                    const hasAmt = amount > 0;
+                    const isError = deleteErrors.some((e) => e.barcode === bag.barcode);
+
+                    return (
+                      <motion.div
+                        key={bag.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, x: -100 }}
+                        className={`px-5 py-4 rounded-lg border ${isError ? "bg-amber-50 border-amber-300" : "bg-gray-50 border-gray-100"}`}
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <p className="text-cyan-500 font-medium">{bag.barcode}</p>
+                            <p className="text-gray-400 text-xs mt-0.5">{bag.bag_identifier_barcode}</p>
+                          </div>
+
+                          <div>
+                            <input
+                              type="text"
+                              placeholder="Rack Number"
+                              value={bag.rack_number}
+                              onChange={(e) => updateRack(bag.id, e.target.value)}
+                              className={`w-32 px-4 py-2 rounded-lg border text-sm ${rackErrors[bag.id] ? "border-red-400" : "border-gray-200 focus:border-cyan-500"} focus:outline-none`}
+                            />
+                            {rackErrors[bag.id] && <p className="text-red-400 text-xs">{rackErrors[bag.id]}</p>}
+                          </div>
+
+                          <div className="relative">
+                            <input
+                              type="text"
+                              placeholder="0.00"
+                              value={bag.current_amount}
+                              onChange={(e) => updateBagAmount(bag.id, e.target.value)}
+                              className="w-40 pl-4 pr-4 py-2 rounded-lg border border-gray-300 focus:border-green-500 focus:outline-none text-sm"
+                            />
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => removeBag(bag.id)}
+                            title={hasAmt ? `Zero the amount (৳${amount}) before removing` : "Remove bag"}
+                            className={`p-2 rounded-lg transition ${hasAmt ? "opacity-40 cursor-not-allowed" : "hover:bg-red-500/20 cursor-pointer"}`}
+                          >
+                            <AiOutlineDelete className={`w-5 h-5 ${hasAmt ? "text-gray-400" : "text-red-400"}`} />
+                          </button>
                         </div>
 
-                        <input
-                          type="text"
-                          placeholder="Rack Number"
-                          value={bag.rack_number}
-                          onChange={(e) => updateRack(bag.id, e.target.value)}
-                          className={`w-32 px-4 py-2 rounded-lg border text-sm ${
-                            rackErrors[bag.id] ? "border-red-400" : "border-gray-200 focus:border-cyan-500"
-                          } focus:outline-none`}
-                        />
-                        {rackErrors[bag.id] && <p className="text-red-400 text-xs">{rackErrors[bag.id]}</p>}
-
-                        <div className="relative">
-                          <input
-                            type="text"
-                            placeholder="0.00"
-                            value={bag.current_amount}
-                            onChange={(e) => updateBagAmount(bag.id, e.target.value)}
-                            className="w-40 pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:border-green-500 focus:outline-none text-sm"
-                          />
-                        </div>
-
-                        <button type="button" onClick={() => removeBag(bag.id)} className="p-2 hover:bg-red-500/20 rounded-lg transition">
-                          <AiOutlineDelete className="w-5 h-5 text-red-400" />
-                        </button>
-                      </div>
-                    </motion.div>
-                  ))}
+                        {hasAmt && (
+                          <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            Set amount to 0 to allow deletion of this bag.
+                          </p>
+                        )}
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -611,8 +680,8 @@ const Vault = () => {
             <div className="flex gap-4 mt-10 pt-6 border-t border-gray-100">
               <button
                 type="button"
-                onClick={() => setIsOpenModal(false)}
-                className="flex-1 py-3 border border-gray-100 text-gray-300 rounded-xl hover:bg-white/5 transition"
+                onClick={handleCloseModal}
+                className="flex-1 bg-red-400 text-white py-3 border border-gray-100 rounded-xl hover:bg-white hover:text-red-400 transition"
               >
                 Cancel
               </button>
@@ -620,27 +689,28 @@ const Vault = () => {
                 type="submit"
                 className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition"
               >
-                Create Vault
+                {isEditMode ? "Save Changes" : "Create Vault"}
               </button>
             </div>
           </form>
         </CustomModal>
       )}
 
-      {/* Vault Bags Drawer */}
+      {/* ── Vault Bags Drawer ── */}
       <AnimatePresence>
         {drawerOpen && selectedVault && (
           <>
-            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setDrawerOpen(false)}
+              onClick={() => {
+                setDrawerOpen(false);
+                setHistoryBag(null);
+              }}
               className="fixed inset-0 bg-black/60 z-50"
             />
 
-            {/* Drawer */}
             <motion.div
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
@@ -648,7 +718,6 @@ const Vault = () => {
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
               className="fixed right-0 top-0 h-full w-full max-w-6xl bg-white shadow-2xl z-50 overflow-y-auto"
             >
-              {/* Header */}
               <div className="sticky top-0 bg-white border-b border-gray-200 p-8 flex items-center justify-between">
                 <div className="flex items-center gap-6">
                   <div className="p-2 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl">
@@ -664,31 +733,25 @@ const Vault = () => {
                 </button>
               </div>
 
-              {/* Bags Content */}
               <div className="p-8 pt-0">
-                <div className="mb-8 mt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-800">Cash Bags</h3>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {vaultBagsDetails.length} bag{vaultBagsDetails.length !== 1 ? "s" : ""} in this vault
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-500">Total Bag Balance</p>
-                      <p className="text-xl font-bold text-green-600">
-                        ৳
-                        {vaultBagsDetails
-                          .reduce((sum, bag) => sum + parseFloat(bag.current_amount || 0), 0)
-                          .toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                      </p>
-                    </div>
+                <div className="mb-8 mt-6 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">Cash Bags</h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {vaultBagsDetails.length} bag{vaultBagsDetails.length !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-500">Total Balance</p>
+                    <p className="text-xl font-bold text-green-600">
+                      ৳{vaultBagsDetails.reduce((s, b) => s + parseFloat(b.current_amount || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    </p>
                   </div>
                 </div>
 
                 {loadingBags ? (
                   <div className="flex items-center justify-center py-32">
-                    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-cyan-500"></div>
+                    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-cyan-500" />
                   </div>
                 ) : vaultBagsDetails.length === 0 ? (
                   <div className="text-center py-32">
@@ -708,7 +771,6 @@ const Vault = () => {
                           animate={{ opacity: 1, y: 0 }}
                           className="bg-white border border-gray-200 rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300"
                         >
-                          {/* Accordion Header */}
                           <button
                             onClick={() => toggleBagExpand(bag.barcode)}
                             className="w-full px-8 py-7 flex items-center justify-between hover:bg-gray-50 transition"
@@ -717,21 +779,15 @@ const Vault = () => {
                               <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl">
                                 <Package className="w-6 h-6 text-white" />
                               </div>
-
                               <div className="text-left">
                                 <div className="flex items-center gap-4">
                                   <h4 className="text-lg font-bold text-gray-800">{bag.barcode}</h4>
                                   <span className="px-2 py-1 text-xs font-semibold rounded-full bg-cyan-100 text-cyan-700">Rack #{bag.rack_number}</span>
                                 </div>
-
                                 <div className="flex items-center gap-8 mt-4">
                                   <span className="text-xl font-bold text-green-600">
-                                    ৳
-                                    {parseFloat(bag.current_amount || 0).toLocaleString("en-US", {
-                                      minimumFractionDigits: 2,
-                                    })}
+                                    ৳{parseFloat(bag.current_amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                                   </span>
-
                                   <div className="flex items-center gap-4">
                                     {bag.is_sealed && (
                                       <span className="px-4 py-1.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">Sealed</span>
@@ -740,26 +796,38 @@ const Vault = () => {
                                     {bag.last_cash_in_at && (
                                       <span className="text-sm text-gray-600 flex items-center gap-2">
                                         <ArrowDownCircle className="w-5 h-5 text-green-600" />
-                                        Last Cash In: {dayjs(bag.last_cash_in_at).format("DD MMM, YYYY")}
+                                        {dayjs(bag.last_cash_in_at).format("DD MMM, YYYY")}
                                       </span>
                                     )}
                                     {bag.last_cash_out_at && (
                                       <span className="text-sm text-gray-600 flex items-center gap-2">
                                         <ArrowUpCircle className="w-5 h-5 text-red-600" />
-                                        Last Cash Out: {dayjs(bag.last_cash_out_at).format("DD MMM, YYYY")}
+                                        {dayjs(bag.last_cash_out_at).format("DD MMM, YYYY")}
                                       </span>
                                     )}
                                   </div>
                                 </div>
                               </div>
                             </div>
-
-                            <motion.div animate={{ rotate: expandedBag === bag.barcode ? 180 : 0 }} transition={{ duration: 0.3 }}>
-                              <ChevronDown className="w-7 h-7 text-gray-500" />
-                            </motion.div>
+                            <div className="flex items-center gap-3">
+                              {/* History button */}
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setHistoryBag(bag);
+                                }}
+                                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition"
+                              >
+                                <History className="w-3.5 h-3.5" /> History
+                              </motion.button>
+                              <motion.div animate={{ rotate: expandedBag === bag.barcode ? 180 : 0 }} transition={{ duration: 0.3 }}>
+                                <ChevronDown className="w-7 h-7 text-gray-500" />
+                              </motion.div>
+                            </div>
                           </button>
 
-                          {/* Accordion Body */}
                           <AnimatePresence>
                             {expandedBag === bag.barcode && (
                               <motion.div
@@ -770,19 +838,14 @@ const Vault = () => {
                                 className="border-t border-gray-200 bg-gray-50/70"
                               >
                                 <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                  {/* Denominations */}
                                   <div className="lg:col-span-2">
-                                    <h5 className="text-sm text-gray-600 mb-5 flex items-center gap-3">Denomination Breakdown</h5>
-
+                                    <h5 className="text-sm text-gray-600 mb-5">Denomination Breakdown</h5>
                                     {denominations ? (
                                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
                                         {Object.entries(denominations)
-                                          .filter(([_, count]) => count > 0)
+                                          .filter(([_, c]) => c > 0)
                                           .map(([note, count]) => (
-                                            <div
-                                              key={note}
-                                              className="bg-white p-6 rounded-xl border border-gray-200 text-center shadow-md hover:shadow-lg transition"
-                                            >
+                                            <div key={note} className="bg-white p-6 rounded-xl border border-gray-200 text-center shadow-md">
                                               <p className="text-xl font-bold text-gray-800">৳{note}</p>
                                               <p className="text-sm text-gray-600 mt-2">
                                                 {count} note{count !== 1 ? "s" : ""}
@@ -790,7 +853,6 @@ const Vault = () => {
                                               <p className="text-xl font-bold text-green-600 mt-3">৳{(parseInt(note) * count).toLocaleString()}</p>
                                             </div>
                                           ))}
-
                                         {totalNotes === 0 && <p className="col-span-full text-center text-gray-500 py-10">No notes recorded yet.</p>}
                                       </div>
                                     ) : (
@@ -798,36 +860,28 @@ const Vault = () => {
                                     )}
                                   </div>
 
-                                  {/* Activity Summary */}
                                   <div>
                                     <h5 className="text-sm text-gray-600 mb-5 flex items-center gap-3">
-                                      <History className="w-4 h-4 text-gray-600" />
-                                      Activity Summary
+                                      <History className="w-4 h-4 text-gray-600" /> Activity Summary
                                     </h5>
-
                                     <div className="bg-white p-7 rounded-xl border border-gray-200 shadow-md space-y-6">
                                       <div className="flex justify-between">
                                         <div>
                                           <p className="text-xs text-gray-600">Successful Deposits</p>
                                           <p className="text-lg font-bold text-green-600">{bag.total_successful_deposits}</p>
                                         </div>
-
                                         <div>
                                           <p className="text-xs text-gray-600">Total Attempts</p>
                                           <p className="text-lg font-semibold text-gray-800">{bag.total_cash_in_attempts}</p>
                                         </div>
                                       </div>
-
                                       {bag.last_cash_in_amount && (
-                                        <>
-                                          <div className="pt-5 border-t border-gray-200">
-                                            <p className="text-sm text-gray-600">Last Cash In (৳)</p>
-                                            <p className="text-2xl font-bold text-green-600">+ {parseFloat(bag.last_cash_in_amount).toLocaleString()}</p>
-                                            <p className="text-sm text-gray-500 mt-1">{dayjs(bag.last_cash_in_at).format("DD MMM YYYY, h:mm A")}</p>
-                                          </div>
-                                        </>
+                                        <div className="pt-5 border-t border-gray-200">
+                                          <p className="text-sm text-gray-600">Last Cash In (৳)</p>
+                                          <p className="text-2xl font-bold text-green-600">+ {parseFloat(bag.last_cash_in_amount).toLocaleString()}</p>
+                                          <p className="text-sm text-gray-500 mt-1">{dayjs(bag.last_cash_in_at).format("DD MMM YYYY, h:mm A")}</p>
+                                        </div>
                                       )}
-
                                       {bag.notes && (
                                         <div className="pt-5 border-t border-gray-200">
                                           <p className="text-sm text-gray-600">Notes</p>
@@ -847,6 +901,9 @@ const Vault = () => {
                 )}
               </div>
             </motion.div>
+
+            {/* ── Per-bag history drawer (slides on top) ── */}
+            <AnimatePresence>{historyBag && <BagHistoryDrawer bag={historyBag} onClose={() => setHistoryBag(null)} />}</AnimatePresence>
           </>
         )}
       </AnimatePresence>

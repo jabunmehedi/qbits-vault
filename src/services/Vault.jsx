@@ -8,6 +8,22 @@ export const GetVaults = async () => {
     console.error(error?.response?.data?.message);
   }
 };
+export const GetVault = async (vaultId) => {
+  try {
+    const response = await axiosConfig.get(`/vault/${vaultId}`);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+  }
+};
+export const UpdateVault = async (vaultId, data) => {
+  try {
+    const response = await axiosConfig.put(`/vault/${vaultId}`, data);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+  }
+};
 export const GetVaultBagById = async (vaultId) => {
   try {
     const response = await axiosConfig.get(`/vault/bag/${vaultId}`);

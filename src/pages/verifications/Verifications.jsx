@@ -671,7 +671,7 @@ const Verifications = () => {
 
   return (
     <div className="min-h-screen">
-      <div className="bg-white py-4">
+      <div className=" py-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           {/* Tabs */}
           <div className="flex  justify-center lg:gap-8  border-gray-200 lg:mb-2 max-w-3xl mx-auto">

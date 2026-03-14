@@ -7,7 +7,7 @@ const VerifierAvatars = ({ requiredVerifiers = [] }) => {
   const [selectedVerifier, setSelectedVerifier] = useState(null); // only one tooltip at a time
 
   if (requiredVerifiers.length === 0) {
-    return <span className="text-gray-400 text-sm italic">No verifiers assigned</span>;
+    return <span className="text-gray-400 text-xs italic">No verifiers assigned</span>;
   }
 
   const handleAvatarClick = (verifier, event) => {

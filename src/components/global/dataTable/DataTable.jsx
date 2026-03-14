@@ -50,6 +50,7 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
     }
   };
 
+
   return (
     <div className={`relative ${className} flex flex-col backdrop-blur-xl rounded-2xl overflow-hidden`}>
       <div className="p-6 border-b border-white/10 bg-white shrink-0">
@@ -99,7 +100,7 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
                   <td colSpan={columns.length} className="h-64">
                     <div className="flex items-center justify-center h-full">
                       <div className="relative flex items-center justify-center">
-                        <div className="w-12 h-12 rounded-full border-4 border-gray-200 border-t-cyan-500 animate-spin"></div>
+                        <div className="w-12 h-12 rounded-full border-4 border-gray-50 border-t-cyan-500 animate-spin"></div>
                         {/* <span className="absolute text-sm font-medium text-cyan-600">Loading</span> */}
                       </div>
                     </div>
@@ -115,7 +116,7 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
                     className="border-b border-white/5 hover:bg-white/5 transition"
                   >
                     {columns.map((column, colIndex) => (
-                      <td key={colIndex} className={`px-6 py-4 text-gray-600 border-b border-gray-100 text-start text-[14px] ${column?.className}`}>
+                      <td key={colIndex} className={`px-6 py-2 text-gray-600 border-b border-gray-100 text-start text-xs ${column?.className}`}>
                         {column.render ? column.render(row, row, data.length) : row[column.key] || <span className="">-</span>}
                       </td>
                     ))}
