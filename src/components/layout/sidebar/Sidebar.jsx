@@ -15,7 +15,6 @@ const menuItems = [
   { icon: CiInboxOut, label: "Cash Out", path: "/cashout" },
   { icon: AiOutlineAudit, label: "Reconcile", path: "/reconcile" },
   { icon: Shield, label: "Verifications", path: "/verifications" },
-  { icon: FiRefreshCw, label: "History" },
   { icon: FiSettings, label: "Permissions", path: "/role-and-permissions" },
   { icon: FiSettings, label: "Settings" },
   { icon: FiRefreshCw, label: "Activity Log", path: "/activity-log" },
