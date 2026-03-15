@@ -119,8 +119,8 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
               isMobile && setIsDrawerOpen(false);
             }}
             className={`
-              w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
-              text-gray-500 hover:bg-red-950/30 hover:text-red-400
+              w-full flex items-center cursor-pointer gap-3 px-4 py-3 rounded-lg transition-colors
+              text-gray-500  hover:text-red-400
               ${!showLabel && "justify-center px-2"}
             `}
           >
