@@ -509,7 +509,7 @@ const CashOut = () => {
       </div>
       {step === 1 && (
         <div className="flex items-center justify-between">
-          <div className="mb-6">
+          <div className="mb-6 text-gray-600">
             <p className="text-xs font-semibold mb-2">Select Vault</p>
             <motion.div className="relative " initial={false} animate={{ height: dropdownOpen ? "auto" : "fit-content" }}>
               <button
