@@ -6,9 +6,80 @@ import CustomModal from "../../components/global/modal/CustomModal";
 import { AiOutlineDelete, AiOutlinePlus } from "react-icons/ai";
 import { AnimatePresence, motion } from "framer-motion";
 import { useForm } from "react-hook-form";
-import { ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronRight, History, Package, X, AlertTriangle, Clock, Edit3, Trash2, Plus } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronRight, History, Package, X, AlertTriangle, Clock, Edit3, Trash2, Plus, Download } from "lucide-react";
 import toast from "react-hot-toast";
 import axiosConfig from "../../utils/axiosConfig";
+
+// ─── Barcode Download Utility ─────────────────────────────────────────────────
+/**
+ * Downloads a single bag's barcode as a PNG image using an off-screen canvas.
+ * Requires JsBarcode to be available via CDN or bundled.
+ */
+const downloadBagBarcode = (bag) => {
+  // Dynamically load JsBarcode if not already present
+  const run = () => {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+
+    try {
+      // JsBarcode must be available globally; it's loaded in printBagBarcodes via CDN
+      if (typeof window.JsBarcode === "undefined") {
+        // Inject script tag once then retry
+        if (!document.querySelector('script[data-jsbarcode]')) {
+          const s = document.createElement("script");
+          s.src = "https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js";
+          s.setAttribute("data-jsbarcode", "true");
+          s.onload = () => downloadBagBarcode(bag); // retry after load
+          document.head.appendChild(s);
+        } else {
+          toast.error("Barcode library loading… please try again in a moment.");
+        }
+        return;
+      }
+
+      window.JsBarcode(svg, bag.bag_identifier_barcode, {
+        format: "CODE128",
+        width: 3,
+        height: 110,
+        displayValue: true,
+        fontSize: 24,
+        textMargin: 12,
+        margin: 10,
+      });
+
+      // Convert SVG → Canvas → PNG download
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(svgBlob);
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width || 400;
+        canvas.height = img.height || 150;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+
+        canvas.toBlob((blob) => {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = `${bag.barcode}_barcode.png`;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        }, "image/png");
+      };
+      img.src = url;
+    } catch (err) {
+      console.error("Barcode generation failed:", err);
+      toast.error("Failed to generate barcode.");
+    }
+  };
+
+  run();
+};
 
 // ─── Bag History Drawer ───────────────────────────────────────────────────────
 const BagHistoryDrawer = ({ bag, onClose }) => {
@@ -26,15 +97,16 @@ const BagHistoryDrawer = ({ bag, onClose }) => {
   }, [bag]);
 
   const eventMeta = {
-    created: { color: "text-emerald-600 bg-emerald-50 border-emerald-200", icon: <Plus className="w-3 h-3" /> },
-    updated: { color: "text-blue-600 bg-blue-50 border-blue-200", icon: <Edit3 className="w-3 h-3" /> },
-    deleted: { color: "text-red-600 bg-red-50 border-red-200", icon: <Trash2 className="w-3 h-3" /> },
-    cash_in: { color: "text-green-600 bg-green-50 border-green-200", icon: <ArrowDownCircle className="w-3 h-3" /> },
-    cash_out: { color: "text-orange-600 bg-orange-50 border-orange-200", icon: <ArrowUpCircle className="w-3 h-3" /> },
-    rack_changed: { color: "text-purple-600 bg-purple-50 border-purple-200", icon: <Edit3 className="w-3 h-3" /> },
+    created:      { color: "text-emerald-600 bg-emerald-50 border-emerald-200", icon: <Plus className="w-3 h-3" /> },
+    updated:      { color: "text-blue-600 bg-blue-50 border-blue-200",         icon: <Edit3 className="w-3 h-3" /> },
+    deleted:      { color: "text-red-600 bg-red-50 border-red-200",            icon: <Trash2 className="w-3 h-3" /> },
+    cash_in:      { color: "text-green-600 bg-green-50 border-green-200",      icon: <ArrowDownCircle className="w-3 h-3" /> },
+    cash_out:     { color: "text-orange-600 bg-orange-50 border-orange-200",   icon: <ArrowUpCircle className="w-3 h-3" /> },
+    rack_changed: { color: "text-purple-600 bg-purple-50 border-purple-200",   icon: <Edit3 className="w-3 h-3" /> },
   };
 
-  const getMeta = (event) => eventMeta[event] || { color: "text-gray-600 bg-gray-50 border-gray-200", icon: <Clock className="w-3 h-3" /> };
+  const getMeta = (event) =>
+    eventMeta[event] || { color: "text-gray-600 bg-gray-50 border-gray-200", icon: <Clock className="w-3 h-3" /> };
 
   return (
     <motion.div
@@ -76,25 +148,34 @@ const BagHistoryDrawer = ({ bag, onClose }) => {
 
             <div className="space-y-4 pl-10">
               {history.map((entry, i) => {
-                const meta = getMeta(entry.event);
+                const meta    = getMeta(entry.event);
                 const changes = entry.data?.changes || null;
 
                 return (
-                  <motion.div key={i} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }} className="relative">
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.03 }}
+                    className="relative"
+                  >
                     {/* Dot */}
-                    <div className={`absolute -left-7 top-1 w-5 h-5 rounded-full border flex items-center justify-center ${meta.color}`}>{meta.icon}</div>
+                    <div className={`absolute -left-7 top-1 w-5 h-5 rounded-full border flex items-center justify-center ${meta.color}`}>
+                      {meta.icon}
+                    </div>
 
                     <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition">
                       <div className="flex items-start justify-between gap-2 mb-1">
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${meta.color}`}>
                           {entry.event?.replace("_", " ").toUpperCase()}
                         </span>
-                        <span className="text-xs text-gray-400 whitespace-nowrap">{dayjs(entry.timestamp).format("DD MMM YYYY, h:mm A")}</span>
+                        <span className="text-xs text-gray-400 whitespace-nowrap">
+                          {dayjs(entry.timestamp).format("DD MMM YYYY, h:mm A")}
+                        </span>
                       </div>
 
                       <p className="text-sm text-gray-700 mt-1">{entry.description}</p>
 
-                      {/* Show field-level diff if available */}
                       {changes && Object.keys(changes).length > 0 && (
                         <div className="mt-2 space-y-1">
                           {Object.entries(changes).map(([field, { from, to }]) => (
@@ -108,7 +189,6 @@ const BagHistoryDrawer = ({ bag, onClose }) => {
                         </div>
                       )}
 
-                      {/* Cash amounts */}
                       {(entry.data?.amount || entry.data?.cash_in_amount || entry.data?.cash_out_amount) && (
                         <div className="mt-2 text-sm font-bold text-green-600">
                           ৳{(entry.data?.amount || entry.data?.cash_in_amount || entry.data?.cash_out_amount).toLocaleString()}
@@ -130,27 +210,29 @@ const BagHistoryDrawer = ({ bag, onClose }) => {
 
 // ─── Main Vault Component ─────────────────────────────────────────────────────
 const Vault = () => {
-  const [vaults, setVaults] = useState([]);
-  const [isOpenModal, setIsOpenModal] = useState(false);
-  const [totalRacks, setTotalRacks] = useState("");
-  const [rackErrors, setRackErrors] = useState({});
-  const [bags, setBags] = useState([]);
-  const [deleteErrors, setDeleteErrors] = useState([]); // bags that couldn't be deleted
+  const [vaults, setVaults]             = useState([]);
+  const [isOpenModal, setIsOpenModal]   = useState(false);
+  const [totalRacks, setTotalRacks]     = useState("");
+  const [rackErrors, setRackErrors]     = useState({});
+  const [bags, setBags]                 = useState([]);
+  const [deleteErrors, setDeleteErrors] = useState([]);
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selectedVault, setSelectedVault] = useState(null);
+  const [drawerOpen, setDrawerOpen]           = useState(false);
+  const [selectedVault, setSelectedVault]     = useState(null);
   const [vaultBagsDetails, setVaultBagsDetails] = useState([]);
-  const [loadingBags, setLoadingBags] = useState(false);
-  const [expandedBag, setExpandedBag] = useState(null);
-  const [historyBag, setHistoryBag] = useState(null); // bag whose history drawer is open
+  const [loadingBags, setLoadingBags]         = useState(false);
+  const [expandedBag, setExpandedBag]         = useState(null);
+  const [historyBag, setHistoryBag]           = useState(null);
 
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [isEditMode, setIsEditMode]       = useState(false);
   const [editingVaultId, setEditingVaultId] = useState(null);
+  // ── FIX: preserve the display vault_id (e.g. "VLT-001") separately ──────────
+  const [editingVaultDisplayId, setEditingVaultDisplayId] = useState(null);
 
   const { register, handleSubmit, reset, watch } = useForm();
 
   const watchedTotalRacks = watch("total_racks");
-  const watchedName = watch("name");
+  const watchedName       = watch("name");
 
   useEffect(() => {
     setTotalRacks(watchedTotalRacks || "");
@@ -160,7 +242,7 @@ const Vault = () => {
   useEffect(() => {
     if (isEditMode || bags.length === 0) return;
     const prefix = getVaultPrefix(watchedName);
-    const year = new Date().getFullYear();
+    const year   = new Date().getFullYear();
     setBags((prev) =>
       prev.map((bag, index) => {
         const n = String(index + 1).padStart(3, "0");
@@ -169,27 +251,24 @@ const Vault = () => {
     );
   }, [watchedName]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
+  // ── Helpers ──────────────────────────────────────────────────────────────────
   const getVaultPrefix = (name) => {
     if (!name?.trim()) return "VLT";
     const trimmed = name.trim();
     if (/^[A-Z]{2,4}$/.test(trimmed)) return trimmed;
     const words = trimmed.split(/\s+/).filter(Boolean);
     if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
-    return words
-      .map((w) => w[0].toUpperCase())
-      .slice(0, 4)
-      .join("");
+    return words.map((w) => w[0].toUpperCase()).slice(0, 4).join("");
   };
 
   const generateBagCodes = (vaultName, seq) => {
-    const year = new Date().getFullYear();
+    const year   = new Date().getFullYear();
     const prefix = getVaultPrefix(vaultName);
-    const n = String(seq).padStart(3, "0");
+    const n      = String(seq).padStart(3, "0");
     return { humanBarcode: `${prefix}${n}`, scannableBarcode: `QVB-${year}-${prefix}-${n}` };
   };
 
-  // ── Bag actions ──────────────────────────────────────────────────────────────
+  // ── Bag actions ───────────────────────────────────────────────────────────────
   const addBag = () => {
     const used = bags.map((b) => {
       const m = b.barcode.match(/(\d+)$/);
@@ -201,20 +280,19 @@ const Vault = () => {
     setBags([
       ...bags,
       {
-        id: Date.now(),
-        originalId: null,
-        barcode: humanBarcode,
+        id:                    Date.now(),
+        originalId:            null,
+        barcode:               humanBarcode,
         bag_identifier_barcode: scannableBarcode,
-        rack_number: "",
-        current_amount: "",
+        rack_number:           "",
+        current_amount:        "",
       },
     ]);
   };
 
   const removeBag = (id) => {
-    const bag = bags.find((b) => b.id === id);
+    const bag    = bags.find((b) => b.id === id);
     if (!bag) return;
-
     const amount = parseFloat(bag.current_amount || 0);
     if (amount > 0) {
       alert(`Cannot remove "${bag.barcode}" — it has ৳${amount.toFixed(2)}. Zero the amount first.`);
@@ -225,16 +303,12 @@ const Vault = () => {
 
   const updateRack = (id, value) => {
     const cleaned = value.replace(/[^0-9]/g, "");
-    const num = cleaned ? parseInt(cleaned, 10) : 0;
+    const num     = cleaned ? parseInt(cleaned, 10) : 0;
     setBags((prev) => prev.map((b) => (b.id === id ? { ...b, rack_number: cleaned } : b)));
     if (totalRacks && num > parseInt(totalRacks)) {
       setRackErrors((prev) => ({ ...prev, [id]: `Rack cannot exceed ${totalRacks}` }));
     } else {
-      setRackErrors((prev) => {
-        const u = { ...prev };
-        delete u[id];
-        return u;
-      });
+      setRackErrors((prev) => { const u = { ...prev }; delete u[id]; return u; });
     }
   };
 
@@ -243,36 +317,42 @@ const Vault = () => {
     setBags((prev) => prev.map((b) => (b.id === id ? { ...b, current_amount: cleaned } : b)));
   };
 
-  // ── Data fetching ────────────────────────────────────────────────────────────
+  // ── Data fetching ─────────────────────────────────────────────────────────────
   const fetchVaultData = async () => {
     const res = await GetVaults();
     setVaults(res?.data);
   };
 
-  useEffect(() => {
-    fetchVaultData();
-  }, []);
+  useEffect(() => { fetchVaultData(); }, []);
 
   const openEditModal = async (vault) => {
     try {
-      const res = await GetVault(vault?.id);
+      const res       = await GetVault(vault?.id);
       const vaultData = res?.data ?? res;
 
-      reset({ name: vaultData.name || "", address: vaultData.address || "", total_racks: vaultData.total_racks || "" });
+      reset({
+        name:        vaultData.name        || "",
+        address:     vaultData.address     || "",
+        total_racks: vaultData.total_racks || "",
+      });
 
       const existingBags = (vaultData.bags || []).map((bag) => ({
-        id: bag.id,
-        originalId: bag.id,
-        barcode: bag.barcode || "",
+        id:                    bag.id,
+        originalId:            bag.id,
+        barcode:               bag.barcode               || "",
         bag_identifier_barcode: bag.bag_identifier_barcode || "",
-        rack_number: String(bag.rack_number || ""),
-        current_amount: String(parseFloat(bag.current_amount || 0)),
+        rack_number:           String(bag.rack_number    || ""),
+        current_amount:        String(parseFloat(bag.current_amount || 0)),
       }));
 
       setBags(existingBags);
       setRackErrors({});
       setDeleteErrors([]);
       setEditingVaultId(vault.id);
+
+      // ── FIX: store the human-readable vault_id so we can send it back ────────
+      setEditingVaultDisplayId(vaultData.vault_id || vault.vault_id || null);
+
       setIsEditMode(true);
       setIsOpenModal(true);
     } catch (err) {
@@ -295,7 +375,7 @@ const Vault = () => {
     }
 
     try {
-      const res = await GetVault(vault.id);
+      const res       = await GetVault(vault.id);
       const vaultData = res?.data ?? res;
       setVaultBagsDetails(vaultData?.bags || []);
     } catch {
@@ -309,6 +389,7 @@ const Vault = () => {
     setIsOpenModal(false);
     setIsEditMode(false);
     setEditingVaultId(null);
+    setEditingVaultDisplayId(null);
     setBags([]);
     setRackErrors({});
     setDeleteErrors([]);
@@ -326,36 +407,38 @@ const Vault = () => {
       .filter((b) => b.rack_number?.trim() !== "")
       .map((b) => ({
         ...(b.originalId ? { id: b.originalId } : {}),
-        barcode: b.barcode,
+        barcode:               b.barcode,
         bag_identifier_barcode: b.bag_identifier_barcode,
-        rack_number: b.rack_number.trim(),
-        current_amount: parseFloat(b.current_amount || 0).toFixed(2),
+        rack_number:           b.rack_number.trim(),
+        current_amount:        parseFloat(b.current_amount || 0).toFixed(2),
       }));
 
     const payload = {
-      name: data.name.trim(),
-      address: data.address?.trim() || null,
-      total_racks: data.total_racks ? Number(data.total_racks) : null,
+      name:           data.name.trim(),
+      address:        data.address?.trim() || null,
+      total_racks:    data.total_racks ? Number(data.total_racks) : null,
       current_amount: validBags.reduce((s, b) => s + Number(b.current_amount), 0),
-      total_bags: validBags.length,
-      bags: validBags.length > 0 ? validBags : undefined,
+      total_bags:     validBags.length,
+      bags:           validBags.length > 0 ? validBags : undefined,
     };
+
+    // ── FIX: always send vault_id back on update so backend doesn't reset it ──
+    if (isEditMode && editingVaultDisplayId) {
+      payload.vault_id = editingVaultDisplayId;
+    }
 
     try {
       if (isEditMode && editingVaultId) {
         const res = await UpdateVault(editingVaultId, payload);
 
-        // Backend may return 422 for bags with amounts
         if (res?.errors?.length > 0) {
           setDeleteErrors(res.errors);
-          // Still refresh — vault was partially updated
           await fetchVaultData();
-          return; // keep modal open so user can see the warnings
+          return;
         }
         toast.success("Vault updated successfully.");
       } else {
         await CreateVault(payload);
-
         toast.success("Vault created successfully.");
         if (validBags.length > 0) printBagBarcodes(validBags, data.name);
       }
@@ -363,7 +446,6 @@ const Vault = () => {
       await fetchVaultData();
       handleCloseModal();
     } catch (error) {
-      // Handle 422 from backend delete guard
       const serverErrors = error?.response?.data?.errors;
       if (serverErrors?.length > 0) {
         setDeleteErrors(serverErrors);
@@ -375,14 +457,13 @@ const Vault = () => {
     }
   };
 
-  const toggleBagExpand = (barcode) => setExpandedBag(expandedBag === barcode ? null : barcode);
+  const toggleBagExpand = (barcode) =>
+    setExpandedBag(expandedBag === barcode ? null : barcode);
 
+  // ── Print all bag barcodes (on create) ───────────────────────────────────────
   const printBagBarcodes = (bags, vaultName) => {
     const printWindow = window.open("", "_blank", "width=1000,height=900");
-    if (!printWindow) {
-      alert("Please allow popups for printing.");
-      return;
-    }
+    if (!printWindow) { alert("Please allow popups for printing."); return; }
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Barcodes - ${vaultName}</title>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;padding:15mm}
@@ -404,22 +485,24 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
 
   // ── Table columns ─────────────────────────────────────────────────────────────
   const columns = [
-    { title: "Vault ID", key: "vault_id", className: "w-24", render: (row) => <span className="text-cyan-500">{row.vault_id}</span> },
-    { title: "Name", key: "name", className: "w-40", render: (row) => <span>{row.name}</span> },
+    {
+      title: "Vault ID", key: "vault_id", className: "w-24",
+      render: (row) => <span className="text-cyan-500">{row.vault_id}</span>,
+    },
+    { title: "Name",    key: "name",    className: "w-40", render: (row) => <span>{row.name}</span> },
     { title: "Address", key: "address", className: "w-32", render: (row) => <span>{row.address}</span> },
     {
-      title: "Balance (৳)",
-      key: "balance",
-      className: "w-32",
+      title: "Balance (৳)", key: "balance", className: "w-32",
       render: (row) => (
-        <span>{row?.bags?.reduce((s, b) => s + parseFloat(b.current_amount || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+        <span>
+          {row?.bags?.reduce((s, b) => s + parseFloat(b.current_amount || 0), 0)
+            .toLocaleString("en-US", { minimumFractionDigits: 2 })}
+        </span>
       ),
     },
     { title: "Racks", key: "total_racks", className: "w-20", render: (row) => <span>{row.total_racks}</span> },
     {
-      title: "Bags",
-      key: "total_bags",
-      className: "w-36",
+      title: "Bags", key: "total_bags", className: "w-36",
       render: (row) => {
         const count = row.bags?.length || 0;
         return (
@@ -429,18 +512,14 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
             onClick={() => openVaultDrawer(row)}
             className="px-3 py-2 bg-green-50 border border-green-200 cursor-pointer text-green-500 text-xs rounded-full flex items-center gap-2"
           >
-            <span>
-              {count} Bag{count !== 1 ? "s" : ""}
-            </span>
+            <span>{count} Bag{count !== 1 ? "s" : ""}</span>
             <ChevronRight className="w-4 h-4" />
           </motion.button>
         );
       },
     },
     {
-      title: "Last Cash In",
-      key: "last_cash_in",
-      className: "w-34",
+      title: "Last Cash In", key: "last_cash_in", className: "w-34",
       render: (row) => (
         <div className="flex flex-col">
           <span className="font-mono">{row.last_cash_in?.amount}</span>
@@ -449,9 +528,7 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
       ),
     },
     {
-      title: "Last Cash Out",
-      key: "last_cash_out",
-      className: "w-34",
+      title: "Last Cash Out", key: "last_cash_out", className: "w-34",
       render: (row) => (
         <div className="flex flex-col">
           <span className="font-mono">{row.last_cash_out?.amount}</span>
@@ -460,33 +537,24 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
       ),
     },
     {
-      title: "Status",
-      key: "status",
-      className: "w-32",
-      render: () => <span className="bg-cyan-50 text-xs text-cyan-500 border border-cyan-200 py-1 px-2 rounded-full">Active</span>,
+      title: "Status", key: "status", className: "w-32",
+      render: () => (
+        <span className="bg-cyan-50 text-xs text-cyan-500 border border-cyan-200 py-1 px-2 rounded-full">Active</span>
+      ),
     },
     {
-      title: "Action",
-      key: "actions",
-      className: "w-28",
+      title: "Action", key: "actions", className: "w-28",
       render: (row) => (
         <div className="flex items-center justify-center gap-3 py-2">
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
-            onClick={(e) => {
-              e.stopPropagation();
-              openEditModal(row);
-            }}
+            onClick={(e) => { e.stopPropagation(); openEditModal(row); }}
             className="p-2 rounded-lg bg-blue-500/10 cursor-pointer hover:bg-blue-500/20 text-blue-600 border border-blue-400/20 transition-all"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
           </motion.button>
           <motion.button
@@ -494,19 +562,13 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
             whileTap={{ scale: 0.95 }}
             onClick={(e) => {
               e.stopPropagation();
-              if (window.confirm(`Delete vault "${row.name}"?`)) {
-                /* DeleteVault */
-              }
+              if (window.confirm(`Delete vault "${row.name}"?`)) { /* DeleteVault */ }
             }}
             className="p-2 rounded-lg bg-red-500/10 cursor-pointer hover:bg-red-500/20 text-red-600 border border-red-400/20 transition-all"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
           </motion.button>
         </div>
@@ -523,10 +585,7 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
           <span className="text-gray-400 text-sm capitalize">Manage your All vault and bags</span>
         </div>
         <button
-          onClick={() => {
-            setIsEditMode(false);
-            setIsOpenModal(true);
-          }}
+          onClick={() => { setIsEditMode(false); setIsOpenModal(true); }}
           className="bg-[#424242] border text-white py-2 px-3 mb-2 text-sm rounded-lg hover:bg-black cursor-pointer transition-colors"
         >
           Create Vault
@@ -539,6 +598,7 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
       {isOpenModal && (
         <CustomModal isCloseModal={handleCloseModal}>
           <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+
             {/* Delete errors banner */}
             {deleteErrors.length > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
@@ -548,9 +608,7 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                 </div>
                 <ul className="space-y-1">
                   {deleteErrors.map((err, i) => (
-                    <li key={i} className="text-xs text-amber-600">
-                      • {err.message}
-                    </li>
+                    <li key={i} className="text-xs text-amber-600">• {err.message}</li>
                   ))}
                 </ul>
                 <p className="text-xs text-amber-500 mt-2">Zero the bag amount first, then save again.</p>
@@ -596,6 +654,16 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                     placeholder="e.g. 10"
                   />
                 </div>
+
+                {/* Show vault_id read-only in edit mode so user can confirm it's preserved */}
+                {isEditMode && editingVaultDisplayId && (
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-2">Vault ID</label>
+                    <div className="w-full px-4 py-2 border border-gray-100 bg-gray-50 rounded-lg text-cyan-500 font-mono text-sm">
+                      {editingVaultDisplayId}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Bags */}
@@ -612,11 +680,13 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                 </div>
 
                 <div className="overflow-y-auto max-h-96 space-y-3 pr-2">
-                  {bags.length === 0 && <p className="text-center text-gray-400 text-sm py-8">No bags added yet. Click "Add Bag" to start.</p>}
+                  {bags.length === 0 && (
+                    <p className="text-center text-gray-400 text-sm py-8">No bags added yet. Click "Add Bag" to start.</p>
+                  )}
 
                   {bags.map((bag) => {
-                    const amount = parseFloat(bag.current_amount || 0);
-                    const hasAmt = amount > 0;
+                    const amount  = parseFloat(bag.current_amount || 0);
+                    const hasAmt  = amount > 0;
                     const isError = deleteErrors.some((e) => e.barcode === bag.barcode);
 
                     return (
@@ -639,7 +709,9 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                               placeholder="Rack Number"
                               value={bag.rack_number}
                               onChange={(e) => updateRack(bag.id, e.target.value)}
-                              className={`w-32 px-4 py-2 rounded-lg border text-sm ${rackErrors[bag.id] ? "border-red-400" : "border-gray-200 focus:border-cyan-500"} focus:outline-none`}
+                              className={`w-32 px-4 py-2 rounded-lg border text-sm ${
+                                rackErrors[bag.id] ? "border-red-400" : "border-gray-200 focus:border-cyan-500"
+                              } focus:outline-none`}
                             />
                             {rackErrors[bag.id] && <p className="text-red-400 text-xs">{rackErrors[bag.id]}</p>}
                           </div>
@@ -704,10 +776,7 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => {
-                setDrawerOpen(false);
-                setHistoryBag(null);
-              }}
+              onClick={() => { setDrawerOpen(false); setHistoryBag(null); }}
               className="fixed inset-0 bg-black/60 z-50"
             />
 
@@ -744,7 +813,9 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                   <div className="text-right">
                     <p className="text-sm text-gray-500">Total Balance</p>
                     <p className="text-xl font-bold text-green-600">
-                      ৳{vaultBagsDetails.reduce((s, b) => s + parseFloat(b.current_amount || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      ৳{vaultBagsDetails
+                          .reduce((s, b) => s + parseFloat(b.current_amount || 0), 0)
+                          .toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                 </div>
@@ -762,7 +833,9 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                   <div className="space-y-6">
                     {vaultBagsDetails.map((bag) => {
                       const denominations = bag.denominations ? JSON.parse(bag.denominations) : null;
-                      const totalNotes = denominations ? Object.values(denominations).reduce((a, b) => a + b, 0) : 0;
+                      const totalNotes    = denominations
+                        ? Object.values(denominations).reduce((a, b) => a + b, 0)
+                        : 0;
 
                       return (
                         <motion.div
@@ -782,7 +855,9 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                               <div className="text-left">
                                 <div className="flex items-center gap-4">
                                   <h4 className="text-lg font-bold text-gray-800">{bag.barcode}</h4>
-                                  <span className="px-2 py-1 text-xs font-semibold rounded-full bg-cyan-100 text-cyan-700">Rack #{bag.rack_number}</span>
+                                  <span className="px-2 py-1 text-xs font-semibold rounded-full bg-cyan-100 text-cyan-700">
+                                    Rack #{bag.rack_number}
+                                  </span>
                                 </div>
                                 <div className="flex items-center gap-8 mt-4">
                                   <span className="text-xl font-bold text-green-600">
@@ -792,7 +867,9 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                                     {bag.is_sealed && (
                                       <span className="px-4 py-1.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">Sealed</span>
                                     )}
-                                    {!bag.is_active && <span className="px-4 py-1.5 text-xs font-medium bg-red-100 text-red-700 rounded-full">Inactive</span>}
+                                    {!bag.is_active && (
+                                      <span className="px-4 py-1.5 text-xs font-medium bg-red-100 text-red-700 rounded-full">Inactive</span>
+                                    )}
                                     {bag.last_cash_in_at && (
                                       <span className="text-sm text-gray-600 flex items-center gap-2">
                                         <ArrowDownCircle className="w-5 h-5 text-green-600" />
@@ -809,7 +886,24 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                                 </div>
                               </div>
                             </div>
+
                             <div className="flex items-center gap-3">
+                              {/* ── Download barcode button ── */}
+                              {bag.bag_identifier_barcode && (
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    downloadBagBarcode(bag);
+                                  }}
+                                  title="Download barcode as PNG"
+                                  className="flex items-center gap-1 px-3 py-1.5 text-xs bg-cyan-50 hover:bg-cyan-100 text-cyan-600 border border-cyan-200 rounded-full transition"
+                                >
+                                  <Download className="w-3.5 h-3.5" /> Barcode
+                                </motion.button>
+                              )}
+
                               {/* History button */}
                               <motion.button
                                 whileHover={{ scale: 1.05 }}
@@ -822,7 +916,11 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                               >
                                 <History className="w-3.5 h-3.5" /> History
                               </motion.button>
-                              <motion.div animate={{ rotate: expandedBag === bag.barcode ? 180 : 0 }} transition={{ duration: 0.3 }}>
+
+                              <motion.div
+                                animate={{ rotate: expandedBag === bag.barcode ? 180 : 0 }}
+                                transition={{ duration: 0.3 }}
+                              >
                                 <ChevronDown className="w-7 h-7 text-gray-500" />
                               </motion.div>
                             </div>
@@ -847,13 +945,13 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                                           .map(([note, count]) => (
                                             <div key={note} className="bg-white p-6 rounded-xl border border-gray-200 text-center shadow-md">
                                               <p className="text-xl font-bold text-gray-800">৳{note}</p>
-                                              <p className="text-sm text-gray-600 mt-2">
-                                                {count} note{count !== 1 ? "s" : ""}
-                                              </p>
+                                              <p className="text-sm text-gray-600 mt-2">{count} note{count !== 1 ? "s" : ""}</p>
                                               <p className="text-xl font-bold text-green-600 mt-3">৳{(parseInt(note) * count).toLocaleString()}</p>
                                             </div>
                                           ))}
-                                        {totalNotes === 0 && <p className="col-span-full text-center text-gray-500 py-10">No notes recorded yet.</p>}
+                                        {totalNotes === 0 && (
+                                          <p className="col-span-full text-center text-gray-500 py-10">No notes recorded yet.</p>
+                                        )}
                                       </div>
                                     ) : (
                                       <p className="text-gray-400 text-xs">No denomination data available.</p>
@@ -878,8 +976,12 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                                       {bag.last_cash_in_amount && (
                                         <div className="pt-5 border-t border-gray-200">
                                           <p className="text-sm text-gray-600">Last Cash In (৳)</p>
-                                          <p className="text-2xl font-bold text-green-600">+ {parseFloat(bag.last_cash_in_amount).toLocaleString()}</p>
-                                          <p className="text-sm text-gray-500 mt-1">{dayjs(bag.last_cash_in_at).format("DD MMM YYYY, h:mm A")}</p>
+                                          <p className="text-2xl font-bold text-green-600">
+                                            + {parseFloat(bag.last_cash_in_amount).toLocaleString()}
+                                          </p>
+                                          <p className="text-sm text-gray-500 mt-1">
+                                            {dayjs(bag.last_cash_in_at).format("DD MMM YYYY, h:mm A")}
+                                          </p>
                                         </div>
                                       )}
                                       {bag.notes && (
@@ -903,7 +1005,9 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
             </motion.div>
 
             {/* ── Per-bag history drawer (slides on top) ── */}
-            <AnimatePresence>{historyBag && <BagHistoryDrawer bag={historyBag} onClose={() => setHistoryBag(null)} />}</AnimatePresence>
+            <AnimatePresence>
+              {historyBag && <BagHistoryDrawer bag={historyBag} onClose={() => setHistoryBag(null)} />}
+            </AnimatePresence>
           </>
         )}
       </AnimatePresence>
