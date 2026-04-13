@@ -57,11 +57,7 @@ const Layout = () => {
           <header className="fixed top-0 left-0 right-0 z-50 border-b border-gray-100 lg:hidden">
             <div className="px-4 py-3 flex items-center justify-between">
               <div className="text-lg font-medium text-gray-400">QBits Vault</div>
-              <button
-                onClick={() => setIsDrawerOpen(true)}
-                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-                aria-label="Open menu"
-              >
+              <button onClick={() => setIsDrawerOpen(true)} className="p-2 rounded-lg hover:bg-white/10 transition-colors" aria-label="Open menu">
                 <FiMenu size={24} className="text-gray-500" />
               </button>
             </div>
@@ -78,14 +74,12 @@ const Layout = () => {
           />
 
           <div className={`flex-1 flex flex-col ${contentMargin} transition-all duration-300 ease-in-out overflow-hidden`}>
-            <main className="flex-1 overflow-y-auto bg-[#F4F4F4] p-4 md:py-2">
+            <main className="flex-1 overflow-y-auto bg-[#f8fafd] p-4 md:py-2">
               <Outlet />
             </main>
           </div>
 
-          {isMobile && isDrawerOpen && (
-            <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setIsDrawerOpen(false)} />
-          )}
+          {isMobile && isDrawerOpen && <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setIsDrawerOpen(false)} />}
         </div>
       </div>
     );
@@ -98,11 +92,7 @@ const Layout = () => {
         <header className="fixed top-0 left-0 right-0 z-50 border-b border-gray-100 lg:hidden">
           <div className="px-4 py-3 flex items-center justify-between">
             <div className="text-lg font-medium text-center text-gray-400">QBits Vault</div>
-            <button
-              onClick={() => setIsDrawerOpen(true)}
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-              aria-label="Open menu"
-            >
+            <button onClick={() => setIsDrawerOpen(true)} className="p-2 rounded-lg hover:bg-white/10 transition-colors" aria-label="Open menu">
               <FiMenu size={24} className="text-gray-500" />
             </button>
           </div>
@@ -207,9 +197,7 @@ const Layout = () => {
           </main>
         </div>
 
-        {isMobile && isDrawerOpen && (
-          <div className="fixed z-40 lg:hidden" onClick={() => setIsDrawerOpen(false)} />
-        )}
+        {isMobile && isDrawerOpen && <div className="fixed z-40 lg:hidden" onClick={() => setIsDrawerOpen(false)} />}
       </div>
     </div>
   );

@@ -13,12 +13,17 @@ import Verifications from "../pages/verifications/Verifications";
 import CashOut from "../pages/cashout/CashOut";
 import Reconcile from "../pages/reconcile/Reconcile";
 import ActivityLog from "../pages/activityLog/ActivityLog";
+import ResetPasswordPage from "../components/resetPassword/ResetPassword";
 
 const AppRoutes = () => {
   const Routes = [
     {
       path: "/login",
       element: <Login />,
+    },
+    {
+      path: "/reset-password",
+      element: <ResetPasswordPage />,
     },
     {
       path: "/",

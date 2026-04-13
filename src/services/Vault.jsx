@@ -48,3 +48,20 @@ export const CreateVault = async (data) => {
     console.error(error?.response?.data?.message);
   }
 };
+
+export const ToggleVaultAccess = async (userId, vaultId) => {
+  try {
+    const response = await axiosConfig.post(`/users/${userId}/vaults/toggle`, { vault_id: vaultId });
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+  }
+};
+export const UpdateVaultRoles = async (userId, vaultId, roles) => {
+  try {
+    const response = await axiosConfig.put(`/users/${userId}/vaults/${vaultId}/roles`, { roles });
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+  }
+};

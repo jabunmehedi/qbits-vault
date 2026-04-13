@@ -53,7 +53,7 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
 
   return (
     <div className={`relative ${className} flex flex-col backdrop-blur-xl rounded-2xl overflow-hidden`}>
-      <div className="p-6 border-b border-white/10 bg-white shrink-0">
+      {/* <div className="p-6 border-b border-white/10 bg-white shrink-0">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h3 className="text-xl font-semibold text-white"></h3>
           <div className="relative">
@@ -68,13 +68,13 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
             />
           </div>
         </div>
-      </div>
+      </div> */}
 
       <div className="flex-1 overflow-hidden relative bg-white">
         <div className="h-full overflow-y-auto scrollbar-custom relative">
           <table className="w-full table-fixed border-collapse">
             <thead>
-              <tr className="text-left text-gray-800 border-b border-white/10">
+              <tr className="  text-gray-800 border-b border-white/10">
                 {columns.map((column, index) => (
                   <th
                     key={index}

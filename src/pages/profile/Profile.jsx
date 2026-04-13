@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Camera, Save, Lock, Shield, CheckCircle } from "lucide-react";
-import { ChangePassword, GetUser } from "../../services/User";
+import { ChangePassword, GetUser, UpdateUser } from "../../services/User";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
+const baseStorageUrl = import.meta.env.VITE_REACT_APP_STORAGE_URL;
 
 const Profile = () => {
   const [activeTab, setActiveTab] = useState("profile");
@@ -14,7 +15,9 @@ const Profile = () => {
   const [phone, setPhone] = useState("+880 17xxx xxxxx");
   const [userRoles, setUserRoles] = useState([]);
   const [userPermissions, setUserPermissions] = useState([]);
-  const [avatar, setAvatar] = useState("https://images.unsplash.com/photo-1633332755192-727a05c4013d?ixlib=rb-4.0.3&auto=format&fit=crop&w=880&q=80");
+  const [avatar, setAvatar] = useState("");
+
+  const [selectedFile, setSelectedFile] = useState(null);
 
   // Password states
   const [currentPassword, setCurrentPassword] = useState("");
@@ -39,6 +42,13 @@ const Profile = () => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        // 5MB limit
+        alert("Image size should be less than 5MB");
+        return;
+      }
+      setSelectedFile(file);
+
       const reader = new FileReader();
       reader.onloadend = () => setAvatar(reader.result);
       reader.readAsDataURL(file);
@@ -61,9 +71,46 @@ const Profile = () => {
       setEmail(res?.data?.data?.email);
       setPhone(res?.data?.data?.phone);
       setUserRoles(res?.data?.data?.roles);
+      setAvatar(res?.data?.data?.img);
       setUserPermissions(res?.data?.data?.permissions);
     });
   }, []);
+
+  const handleUpdateProfile = async () => {
+    if (!name || !email) {
+      alert("Name and Email are required!");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setServerError("");
+    setSuccessMessage("");
+
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("email", email);
+    if (phone) formData.append("phone", phone);
+    if (selectedFile) formData.append("img", selectedFile);
+
+    try {
+      const response = await UpdateUser(user.id, formData);
+
+      setSuccessMessage("Profile updated successfully!");
+
+      // Update avatar with new image from server if returned
+      if (response?.data?.data?.img) {
+        setAvatar(response.data.data.img);
+      }
+
+      setSelectedFile(null); // Reset selected file
+      setIsEditing(false);
+    } catch (error) {
+      const errMsg = error?.response?.data?.message || "Failed to update profile";
+      setServerError(errMsg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const groupedPermissions = userPermissions.reduce((acc, perm) => {
     const [group] = perm.name.split("."); // 'vault', 'cash-in', 'cash-out'...
@@ -155,7 +202,7 @@ const Profile = () => {
             <div className="p-10 flex">
               <div className="relative  mb-8">
                 <motion.div whileHover={{ scale: 1.05 }} className="relative inline-block">
-                  <img src={avatar} alt="Profile" className="w-48 h-48 rounded-full border-8 border-white shadow-2xl object-cover" />
+                  <img src={baseStorageUrl + "/" + avatar} alt="Profile" className="w-48 h-48 rounded-full border-8 border-white shadow-2xl object-cover" />
                   {isEditing && (
                     <label className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full cursor-pointer hover:bg-black/60 transition">
                       <Camera className="w-12 h-12 text-white" />
@@ -206,17 +253,28 @@ const Profile = () => {
                   </div>
                 </div>
 
-                <div className="mt-12 flex gap-4">
+                <div className="mt-10 flex gap-4">
                   {isEditing ? (
                     <>
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className="px-10 py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl font-semibold shadow-lg flex items-center gap-3"
+                        onClick={handleUpdateProfile}
+                        disabled={isSubmitting}
+                        className="px-10 py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl font-semibold shadow-lg flex items-center gap-3 disabled:opacity-70"
                       >
-                        <Save className="w-6 h-6" /> Save Changes
+                        <Save className="w-6 h-6" />
+                        {isSubmitting ? "Saving..." : "Save Changes"}
                       </motion.button>
-                      <button onClick={() => setIsEditing(false)} className="px-10 py-4 bg-gray-200 text-gray-700 rounded-xl font-semibold">
+
+                      <button
+                        onClick={() => {
+                          setIsEditing(false);
+                          setSelectedFile(null);
+                          // Reset preview if needed
+                        }}
+                        className="px-10 py-4 bg-gray-200 text-gray-700 rounded-2xl font-semibold"
+                      >
                         Cancel
                       </button>
                     </>
@@ -225,7 +283,7 @@ const Profile = () => {
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => setIsEditing(true)}
-                      className="px-10 py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl font-semibold shadow-lg"
+                      className="px-10 py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl font-semibold shadow-lg"
                     >
                       Edit Profile
                     </motion.button>

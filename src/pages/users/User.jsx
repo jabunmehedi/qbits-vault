@@ -5,12 +5,17 @@ import DataTable from "../../components/global/dataTable/DataTable";
 import CustomModal from "../../components/global/modal/CustomModal";
 import axiosConfig from "../../utils/axiosConfig";
 import { GetRoles, GetUsers } from "../../services/User";
-import { Check, ChevronDown, Shield, X, Camera, UserIcon } from "lucide-react";
+import { Check, ChevronDown, Shield, X, Camera, UserIcon, Search, Filter, Plus, Settings2 } from "lucide-react";
 import PermissionButton from "../../components/global/permissionButton/PermissionButton";
 import { CiEdit } from "react-icons/ci";
 import { MdDelete } from "react-icons/md";
 import StatusBadge from "../../components/user/StatusBadge";
 import TabContent from "../../components/user/TabContent";
+import PermissionViewer from "../../components/user/PermissionViewer";
+import CreateNewUserModal from "../../components/user/CreateNewUserModal";
+import RoleDrawer from "../../components/user/RoleDrawer";
+import Avatar from "../../components/helpers/Avatar";
+import UserViewDrawer from "../../components/user/UserViewDrawer";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TABS = ["profile", "permissions", "migrate"];
@@ -26,22 +31,11 @@ const INITIAL_EDIT = {
   directPermissions: [],
 };
 
-// ─── Small helpers ─────────────────────────────────────────────────────────────
-const Avatar = ({ src, name, size = "sm" }) => {
-  const dim = size === "lg" ? "w-20 h-20" : "w-9 h-9";
-  const icon = size === "lg" ? "w-10 h-10" : "w-4 h-4";
-  return src ? (
-    <img src={src} alt={name} className={`${dim} rounded-full object-cover border border-gray-200`} />
-  ) : (
-    <div className={`${dim} rounded-full border border-gray-200 bg-gray-100 flex items-center justify-center`}>
-      <UserIcon className={`${icon} text-gray-400`} />
-    </div>
-  );
-};
-
 // ─── Main component ────────────────────────────────────────────────────────────
 const User = () => {
   const { addToast } = useToast();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [roleDrawerOpen, setRoleDrawerOpen] = useState(false);
 
   // ── Data state ──
   const [roles, setRoles] = useState([]);
@@ -54,7 +48,10 @@ const User = () => {
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [roleSearch, setRoleSearch] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState(null);
   const dropdownRef = useRef(null);
+
+  const [openUserViewDrawer, setOpenUserViewDrawer] = useState(false);
 
   // ── Edit modal state ──
   const [editOpen, setEditOpen] = useState(false);
@@ -66,6 +63,24 @@ const User = () => {
   const [migrating, setMigrating] = useState(false);
   const [imgPreview, setImgPreview] = useState(null);
   const imgInputRef = useRef(null);
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [uRes, rRes, pRes] = await Promise.all([GetUsers(), GetRoles(), axiosConfig.get("/permissions")]);
+      setUsers(uRes?.data?.data || []);
+      setRoles(rRes?.data || []);
+      setPermissions(pRes.data.data || pRes.data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // ── Fetch data ──
   const fetchUsers = useCallback(() => {
@@ -81,6 +96,8 @@ const User = () => {
     GetRoles().then((res) => setRoles(res?.data || []));
     axiosConfig.get("/permissions").then((res) => setPermissions(res.data.data || res.data || []));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  console.log({ users });
 
   // ── Sync editFormData when selectedUser changes ──
   useEffect(() => {
@@ -117,6 +134,10 @@ const User = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  const refetchRoles = () => {
+    GetRoles().then((res) => setRoles(res?.data || []));
+  };
+
   // ─── Handlers ────────────────────────────────────────────────────────────────
 
   const handleCreateSubmit = async (e) => {
@@ -136,6 +157,7 @@ const User = () => {
     }
   };
 
+  console.log({ roleDrawerOpen });
   const handleEdit = async (e, row) => {
     e.stopPropagation();
     try {
@@ -210,6 +232,7 @@ const User = () => {
   };
 
   const toggleRole = (roleId) => {
+    console.log({ roleId });
     setFormData((prev) => ({
       ...prev,
       role: prev.role.includes(roleId) ? prev.role.filter((id) => id !== roleId) : [...prev.role, roleId],
@@ -223,285 +246,153 @@ const User = () => {
   // ─── Table columns ────────────────────────────────────────────────────────────
   const columns = [
     {
-      title: "User",
+      title: "IDENTITY POINT",
       key: "name",
-      className: "w-56",
+      className: "w-[320px]",
       render: (row) => (
-        <div className="flex items-center gap-3">
-          <Avatar src={row.img} name={row.name} />
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-700 truncate">{row.name}</p>
-            <p className="text-xs text-gray-400 truncate">{row.email}</p>
+        <div className="flex items-center gap-4 py-2">
+          <div className="relative">
+            <Avatar src={row.img} name={row.name} size="lg" className="w-6 h-6 " />
+            <div
+              className={`absolute -bottom-1 -right-1 w-3 h-3 ${row.status === "inactive" ? "bg-red-500" : "bg-green-500"} border-2 border-white rounded-full`}
+            ></div>
+          </div>
+          <div className="flex flex-col">
+            <div
+              onClick={() => {
+                setOpenUserViewDrawer(true);
+                setSelectedUserId(row.id);
+              }}
+              className="flex items-center gap-1 group cursor-pointer"
+            >
+              <div className="flex flex-col">
+                <span className="font-bold text-[#1a2b4b] text-sm tracking-tight">{row.name}</span>
+                <span className="text-gray-400 text-xs font-medium">{row.email}</span>
+              </div>
+              <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-colors" />
+            </div>
+            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded mt-1 self-start tracking-wider uppercase">Main HQ Vault</span>
           </div>
         </div>
       ),
     },
+    // {
+    //   title: "DETAILS",
+    //   key: "email",
+    //   render: (row) => (
+    //     <div className="flex flex-col items-start">
+    //       <span className="text-gray-400 text-xs font-medium">{row.email}</span>
+    //       <div className="flex items-center gap-1 mt-1 border border-blue-100 bg-blue-50/50 px-2 py-0.5 rounded-full">
+    //         <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+    //         <span className="text-[10px] font-bold text-blue-600 uppercase tracking-tighter">Verified</span>
+    //       </div>
+    //     </div>
+    //   ),
+    // },
     {
-      title: "Roles",
-      key: "roles",
-      className: "w-48",
+      title: "MANAGE",
+      key: "manage",
       render: (row) => (
-        <div className="flex flex-wrap gap-1">
-          {row.roles?.map((role) => (
-            <span key={role.id} className="text-xs px-2 py-0.5 bg-cyan-50 text-cyan-700 border border-cyan-200 rounded-full">
-              {role.name}
-            </span>
-          ))}
-        </div>
+        <button
+          onClick={() => {
+            setSelectedUser(row);
+            setDrawerOpen(true);
+          }}
+          className="flex items-center gap-2 border shadow border-slate-300 px-4 py-1.5 rounded-lg text-[#1a2b4b] font-bold text-[11px] uppercase tracking-widest hover:bg-[#1a2b4b] hover:text-white transition-all active:scale-95"
+        >
+          <Settings2 className="w-3.5 h-3.5" />
+          Permissions
+        </button>
       ),
     },
-    {
-      title: "Status",
-      key: "status",
-      className: "w-28",
-      render: (row) => <StatusBadge status={row.status} />,
-    },
-    {
-      title: "Action",
-      key: "actions",
-      className: "w-24",
-      render: (row) => (
-        <div className="flex items-center gap-2">
-          <PermissionButton permission="user.edit">
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={(e) => handleEdit(e, row)}
-              className="p-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
-              aria-label="Edit user"
+    ...roles.map((role) => ({
+      title: role.name.toUpperCase(),
+      key: role.id,
+      className: "text-center",
+      render: (row) => {
+        const isSelected = row.roles?.some((r) => r.id === role.id);
+        return (
+          <div className="flex justify-center">
+            <div
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${isSelected ? "bg-blue-100 text-blue-600" : "bg-gray-50 text-gray-200 border border-gray-100"}`}
             >
-              <CiEdit size={16} />
-            </motion.button>
-          </PermissionButton>
-          <PermissionButton permission="user.delete">
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-              aria-label="Delete user"
-            >
-              <MdDelete size={16} />
-            </motion.button>
-          </PermissionButton>
-        </div>
-      ),
-    },
+              {isSelected ? <Check className="w-5 h-5 stroke-[3px]" /> : <X className="w-4 h-4 opacity-20" />}
+            </div>
+          </div>
+        );
+      },
+    })),
   ];
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div>
-      {/* Page header */}
-      <div className="flex justify-between items-start mb-3">
-        <div>
-          <p className="text-gray-700 text-base font-semibold">Users</p>
-          <span className="text-gray-400 text-xs">Manage system users and permissions</span>
+    <div className="font-sans">
+      {/* Top Header Section */}
+      <div className="flex justify-between items-center mb-10">
+        <div className="flex items-center gap-3">
+          <div className="w-1.5 h-10 bg-[#1a2b4b] rounded-full"></div>
+          <div>
+            <h1 className="text-2xl font-black text-[#1a2b4b] uppercase">User List</h1>
+            <p className="text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase">User Management</p>
+          </div>
         </div>
-        <PermissionButton permission="user.create">
-          <button onClick={() => setOpenModel(true)} className="text-sm px-3 py-1.5 bg-gray-800 hover:bg-black text-white rounded-lg transition-colors">
-            + Create User
+        <div className="flex gap-4">
+          <button
+            onClick={() => setRoleDrawerOpen(true)} // Added this
+            className="flex items-center gap-2 px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 font-bold text-sm shadow-sm hover:shadow-md transition-all"
+          >
+            <Shield className="w-4 h-4" /> Create Role
           </button>
-        </PermissionButton>
+          <button
+            onClick={() => setOpenModel(true)}
+            className="flex items-center gap-2 px-6 py-2.5 bg-[#1a73e8] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-200 hover:bg-blue-600 transition-all"
+          >
+            <Plus className="w-5 h-5" /> New User
+          </button>
+        </div>
       </div>
 
-      <DataTable columns={columns} data={users} isLoading={isLoading} paginationData={{}} className="h-[calc(100vh-100px)]" />
-
-      {/* ── Create User Modal ──────────────────────────────────────────────── */}
-      {openModel && (
-        <CustomModal
-          isCloseModal={() => {
-            setOpenModel(false);
-            setFormData(INITIAL_FORM);
-          }}
-        >
-          <h2 className="text-lg font-semibold text-gray-800 mb-5">Create New User</h2>
-
-          <form onSubmit={handleCreateSubmit} className="space-y-4">
-            {[
-              { label: "Full name", name: "name", type: "text", placeholder: "Md. Rahman" },
-              { label: "Email", name: "email", type: "email", placeholder: "user@example.com" },
-              { label: "Password", name: "password", type: "password", placeholder: "Min 6 characters", minLength: 6 },
-            ].map((f) => (
-              <div key={f.name}>
-                <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
-                <input
-                  name={f.name}
-                  type={f.type}
-                  value={formData[f.name]}
-                  onChange={(e) => setFormData((p) => ({ ...p, [e.target.name]: e.target.value }))}
-                  required
-                  minLength={f.minLength}
-                  placeholder={f.placeholder}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-cyan-400 outline-none transition-colors"
-                />
-              </div>
-            ))}
-
-            {/* Role selector */}
-            <div ref={dropdownRef}>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Roles <span className="text-red-400">*</span>
-              </label>
-
-              {selectedRoleNames.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {selectedRoleNames.map((name) => (
-                    <span key={name} className="flex items-center gap-1 text-xs px-2 py-1 bg-cyan-50 text-cyan-700 border border-cyan-200 rounded-full">
-                      {name}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const r = roles.find((r) => r.name === name);
-                          if (r) toggleRole(r.id);
-                        }}
-                        className="hover:text-cyan-900"
-                      >
-                        <X className="w-2.5 h-2.5" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setDropdownOpen((o) => !o)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg flex items-center justify-between text-gray-600 hover:border-cyan-400 transition-colors bg-white outline-none"
-                >
-                  <span className={formData.role.length ? "text-gray-700" : "text-gray-400"}>
-                    {formData.role.length ? `${formData.role.length} selected` : "Select roles..."}
-                  </span>
-                  <ChevronDown className={`w-4 h-4 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
-                </button>
-
-                <AnimatePresence>
-                  {dropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
-                    >
-                      <div className="p-2 border-b border-gray-100">
-                        <input
-                          type="text"
-                          placeholder="Search roles..."
-                          value={roleSearch}
-                          onChange={(e) => setRoleSearch(e.target.value)}
-                          className="w-full px-2 py-1.5 text-xs bg-gray-50 rounded outline-none"
-                          autoFocus
-                        />
-                      </div>
-                      <div className="max-h-[180px] overflow-y-auto">
-                        {filteredRoles.length === 0 ? (
-                          <p className="text-center py-4 text-xs text-gray-400">No roles found</p>
-                        ) : (
-                          filteredRoles.map((role) => {
-                            const sel = formData.role.includes(role.id);
-                            return (
-                              <div
-                                key={role.id}
-                                onClick={() => toggleRole(role.id)}
-                                className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer text-sm border-b border-gray-50 last:border-0 transition-colors ${sel ? "bg-cyan-50" : "hover:bg-gray-50"}`}
-                              >
-                                <Shield className="w-3.5 h-3.5 text-cyan-500 flex-shrink-0" />
-                                <span className="flex-1 text-gray-700">{role.name}</span>
-                                {sel && <Check className="w-3.5 h-3.5 text-cyan-500" />}
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-
-            <button type="submit" className="w-full py-2.5 bg-gray-800 hover:bg-black text-white rounded-lg text-sm font-medium transition-colors">
-              Create User
-            </button>
-          </form>
-        </CustomModal>
-      )}
-
-      {/* ── Edit User Modal ────────────────────────────────────────────────── */}
-      {editOpen && selectedUser && (
-        <CustomModal
-          isCloseModal={() => {
-            setEditOpen(false);
-            setSelectedUser(null);
-          }}
-        >
-          {/* Modal header with user info */}
-          <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
-            {/* Avatar with upload overlay */}
-            <div className="relative group cursor-pointer" onClick={() => imgInputRef.current?.click()}>
-              <Avatar src={imgPreview} name={selectedUser.data?.name} size="lg" />
-              <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <Camera className="w-5 h-5 text-white" />
-              </div>
-              <input
-                ref={imgInputRef}
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) setImgPreview(URL.createObjectURL(file));
-                }}
-              />
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-gray-800 truncate">{selectedUser.data?.name}</p>
-              <p className="text-xs text-gray-400 truncate">{selectedUser.data?.email}</p>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {selectedUser.data?.roles?.map((r) => (
-                  <span key={r.id} className="text-[10px] px-1.5 py-0.5 bg-cyan-50 text-cyan-600 border border-cyan-100 rounded-full">
-                    {r.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <StatusBadge status={selectedUser.data?.status} />
-          </div>
-
-          {/* Tabs */}
-          <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1">
-            {TABS.map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-1.5 text-xs font-medium rounded-md capitalize transition-all ${
-                  activeTab === tab ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab content */}
-          <TabContent
-            activeTab={activeTab}
-            editFormData={editFormData}
-            setEditFormData={setEditFormData}
-            handleSaveProfile={handleSaveProfile}
-            savingProfile={savingProfile}
-            permissions={permissions}
-            handleTogglePermission={handleTogglePermission}
-            savingPerm={savingPerm}
-            selectedUser={selectedUser}
-            users={users}
-            handleMigrate={handleMigrate}
-            migrating={migrating}
+      {/* Search Bar */}
+      <div className="flex gap-4 mb-8">
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="text"
+            placeholder="Search identity..."
+            className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-2xl  focus:ring-2 ring-blue-100 outline-none text-gray-700 font-medium"
           />
-        </CustomModal>
+        </div>
+        <button className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 rounded-2xl text-gray-500 font-bold text-sm hover:bg-gray-50 transition-all">
+          <Filter className="w-4 h-4" /> Advanced Filters
+        </button>
+      </div>
+
+      {/* Data Table */}
+      <div className="bg-white rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-200/50 overflow-hidden">
+        <DataTable columns={columns} data={users} isLoading={isLoading} className="matrix-table" />
+      </div>
+
+      {<UserViewDrawer isOpen={openUserViewDrawer} onClose={() => setOpenUserViewDrawer(false)} userId={selectedUserId} />}
+
+      {/* Create New User Modal */}
+      {openModel && (
+        <CreateNewUserModal
+          toggleRole={toggleRole}
+          setOpenModel={setOpenModel}
+          fetchUsers={fetchUsers}
+          roles={roles}
+          roleSearch={roleSearch}
+          setRoleSearch={setRoleSearch}
+          dropdownOpen={dropdownOpen}
+          setDropdownOpen={setDropdownOpen}
+        />
       )}
+
+      {/* Role Drawer */}
+      {roleDrawerOpen && <RoleDrawer isOpen={roleDrawerOpen} onClose={() => setRoleDrawerOpen(false)} rolesList={roles} refetchRoles={refetchRoles} />}
+
+      {/* Permission Drawer */}
+      <PermissionViewer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} user={selectedUser} permissions={permissions} />
     </div>
   );
 };
