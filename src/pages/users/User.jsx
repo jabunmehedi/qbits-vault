@@ -31,9 +31,9 @@ const User = () => {
   const [selectedUser, setSelectedUser] = useState(null);
 
   // ── Permissions from Redux ──
-  const userPermissions = useSelector((state) => state.auth.permissions.data.data.permissions || []);
+  const userPermissions = useSelector((state) => state?.auth?.permissions?.data?.data?.permissions || []);
 
-  console.log({ userPermissions });
+  console.log({userPermissions})
 
   const hasPermission = useCallback(
     (permName) => {

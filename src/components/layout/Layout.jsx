@@ -65,9 +65,9 @@ const Layout = () => {
   const contentMargin = isMobile ? "ml-0" : isMinimized ? "ml-16" : "";
 
   // ─── VERIFICATION SCREEN ─────────────────────────────────────
-  if (showVerification) {
-    return <InitialVerification onSuccess={() => window.location.reload()} />;
-  }
+  // if (showVerification) {
+  //   return <InitialVerification onSuccess={() => window.location.reload()} />;
+  // }
 
   // ─── NORMAL LAYOUT (when verified or Superadmin) ─────────────
   if (!isOperationsLocked) {
