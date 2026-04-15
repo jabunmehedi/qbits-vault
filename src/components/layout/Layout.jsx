@@ -1,8 +1,7 @@
 // Layout.jsx
 import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { FiMenu, FiAlertCircle, FiMinimize2 } from "react-icons/fi";
+import { FiMenu } from "react-icons/fi";
 import Sidebar from "./sidebar/Sidebar";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchReconciliationStatus, selectIsLockedForOperations } from "../../store/checkReconcile";
@@ -20,10 +19,9 @@ const Layout = () => {
   const isOperationsLocked = useSelector(selectIsLockedForOperations);
 
   // Get current user
-  const currentUser = useSelector((state) => state.auth?.user);
   const loggedUser = localStorage.getItem("auth")
-    ? JSON.parse(localStorage.getItem("auth")).user
-    : currentUser;
+    ? JSON.parse(localStorage.getItem("auth"))?.user
+    : "";
 
   const isSuperAdmin = loggedUser?.roles?.some((role) =>
     ["Superadmin", "Super Admin", "superadmin", "super_admin"].includes(role.name)
