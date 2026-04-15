@@ -37,9 +37,7 @@ const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRo
 
   // Sync selectedRoles when formData.role changes (important for reset)
   useEffect(() => {
-    const currentRoleNames = roles
-      .filter((role) => formData?.role?.includes(role.id))
-      .map((role) => role.name);
+    const currentRoleNames = roles.filter((role) => formData?.role?.includes(role.id)).map((role) => role.name);
 
     setSelectedRoles(currentRoleNames);
   }, [formData.role, roles]);
@@ -73,12 +71,16 @@ const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRo
     }
   };
 
+  console.log({ roles });
+
   return (
-    <CustomModal isCloseModal={() => {
-      setOpenModel(false);
-      setFormData(INITIAL_FORM);
-      setSelectedRoles([]);
-    }}>
+    <CustomModal
+      isCloseModal={() => {
+        setOpenModel(false);
+        setFormData(INITIAL_FORM);
+        setSelectedRoles([]);
+      }}
+    >
       <h2 className="text-lg font-bold text-[#1a2b4b] mb-6 uppercase tracking-tight">Create New User</h2>
       <form onSubmit={handleCreateSubmit} className="space-y-4">
         {["name", "email", "password"].map((field) => (
@@ -105,10 +107,7 @@ const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRo
               {selectedRoles?.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {selectedRoles.map((roleName, index) => (
-                    <span
-                      key={index}
-                      className="inline-block bg-cyan-500 text-white text-sm px-3 py-1 rounded-full"
-                    >
+                    <span key={index} className="inline-block bg-cyan-500 text-white text-sm px-3 py-1 rounded-full">
                       {roleName}
                     </span>
                   ))}
@@ -136,7 +135,7 @@ const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRo
                 />
                 <div className="max-h-40 overflow-y-auto">
                   {roles
-                    .filter((r) => r.name !== "Superadmin" && r?.name?.toLowerCase().includes(roleSearch?.toLowerCase()))
+                    // .filter((r) => r?.name?.toLowerCase().includes(roleSearch?.toLowerCase()))
                     .map((role) => (
                       <div
                         key={role.id}
@@ -153,10 +152,7 @@ const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRo
           </AnimatePresence>
         </div>
 
-        <button
-          type="submit"
-          className="w-full py-3 bg-[#1a2b4b] text-white rounded-xl font-bold uppercase text-xs tracking-widest mt-4"
-        >
+        <button type="submit" className="w-full py-3 bg-[#1a2b4b] text-white rounded-xl font-bold uppercase text-xs tracking-widest mt-4">
           Create User
         </button>
       </form>
