@@ -6,7 +6,8 @@ import { FiMenu, FiAlertCircle, FiMinimize2 } from "react-icons/fi";
 import Sidebar from "./sidebar/Sidebar";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchReconciliationStatus, selectIsLockedForOperations } from "../../store/checkReconcile";
-import InitialVerification from "../InitialVerification/InitialVerification";
+import InitialVerification from "../initialVerification/InitialVerification";
+
 
 const Layout = () => {
   const [isMinimized, setIsMinimized] = useState(false);
