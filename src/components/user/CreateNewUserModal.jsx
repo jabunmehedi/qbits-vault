@@ -10,7 +10,7 @@ const INITIAL_FORM = { name: "", email: "", password: "", role: [] };
 const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRoleSearch }) => {
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [selectedRoles, setSelectedRoles] = useState([]); // Stores role names for display
+  const [selectedRoles, setSelectedRoles] = useState([]);
   const { addToast } = useToast();
   const dropdownRef = useRef(null);
 
@@ -22,9 +22,9 @@ const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRo
       // Remove
       setFormData((prev) => ({
         ...prev,
-        role: prev.role.filter((id) => id !== role.id),
+        role: prev?.role.filter((id) => id !== role.id),
       }));
-      setSelectedRoles((prev) => prev.filter((name) => name !== role.name));
+      setSelectedRoles((prev) => prev.filter((name) => name !== role?.name));
     } else {
       // Add
       setFormData((prev) => ({
@@ -38,7 +38,7 @@ const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRo
   // Sync selectedRoles when formData.role changes (important for reset)
   useEffect(() => {
     const currentRoleNames = roles
-      .filter((role) => formData.role.includes(role.id))
+      .filter((role) => formData?.role?.includes(role.id))
       .map((role) => role.name);
 
     setSelectedRoles(currentRoleNames);
@@ -136,14 +136,14 @@ const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRo
                 />
                 <div className="max-h-40 overflow-y-auto">
                   {roles
-                    .filter((r) => r.name !== "Superadmin" && r.name.toLowerCase().includes(roleSearch.toLowerCase()))
+                    .filter((r) => r.name !== "Superadmin" && r?.name?.toLowerCase().includes(roleSearch?.toLowerCase()))
                     .map((role) => (
                       <div
                         key={role.id}
                         onClick={() => toggleRole(role)}
                         className="flex items-center justify-between p-2 hover:bg-blue-50 rounded-lg cursor-pointer"
                       >
-                        <span className="text-xs font-bold text-gray-700">{role.name}</span>
+                        <span className="text-xs font-bold text-gray-700">{role?.name}</span>
                         {formData.role.includes(role.id) && <Check size={14} className="text-blue-600" />}
                       </div>
                     ))}
