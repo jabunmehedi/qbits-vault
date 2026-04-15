@@ -7,7 +7,7 @@ import { RiVerifiedBadgeFill } from "react-icons/ri";
 import { GetVaults, ToggleVaultAccess, UpdateVaultRoles } from "../../services/Vault";
 import { FaCheckCircle } from "react-icons/fa";
 
-const UserViewDrawer = ({ isOpen, onClose, userId }) => {
+const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [vaultList, setVaultList] = useState([]);
@@ -16,6 +16,8 @@ const UserViewDrawer = ({ isOpen, onClose, userId }) => {
   const [userAssignments, setUserAssignments] = useState([]);
   const [rolesList, setRolesList] = useState([]);
   const [actionLoading, setActionLoading] = useState(null);
+
+  const isSuperAdmin = user?.roles?.some((role) => role.name == "Superadmin");
 
   useEffect(() => {
     GetVaults().then((res) => {
@@ -110,6 +112,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId }) => {
         ...prev,
         status: prev.status === "inactive" ? "active" : "inactive",
       }));
+      fetchData();
     } catch (err) {
       console.error(err);
     } finally {
@@ -122,6 +125,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId }) => {
     try {
       await ArchiveUser(userId);
       setUser((prev) => ({ ...prev, status: "archived" }));
+      fetchData();
     } catch (err) {
       console.error(err);
     } finally {
@@ -141,9 +145,16 @@ const UserViewDrawer = ({ isOpen, onClose, userId }) => {
     }
   };
 
+  // useEffect(() => {
+  //   const rol = user?.roles?.some((role) => role.name == "Superadmin");
+  //   console.log({ rol });
+  // }, [user]);
+
   const assignedVaults = vaultList.filter((vault) => userAssignments.some((a) => a.vault_id === vault.id && (a.status === "active" || a.status === 1)));
 
   if (!isOpen) return null;
+
+  console.log({ user });
 
   return (
     <AnimatePresence>
@@ -231,8 +242,8 @@ const UserViewDrawer = ({ isOpen, onClose, userId }) => {
                     <div className="flex items-center w-full text-xs gap-3">
                       <button
                         onClick={handleDisableUser}
-                        disabled={actionLoading === "disable"}
-                        className={`flex-1 text-white px-3 py-2 rounded-lg font-bold transition disabled:opacity-50 ${
+                        disabled={actionLoading === "disable" || isSuperAdmin}
+                        className={`flex-1 text-white px-3 py-2 rounded-lg font-bold transition disabled:opacity-20 disabled:bg-gray-500 ${
                           user?.status === "inactive" ? "bg-green-600 hover:bg-green-700" : "bg-red-700 hover:bg-red-800"
                         }`}
                       >

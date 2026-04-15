@@ -10,6 +10,8 @@ const RoleDrawer = ({ isOpen, onClose, rolesList, refetchRoles }) => {
 
   const { addToast } = useToast();
 
+
+
   const handleCreateRole = async () => {
     if (!newRoleName) return addToast({ type: "error", message: "Role name is required" });
     try {

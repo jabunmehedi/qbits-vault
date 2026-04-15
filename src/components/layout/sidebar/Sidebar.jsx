@@ -99,7 +99,7 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
             onClick={isMobile ? () => setIsDrawerOpen(false) : undefined}
             className={`
               flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
-              text-gray-500 hover:bg-white/10 hover:text-gray-200 mb-2
+              text-gray-500  hover:text-indigo-200 mb-2
               ${!showLabel && "justify-center px-2"}
             `}
           >
@@ -110,7 +110,7 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
                 className="w-full h-full object-cover"
               />
             </div>
-            {showLabel && <span className="text-sm truncate">{user.name || "User"}</span>}
+            {showLabel && <span className="text-sm hover:text-indigo-500 truncate">{user.name || "User"}</span>}
           </Link>
 
           <button

@@ -1,15 +1,59 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import CustomModal from "../global/modal/CustomModal";
 import { useToast } from "../../hooks/useToast";
 import axiosConfig from "../../utils/axiosConfig";
 import { Check, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
 const INITIAL_FORM = { name: "", email: "", password: "", role: [] };
 
-const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRoleSearch, dropdownOpen, setDropdownOpen,toggleRole }) => {
+const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRoleSearch }) => {
   const [formData, setFormData] = useState(INITIAL_FORM);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [selectedRoles, setSelectedRoles] = useState([]); // Stores role names for display
   const { addToast } = useToast();
   const dropdownRef = useRef(null);
+
+  // Toggle Role - Fixed logic
+  const toggleRole = (role) => {
+    const isSelected = formData.role.includes(role.id);
+
+    if (isSelected) {
+      // Remove
+      setFormData((prev) => ({
+        ...prev,
+        role: prev.role.filter((id) => id !== role.id),
+      }));
+      setSelectedRoles((prev) => prev.filter((name) => name !== role.name));
+    } else {
+      // Add
+      setFormData((prev) => ({
+        ...prev,
+        role: [...prev.role, role.id],
+      }));
+      setSelectedRoles((prev) => [...prev, role.name]);
+    }
+  };
+
+  // Sync selectedRoles when formData.role changes (important for reset)
+  useEffect(() => {
+    const currentRoleNames = roles
+      .filter((role) => formData.role.includes(role.id))
+      .map((role) => role.name);
+
+    setSelectedRoles(currentRoleNames);
+  }, [formData.role, roles]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
@@ -21,6 +65,7 @@ const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRo
       await axiosConfig.post("/users", formData);
       addToast({ type: "success", message: "User created successfully" });
       setFormData(INITIAL_FORM);
+      setSelectedRoles([]); // Reset selected roles
       setOpenModel(false);
       fetchUsers();
     } catch (err) {
@@ -29,12 +74,11 @@ const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRo
   };
 
   return (
-    <CustomModal
-      isCloseModal={() => {
-        setOpenModel(false);
-        setFormData(INITIAL_FORM);
-      }}
-    >
+    <CustomModal isCloseModal={() => {
+      setOpenModel(false);
+      setFormData(INITIAL_FORM);
+      setSelectedRoles([]);
+    }}>
       <h2 className="text-lg font-bold text-[#1a2b4b] mb-6 uppercase tracking-tight">Create New User</h2>
       <form onSubmit={handleCreateSubmit} className="space-y-4">
         {["name", "email", "password"].map((field) => (
@@ -49,16 +93,29 @@ const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRo
           </div>
         ))}
 
-        {/* Role Dropdown from your first code */}
+        {/* Role Dropdown */}
         <div className="relative" ref={dropdownRef}>
           <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Assign Roles</label>
           <button
             type="button"
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-left text-sm flex justify-between items-center"
+            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-left text-sm flex justify-between items-center min-h-[42px]"
           >
-            <span className={formData.role.length ? "text-gray-900" : "text-gray-400"}>
-              {formData.role.length ? `${formData.role.length} Roles Selected` : "Select Roles"}
+            <span className={formData.role?.length ? "text-gray-900" : "text-gray-400"}>
+              {selectedRoles?.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {selectedRoles.map((roleName, index) => (
+                    <span
+                      key={index}
+                      className="inline-block bg-cyan-500 text-white text-sm px-3 py-1 rounded-full"
+                    >
+                      {roleName}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                "Select Roles"
+              )}
             </span>
             <ChevronDown size={16} />
           </button>
@@ -79,11 +136,11 @@ const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRo
                 />
                 <div className="max-h-40 overflow-y-auto">
                   {roles
-                    .filter((r) => r.name.toLowerCase().includes(roleSearch.toLowerCase()))
+                    .filter((r) => r.name !== "Superadmin" && r.name.toLowerCase().includes(roleSearch.toLowerCase()))
                     .map((role) => (
                       <div
                         key={role.id}
-                        onClick={() => toggleRole(role.id)}
+                        onClick={() => toggleRole(role)}
                         className="flex items-center justify-between p-2 hover:bg-blue-50 rounded-lg cursor-pointer"
                       >
                         <span className="text-xs font-bold text-gray-700">{role.name}</span>
@@ -96,7 +153,10 @@ const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRo
           </AnimatePresence>
         </div>
 
-        <button type="submit" className="w-full py-3 bg-[#1a2b4b] text-white rounded-xl font-bold uppercase text-xs tracking-widest mt-4">
+        <button
+          type="submit"
+          className="w-full py-3 bg-[#1a2b4b] text-white rounded-xl font-bold uppercase text-xs tracking-widest mt-4"
+        >
           Create User
         </button>
       </form>

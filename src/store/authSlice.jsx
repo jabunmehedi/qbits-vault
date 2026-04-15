@@ -3,7 +3,9 @@ import axiosConfig from "../utils/axiosConfig";
 
 export const fetchUserPermissions = createAsyncThunk("auth/fetchPermissions", async (_, { rejectWithValue }) => {
   try {
-    const res = await axiosConfig.get("/user");
+    const userId = localStorage.getItem('auth') ? JSON.parse(localStorage.getItem('auth')).user.id : null;
+
+    const res = await axiosConfig.get(`/users/${userId}`);
     return {
       roles: res.data.roles || [],
       permissions: res.data || [],

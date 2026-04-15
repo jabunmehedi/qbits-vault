@@ -50,7 +50,6 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
     }
   };
 
-
   return (
     <div className={`relative ${className} flex flex-col backdrop-blur-xl rounded-2xl overflow-hidden`}>
       {/* <div className="p-6 border-b border-white/10 bg-white shrink-0">
@@ -74,11 +73,11 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
         <div className="h-full overflow-y-auto scrollbar-custom relative">
           <table className="w-full table-fixed border-collapse">
             <thead>
-              <tr className="  text-gray-800 border-b border-white/10">
+              <tr className=" text-gray-800 border-b border-white/10">
                 {columns.map((column, index) => (
                   <th
                     key={index}
-                    className={`px-6 py-3 text-left text-xs font-semibold text-gray-800 sticky top-0 z-20 bg-gray-100 ${column?.className}`}
+                    className={`px-6 py-3  text-xs font-semibold text-gray-800 sticky top-0 z-20 bg-gray-50 ${column?.className}`}
                     onClick={() => (column.iconClickAction ? column.iconClickAction() : null)}
                   >
                     <div>
