@@ -7,7 +7,7 @@ import { RiVerifiedBadgeFill } from "react-icons/ri";
 import { GetVaults, ToggleVaultAccess, UpdateVaultRoles } from "../../services/Vault";
 import { FaCheckCircle } from "react-icons/fa";
 
-const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
+const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [vaultList, setVaultList] = useState([]);
@@ -33,11 +33,8 @@ const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
     });
   }, [userId]);
 
-  // Fetch user when drawer opens or userId changes
   useEffect(() => {
-    // if (!isOpen || !userId) return;
-
-    const fetchData = async () => {
+    const fetchUserData = async () => {
       setLoading(true);
       try {
         const res = await GetUser(userId);
@@ -45,10 +42,8 @@ const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
         setUser(userData);
 
         const assignments = userData?.vault_assignments || userData?.vaultAssignments || [];
-        console.log({ userData });
         setUserAssignments(assignments);
 
-        // Set first vault as active by default
         if (assignments.length > 0) {
           const first = assignments[assignments.length - 1];
           setActiveVaultId(first.vault_id);
@@ -61,22 +56,18 @@ const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
       }
     };
 
-    fetchData();
+    fetchUserData();
   }, [isOpen, userId]);
 
-  // Get current active assignment
   const activeAssignment = userAssignments.find((a) => a.vault_id === activeVaultId);
 
   const toggleVaultAccess = async (vaultId) => {
     try {
       await ToggleVaultAccess(userId, vaultId);
-
-      // Refresh assignments after toggle
       const res = await GetUser(userId);
       const updatedAssignments = res?.data?.data?.vault_assignments || res?.data?.vaultAssignments || [];
       setUserAssignments(updatedAssignments);
 
-      // If we deactivated the active vault, clear it
       const stillActive = updatedAssignments.find((a) => a.vault_id === vaultId && (a.status === "active" || a.status === 1));
       if (!stillActive && activeVaultId === vaultId) {
         setActiveVaultId(null);
@@ -89,16 +80,14 @@ const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
 
   const toggleRole = async (role) => {
     if (!activeVaultId) return;
-
-    // Force both sides to Number to avoid "1" !== 1
     const isCurrentlyEnabled = activeRoles.map(Number).includes(Number(role.id));
-
     const newRoles = isCurrentlyEnabled ? activeRoles.filter((id) => Number(id) !== Number(role.id)) : [...activeRoles, role.id];
 
     try {
       await UpdateVaultRoles(userId, activeVaultId, newRoles);
       setActiveRoles(newRoles.map(Number));
       setUserAssignments((prev) => prev.map((assign) => (assign.vault_id === activeVaultId ? { ...assign, roles: newRoles } : assign)));
+      refetch();
     } catch (error) {
       console.error("Role toggle failed:", error);
     }
@@ -112,7 +101,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
         ...prev,
         status: prev.status === "inactive" ? "active" : "inactive",
       }));
-      fetchData();
+      refetch();
     } catch (err) {
       console.error(err);
     } finally {
@@ -125,7 +114,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
     try {
       await ArchiveUser(userId);
       setUser((prev) => ({ ...prev, status: "archived" }));
-      fetchData();
+      refetch();
     } catch (err) {
       console.error(err);
     } finally {
@@ -145,16 +134,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
     }
   };
 
-  // useEffect(() => {
-  //   const rol = user?.roles?.some((role) => role.name == "Superadmin");
-  //   console.log({ rol });
-  // }, [user]);
-
   const assignedVaults = vaultList.filter((vault) => userAssignments.some((a) => a.vault_id === vault.id && (a.status === "active" || a.status === 1)));
-
-  if (!isOpen) return null;
-
-  console.log({ user });
 
   return (
     <AnimatePresence>
@@ -165,6 +145,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.55, ease: "easeInOut" }}
             onClick={onClose}
             className="fixed inset-0 bg-black/40 backdrop-blur-xs z-[60]"
           />
@@ -174,7 +155,16 @@ const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 280 }}
+            // ✅ FIX: Replaced high-stiffness spring (stiffness: 280) with a
+            // gentler one. High stiffness causes overshoot → the visible
+            // "shake/bounce" on open. Lower stiffness + higher damping = smooth
+            // glide with no wobble.
+            transition={{
+              type: "spring",
+              damping: 30, // was 25 — higher = less oscillation
+              stiffness: 220, // was 280 — lower = no overshoot shake
+              mass: 0.8, // lighter feel, snappier without bouncing
+            }}
             className="fixed right-0 top-0 h-full w-[40%] bg-white z-[70] shadow-2xl overflow-hidden flex flex-col"
           >
             {/* Header */}
@@ -202,25 +192,22 @@ const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
 
             {/* Main Content */}
             {!loading && user && (
-              <div className="flex-1 overflow-y-auto  space-y-8">
-                <div className="flex items-center p-6  justify-between">
+              <div className="flex-1 overflow-y-auto space-y-8">
+                <div className="flex items-center p-6 justify-between">
                   <div className="flex items-center gap-4">
                     <Avatar src={user?.img} name={user?.name} size="lg" />
-
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <h3 className="text-2xl font-bold text-[#1a2b4b]">{user?.name}</h3>
-                        <RiVerifiedBadgeFill className="w-6 h-6  text-blue-500" />
+                        <RiVerifiedBadgeFill className="w-6 h-6 text-blue-500" />
                       </div>
-                      {/* <p className="text-blue-600 font-bold uppercase tracking-widest text-sm">{user?.name}</p> */}
                       <p className="text-gray-600 mt-1">{user?.email}</p>
                       <p className="text-gray-600">{user?.phone}</p>
                     </div>
                   </div>
 
-                  <div className="flex flex-col justify-center items-center gap-2">
-                    {/* Action Buttons */}
-                    <div className="flex justify-between items-center gap-2">
+                  <div className="flex flex-col  gap-2">
+                    <div className="flex justify-end items-center gap-2">
                       <button className="flex items-center justify-center gap-2 text-black bg-white border border-gray-300 hover:border-gray-400 py-1 px-3 rounded-lg text-sm font-semibold transition">
                         <Download size={14} /> ID
                       </button>
@@ -231,20 +218,38 @@ const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
                       >
                         {actionLoading === "reset" ? "Sending..." : "Reset Pass"}
                       </button>
-                      <button className="flex items-center justify-center gap-2 bg-indigo-500 border border-gray-300 hover:border-gray-400 py-2 px-3 rounded-lg text-xs font-semibold transition">
-                        Edit Profile
-                      </button>
-                      <button className="flex items-center justify-center gap-2 bg-indigo-500 border border-gray-300 hover:border-gray-400 py-2 px-3 rounded-lg text-xs font-semibold transition">
-                        <MapPin size={16} className="text-white" />
-                      </button>
+               
+                      {/* Address Tooltip Container */}
+                      <div className="relative group">
+                        <button className="flex items-center justify-center gap-2 bg-indigo-500 border border-gray-300 hover:border-gray-400 py-2 px-3 rounded-lg text-xs font-semibold transition cursor-help">
+                          <MapPin size={16} className="text-white" />
+                        </button>
+
+                        {/* Tooltip Card - Positioned TOP-FULL (appears below) */}
+                        <div className="absolute top-full right-0 mt-2 w-64 p-4 bg-white border border-gray-200 rounded-xl shadow-xl opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 z-[80] origin-top-right">
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Current Address</p>
+                              <p className="text-xs text-gray-700 mt-0.5 leading-relaxed">{user?.current_address || "No current address provided"}</p>
+                            </div>
+                            <div className="pt-2 border-t border-gray-100">
+                              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Permanent Address</p>
+                              <p className="text-xs text-gray-700 mt-0.5 leading-relaxed">{user?.permanent_address || "No permanent address provided"}</p>
+                            </div>
+                          </div>
+
+                          {/* Tooltip Arrow - Points Up */}
+                          <div className="absolute -top-1 right-4 w-2 h-2 bg-white border-t border-l border-gray-200 rotate-45"></div>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex items-center w-full text-xs gap-3">
                       <button
                         onClick={handleDisableUser}
                         disabled={actionLoading === "disable" || isSuperAdmin}
-                        className={`flex-1 text-white px-3 py-2 rounded-lg font-bold transition disabled:opacity-20 disabled:bg-gray-500 ${
-                          user?.status === "inactive" ? "bg-green-600 hover:bg-green-700" : "bg-red-700 hover:bg-red-800"
+                        className={` text-white px-3 py-2 rounded-lg font-bold transition disabled:opacity-20 disabled:bg-gray-500 ${
+                          user?.status === "inactive" ? "bg-green-600 hover:bg-green-700" : "bg-[#AE2448] hover:bg-red-800"
                         }`}
                       >
                         {actionLoading === "disable" ? "..." : user?.status === "inactive" ? "ENABLE USER" : "DISABLE USER"}
@@ -252,8 +257,8 @@ const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
                       <button
                         onClick={handleArchiveUser}
                         disabled={actionLoading === "archive" || user?.status === "archived"}
-                        className={`flex-1 text-white px-3 py-2 rounded-lg font-bold transition disabled:opacity-50 ${
-                          user?.status === "archived" ? "bg-gray-400" : "bg-red-700 hover:bg-red-800"
+                        className={` text-white px-3 py-2 rounded-lg font-bold transition disabled:opacity-50 ${
+                          user?.status === "archived" ? "bg-gray-400" : "bg-[#AE2448] hover:bg-red-800"
                         }`}
                       >
                         {actionLoading === "archive" ? "..." : user?.status === "archived" ? "ARCHIVED" : "ARCHIVE USER"}
@@ -261,22 +266,20 @@ const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
                     </div>
                   </div>
                 </div>
-                {/* User Info */}
 
                 {/* Network Access Control */}
                 <div className="grid grid-cols-3 p-6 bg-[#F6F7F9] rounded-lg gap-6">
                   <div>
-                    <div className="mb-6 ">
+                    <div className="mb-6">
                       <h4 className="text-blue-600 font-bold uppercase text-xs mb-4">NETWORK ACCESS CONTROL</h4>
-                      <div className="bg-white border border-gray-200  py-3 rounded-2xl">
+                      <div className="bg-white border border-gray-200 py-3 rounded-2xl">
                         {vaultList.map((vault) => {
                           const assignment = userAssignments.find((a) => a.vault_id === vault.id);
                           const isActive = assignment && (assignment.status === "active" || assignment.status === 1);
-
                           return (
                             <div
                               key={vault.id}
-                              className=" text-sm text-black border-gray-100 rounded-3xl px-5 py-2.5 flex items-center justify-between hover:shadow-sm transition"
+                              className="text-sm text-black border-gray-100 rounded-3xl px-5 py-2.5 flex items-center justify-between hover:shadow-sm transition"
                             >
                               <div className="flex items-center text-xs gap-3">
                                 <div className="p-2 bg-gray-100 rounded-xl">🔒</div>
@@ -293,8 +296,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
                     </div>
                     <div>
                       <h4 className="text-blue-600 font-bold uppercase text-xs mb-4">Switch Vault View</h4>
-                      <div className="bg-white border border-gray-200  py-3 rounded-2xl">
-                        {/* Main HQ Vault */}
+                      <div className="bg-white border border-gray-200 py-3 rounded-2xl">
                         {assignedVaults.length > 0 ? (
                           assignedVaults.map((vault) => (
                             <div
@@ -304,17 +306,16 @@ const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
                                 const assignment = userAssignments.find((a) => a.vault_id === vault.id);
                                 setActiveRoles(assignment?.roles || []);
                               }}
-                              className={`rounded-3xl text-xs px-5 py-2.5 flex items-center justify-between cursor-pointer transition-all `}
+                              className="rounded-3xl text-xs px-5 py-2.5 flex items-center justify-between cursor-pointer transition-all"
                             >
                               <div
                                 className={`flex items-center gap-3 w-full rounded-2xl ${
-                                  activeVaultId === vault.id ? "border-blue-600  !bg-black text-white" : "border-gray-100 text-gray-600"
+                                  activeVaultId === vault.id ? "border-blue-600 !bg-black text-white" : "border-gray-100 text-gray-600"
                                 }`}
                               >
                                 <div className="p-2 bg-gray-100 rounded-xl">🔒</div>
-                                <p className="font-semibold ">{vault.name}</p>
+                                <p className="font-semibold">{vault.name}</p>
                               </div>
-                              {activeVaultId === vault.id && <div className="text-blue-600 font-bold"></div>}
                             </div>
                           ))
                         ) : (
@@ -324,16 +325,14 @@ const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
                     </div>
                   </div>
 
-                  {/* Capability Matrix */}
                   {activeVaultId && (
                     <div className="col-span-2">
                       <h4 className="text-blue-600 font-bold uppercase text-xs mb-4">
                         CAPABILITY MATRIX: <span className="text-gray-500">{vaultList.find((v) => v.id === activeVaultId)?.name}</span>
                       </h4>
                       <div className="grid grid-cols-2 text-black gap-3">
-                        {rolesList?.map((role, index) => {
+                        {rolesList?.map((role) => {
                           const isEnabled = activeRoles.includes(role.id);
-
                           return (
                             <div
                               key={role.id}

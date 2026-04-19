@@ -33,7 +33,6 @@ const User = () => {
   // ── Permissions from Redux ──
   const userPermissions = useSelector((state) => state?.auth?.permissions?.data?.data?.permissions || []);
 
-  console.log({ userPermissions });
 
   const hasPermission = useCallback(
     (permName) => {
@@ -218,7 +217,7 @@ const User = () => {
         <DataTable columns={columns} data={filteredUsers} isLoading={isLoading} className="matrix-table" />
       </div>
 
-      <UserViewDrawer isOpen={openUserViewDrawer} onClose={() => setOpenUserViewDrawer(false)} userId={selectedUserId} fetchData={fetchData} />
+      <UserViewDrawer isOpen={openUserViewDrawer} onClose={() => setOpenUserViewDrawer(false)} userId={selectedUserId} refetch={fetchData} />
 
       {openModel && <CreateNewUserModal setOpenModel={setOpenModel} fetchUsers={fetchData} roles={roles} />}
 
