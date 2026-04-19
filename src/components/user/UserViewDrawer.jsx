@@ -31,11 +31,11 @@ const UserViewDrawer = ({ isOpen, onClose, userId, fetchData }) => {
       const roles = res?.data || [];
       setRolesList(roles);
     });
-  }, []);
+  }, [userId]);
 
   // Fetch user when drawer opens or userId changes
   useEffect(() => {
-    if (!isOpen || !userId) return;
+    // if (!isOpen || !userId) return;
 
     const fetchData = async () => {
       setLoading(true);
