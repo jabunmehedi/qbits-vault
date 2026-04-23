@@ -35,6 +35,9 @@ const Login = () => {
           access_token: res?.data?.access_token,
           user: res?.data?.user,
         };
+
+        sessionStorage.removeItem("kyc_modal_shown");
+        
         dispatch(login(auth));
         localStorage.setItem("auth", JSON.stringify(auth));
         navigate("/");

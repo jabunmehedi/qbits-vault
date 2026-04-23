@@ -1,13 +1,12 @@
 // Dashboard.jsx
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import {
-  FiTrendingUp,
-  FiTrendingDown,
-} from "react-icons/fi";
+import { FiTrendingUp, FiTrendingDown } from "react-icons/fi";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { GetDashboardReports } from "../../../services/Dashboard";
-
+import { useSelector } from "react-redux";
+import { selectAuthUser } from "../../../store/authSlice";
+import KYCReminderModal from "../../kycModal/KYCReminderModal";
 
 const chartData = [
   { name: "Jan", value: 24000 },
@@ -22,6 +21,9 @@ const chartData = [
 export default function Dashboard() {
   // const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState({});
+  const [showKYCModal, setShowKYCModal] = useState(false);
+
+  const authUser = useSelector(selectAuthUser);
 
   useEffect(() => {
     GetDashboardReports().then((res) => {
@@ -29,9 +31,26 @@ export default function Dashboard() {
     });
   }, []);
 
+  useEffect(() => {
+    const hasSeenModal = sessionStorage.getItem("kyc_modal_shown");
+
+    // Show if: User exists AND KYC is null AND they haven't seen it THIS session
+    if (authUser && authUser.kyc_verified_at === null && !hasSeenModal) {
+      setShowKYCModal(true);
+    }
+  }, [authUser]);
+
+  const handleCloseModal = () => {
+    setShowKYCModal(false);
+    // Set flag so it doesn't show again until next login/session
+    sessionStorage.setItem("kyc_modal_shown", "true");
+  };
+
   return (
     <div className=" h-screen">
       {/* Mobile Sidebar Overlay */}
+
+      <KYCReminderModal isOpen={showKYCModal} onClose={handleCloseModal} />
 
       {/* Main Content */}
       <div className=" w-full!  p-4 ">
