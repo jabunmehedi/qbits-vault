@@ -10,6 +10,8 @@ import CreateNewUserModal from "../../components/user/CreateNewUserModal";
 import RoleDrawer from "../../components/user/RoleDrawer";
 import Avatar from "../../components/helpers/Avatar";
 import UserViewDrawer from "../../components/user/UserViewDrawer";
+import { useQuery } from "@tanstack/react-query";
+import { usePermissions } from "../../hooks/usePermissions";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const SUPERADMIN_NAMES = ["Superadmin", "Super Admin", "superadmin", "super_admin"];
@@ -18,34 +20,44 @@ const SUPERADMIN_NAMES = ["Superadmin", "Super Admin", "superadmin", "super_admi
 const User = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [roleDrawerOpen, setRoleDrawerOpen] = useState(false);
-
-  // ── Data state ──
-  const [roles, setRoles] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [permissions, setPermissions] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-
   const [openModel, setOpenModel] = useState(false);
   const [openUserViewDrawer, setOpenUserViewDrawer] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  // ── Permissions from Redux ──
-  const userPermissions = useSelector((state) => state?.auth?.permissions?.data?.data?.permissions || []);
-
-
-  const hasPermission = useCallback(
-    (permName) => {
-      if (!permName || !Array.isArray(userPermissions)) return false;
-
-      return userPermissions.some((permission) => permission.name === permName);
-    },
-    [userPermissions],
-  );
+  const { hasPermission } = usePermissions();
 
   // ── Filter Users (Superadmin Logic) ──
   const loggedUser = localStorage.getItem("auth") ? JSON.parse(localStorage.getItem("auth")).user : null;
   const isSuperAdmin = loggedUser?.roles?.some((role) => SUPERADMIN_NAMES.includes(role.name));
+
+  // ── 2. Use React Query for Users ──
+  const { data: users = [], isLoading: isUsersLoading } = useQuery({
+    queryKey: ["users"],
+    queryFn: async () => {
+      const res = await GetUsers();
+      return res?.data?.data || [];
+    },
+  });
+
+  // ── 3. Use React Query for Roles ──
+  const { data: roles = [] } = useQuery({
+    queryKey: ["roles"],
+    queryFn: async () => {
+      const res = await GetRoles();
+      return res?.data || [];
+    },
+  });
+
+  // ── 4. Use React Query for Permissions ──
+  const { data: permissions = [] } = useQuery({
+    queryKey: ["permissions"],
+    queryFn: async () => {
+      const res = await axiosConfig.get("/permissions");
+      return res.data.data || res.data || [];
+    },
+  });
 
   const filteredUsers = useMemo(() => {
     if (!loggedUser) return users;
@@ -56,23 +68,23 @@ const User = () => {
   }, [users, loggedUser]);
 
   // ── Fetch Data ──
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const [uRes, rRes, pRes] = await Promise.all([GetUsers(), GetRoles(), axiosConfig.get("/permissions")]);
-      setUsers(uRes?.data?.data || []);
-      setRoles(rRes?.data || []);
-      setPermissions(pRes.data.data || pRes.data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  // const fetchData = useCallback(async () => {
+  //   setIsLoading(true);
+  //   try {
+  //     const [uRes, rRes, pRes] = await Promise.all([GetUsers(), GetRoles(), axiosConfig.get("/permissions")]);
+  //     setUsers(uRes?.data?.data || []);
+  //     setRoles(rRes?.data || []);
+  //     setPermissions(pRes.data.data || pRes.data || []);
+  //   } catch (err) {
+  //     console.error(err);
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // useEffect(() => {
+  //   fetchData();
+  // }, [fetchData]);
 
   const columns = useMemo(() => {
     const baseColumns = [
@@ -177,14 +189,14 @@ const User = () => {
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-10 bg-[#1a2b4b] rounded-full"></div>
           <div>
-            <h1 className="text-2xl font-black text-[#1a2b4b] uppercase">User List</h1>
-            <p className="text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase">User Management</p>
+            <h1 className="xl:text-2xl font-black text-[#1a2b4b] uppercase">User List</h1>
+            <p className="text-[8px] xl:text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase">User Management</p>
           </div>
         </div>
         <div className="flex gap-4">
           <button
             onClick={() => setRoleDrawerOpen(true)}
-            className="flex items-center gap-2 px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 font-bold text-sm shadow-sm hover:shadow-md transition-all"
+            className="flex items-center gap-2 px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 font-bold text-xs lg:text-sm shadow-sm hover:shadow-md transition-all"
           >
             <Shield className="w-4 h-4" /> Create Role
           </button>
@@ -217,16 +229,16 @@ const User = () => {
         <DataTable columns={columns} data={filteredUsers} isLoading={isLoading} className="matrix-table" />
       </div>
 
-      <UserViewDrawer isOpen={openUserViewDrawer} onClose={() => setOpenUserViewDrawer(false)} userId={selectedUserId} refetch={fetchData} />
+      <UserViewDrawer isOpen={openUserViewDrawer} onClose={() => setOpenUserViewDrawer(false)} userId={selectedUserId} />
 
-      {openModel && <CreateNewUserModal setOpenModel={setOpenModel} fetchUsers={fetchData} roles={roles} />}
+      {openModel && <CreateNewUserModal setOpenModel={setOpenModel} roles={roles} />}
 
       {roleDrawerOpen && (
         <RoleDrawer
           isOpen={roleDrawerOpen}
           onClose={() => setRoleDrawerOpen(false)}
           rolesList={roles}
-          refetchRoles={() => GetRoles().then((res) => setRoles(res?.data || []))}
+          // refetchRoles={() => GetRoles().then((res) => setRoles(res?.data || []))}
         />
       )}
 

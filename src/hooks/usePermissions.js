@@ -1,41 +1,45 @@
-// src/hooks/usePermissions.js
 import { useSelector, useDispatch } from "react-redux";
 import { useToast } from "./useToast";
-import { fetchUserPermissions } from "../store/authSlice";
-import { useCallback } from "react";
+import { fetchUserPermissions, selectIsSuperAdmin } from "../store/authSlice";
+import { useCallback, useMemo } from "react";
 
 export const usePermissions = () => {
   const dispatch = useDispatch();
   const { addToast } = useToast();
 
-  // Always read fresh state from Redux
   const authState = useSelector((state) => state.auth);
-  const { user, roles, permissions, loading, error, isHydrated } = authState;
+  const { user, roles, permissions, loading, error } = authState;
 
+  // Check for Super Admin status once based on roles
+  const isSuperAdmin = useMemo(() => {
+    return roles.some((name) => 
+      ["Super Admin", "superadmin", "super_admin"].includes(name)
+    );
+  }, [roles]);
 
-
-  // These functions read fresh permissions EVERY time they are called
   const hasPermission = useCallback(
     (perm) => {
-      const result = Array.isArray(permissions) && permissions.includes(perm);
-      return result;
+      // 1. Super Admin always has permission
+      if (isSuperAdmin) return true;
+      
+      // 2. Regular check
+      return Array.isArray(permissions) && permissions.includes(perm);
     },
-    [permissions]
+    [permissions, isSuperAdmin]
   );
 
   const hasAnyPermission = useCallback(
     (permArray) => {
-      const result = Array.isArray(permArray) && permArray.some((p) => hasPermission(p));
-
-      return result;
+      if (isSuperAdmin) return true;
+      
+      return Array.isArray(permArray) && permArray.some((p) => hasPermission(p));
     },
-    [permissions, hasPermission]
+    [hasPermission, isSuperAdmin]
   );
 
   const hasRole = useCallback(
-    (role) => {
-      const result = Array.isArray(roles) && roles.includes(role);
-      return result;
+    (roleName) => {
+      return Array.isArray(roles) && roles.includes(roleName);
     },
     [roles]
   );
@@ -43,9 +47,9 @@ export const usePermissions = () => {
   const refreshPermissions = useCallback(async () => {
     try {
       await dispatch(fetchUserPermissions()).unwrap();
-      addToast({ type: "success", message: "Permissions refreshed!" });
+      // Optional: addToast({ type: "success", message: "Permissions synced" });
     } catch (err) {
-      addToast({ type: "error", message: "Failed to refresh permissions" });
+      addToast({ type: "error", message: "Failed to sync permissions" });
     }
   }, [dispatch, addToast]);
 
@@ -55,6 +59,7 @@ export const usePermissions = () => {
     permissions,
     loading,
     error,
+    isSuperAdmin, // Export this so you can use it for specific UI badges
     hasPermission,
     hasAnyPermission,
     hasRole,

@@ -1,13 +1,18 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Download, MapPin, Shield, X } from "lucide-react";
+import { Download, Loader2, MapPin, Shield, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ArchiveUser, DisableUser, GetRoles, GetUser, ResetUserPassword } from "../../services/User";
 import Avatar from "../helpers/Avatar";
 import { RiVerifiedBadgeFill } from "react-icons/ri";
 import { GetVaults, ToggleVaultAccess, UpdateVaultRoles } from "../../services/Vault";
 import { FaCheckCircle } from "react-icons/fa";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
+import axiosConfig from "../../utils/axiosConfig";
+
+const baseStorageUrl = import.meta.env.VITE_REACT_APP_STORAGE_URL;
 
 const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [vaultList, setVaultList] = useState([]);
@@ -16,15 +21,74 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
   const [userAssignments, setUserAssignments] = useState([]);
   const [rolesList, setRolesList] = useState([]);
   const [actionLoading, setActionLoading] = useState(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
-  const isSuperAdmin = user?.roles?.some((role) => role.name == "Superadmin");
+  const handleDownloadId = async () => {
+    setIsDownloading(true);
+    try {
+      const response = await axiosConfig.get(`/users/${userId}/download-id`, {
+        responseType: "blob", // ✅ tells axios to return binary data
+      });
 
-  useEffect(() => {
-    GetVaults().then((res) => {
-      const vaults = res?.data || [];
-      setVaultList(vaults);
-    });
-  }, []);
+      const url = window.URL.createObjectURL(response.data); // ✅ response.data, not response.blob()
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${user?.name}_Identity_Report.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Download failed:", err);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const isSuperAdmin = user?.roles?.some((role) => role.name == "super-admin");
+
+  // ── 2. Optimized Mutation for Role Toggling ──
+  const roleMutation = useMutation({
+    mutationFn: ({ uid, vid, roles }) => UpdateVaultRoles(uid, vid, roles),
+    onSuccess: (data, variables) => {
+      // Find the actual role objects from our list to keep the UI consistent
+      const newlySelectedRoles = rolesList.filter((r) => variables.roles.includes(r.id));
+
+      queryClient.setQueryData(["users"], (oldUsers) => {
+        if (!oldUsers) return [];
+        return oldUsers.map((u) => (u.id === userId ? { ...u, roles: newlySelectedRoles } : u));
+      });
+    },
+  });
+
+  // ── 3. Optimized Mutation for Status (Disable/Enable) ──
+  const statusMutation = useMutation({
+    mutationFn: (uid) => DisableUser(uid),
+    onSuccess: () => {
+      const toggleStatus = (s) => (s === "inactive" ? "active" : "inactive");
+
+      // Update Table Cache
+      queryClient.setQueryData(["users"], (oldUsers) => {
+        if (!oldUsers) return [];
+        return oldUsers.map((u) => (u.id === userId ? { ...u, status: toggleStatus(u.status) } : u));
+      });
+
+      // Update Local Drawer State
+      setUser((prev) => ({ ...prev, status: toggleStatus(prev.status) }));
+    },
+  });
+
+  // ── 4. Optimized Mutation for Archiving ──
+  const archiveMutation = useMutation({
+    mutationFn: (uid) => ArchiveUser(uid),
+    onSuccess: () => {
+      queryClient.setQueryData(["users"], (oldUsers) => {
+        if (!oldUsers) return [];
+        return oldUsers.filter((u) => u.id !== userId); // Remove from list instantly
+      });
+      onClose();
+    },
+  });
 
   useEffect(() => {
     GetRoles().then((res) => {
@@ -34,30 +98,60 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
   }, [userId]);
 
   useEffect(() => {
-    const fetchUserData = async () => {
+    if (!isOpen || !userId) return;
+
+    const initData = async () => {
       setLoading(true);
       try {
-        const res = await GetUser(userId);
-        const userData = res?.data?.data || res?.data;
+        const [vRes, rRes, uRes] = await Promise.all([GetVaults(), GetRoles(), GetUser(userId)]);
+        setVaultList(vRes?.data || []);
+        setRolesList(rRes?.data || []);
+
+        const userData = uRes?.data?.data || uRes?.data;
         setUser(userData);
 
-        const assignments = userData?.vault_assignments || userData?.vaultAssignments || [];
+        const assignments = userData?.vault_assignments || [];
         setUserAssignments(assignments);
 
-        if (assignments.length > 0) {
-          const first = assignments[assignments.length - 1];
-          setActiveVaultId(first.vault_id);
-          setActiveRoles((first.roles || []).map(Number));
+        const activeItem = assignments.find((a) => a.status === 1 || a.status === "active");
+        if (activeItem) {
+          setActiveVaultId(activeItem.vault_id);
+          setActiveRoles((activeItem.roles || []).map(Number));
         }
       } catch (err) {
-        console.error("Failed to fetch user details:", err);
+        console.error("Fetch Error:", err);
       } finally {
         setLoading(false);
       }
     };
-
-    fetchUserData();
+    initData();
   }, [isOpen, userId]);
+
+  // useEffect(() => {
+  //   const fetchUserData = async () => {
+  //     setLoading(true);
+  //     try {
+  //       const res = await GetUser(userId);
+  //       const userData = res?.data?.data || res?.data;
+  //       setUser(userData);
+
+  //       const assignments = userData?.vault_assignments || userData?.vaultAssignments || [];
+  //       setUserAssignments(assignments);
+
+  //       if (assignments.length > 0) {
+  //         const first = assignments[assignments.length - 1];
+  //         setActiveVaultId(first.vault_id);
+  //         setActiveRoles((first.roles || []).map(Number));
+  //       }
+  //     } catch (err) {
+  //       console.error("Failed to fetch user details:", err);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+
+  //   fetchUserData();
+  // }, [isOpen, userId]);
 
   const activeAssignment = userAssignments.find((a) => a.vault_id === activeVaultId);
 
@@ -78,49 +172,61 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
     }
   };
 
-  const toggleRole = async (role) => {
+  // const toggleRole = async (role) => {
+  //   if (!activeVaultId) return;
+  //   const isCurrentlyEnabled = activeRoles.map(Number).includes(Number(role.id));
+  //   const newRoles = isCurrentlyEnabled ? activeRoles.filter((id) => Number(id) !== Number(role.id)) : [...activeRoles, role.id];
+
+  //   try {
+  //     await UpdateVaultRoles(userId, activeVaultId, newRoles);
+  //     setActiveRoles(newRoles.map(Number));
+  //     setUserAssignments((prev) => prev.map((assign) => (assign.vault_id === activeVaultId ? { ...assign, roles: newRoles } : assign)));
+  //     refetch();
+  //   } catch (error) {
+  //     console.error("Role toggle failed:", error);
+  //   }
+  // };
+  const toggleRole = (role) => {
     if (!activeVaultId) return;
-    const isCurrentlyEnabled = activeRoles.map(Number).includes(Number(role.id));
-    const newRoles = isCurrentlyEnabled ? activeRoles.filter((id) => Number(id) !== Number(role.id)) : [...activeRoles, role.id];
+    const isCurrentlyEnabled = activeRoles.includes(Number(role.id));
+    const newRoles = isCurrentlyEnabled ? activeRoles.filter((id) => id !== Number(role.id)) : [...activeRoles, role.id];
 
-    try {
-      await UpdateVaultRoles(userId, activeVaultId, newRoles);
-      setActiveRoles(newRoles.map(Number));
-      setUserAssignments((prev) => prev.map((assign) => (assign.vault_id === activeVaultId ? { ...assign, roles: newRoles } : assign)));
-      refetch();
-    } catch (error) {
-      console.error("Role toggle failed:", error);
-    }
+    // Trigger optimized mutation
+    roleMutation.mutate({ uid: userId, vid: activeVaultId, roles: newRoles });
+    setActiveRoles(newRoles.map(Number));
   };
 
-  const handleDisableUser = async () => {
-    setActionLoading("disable");
-    try {
-      await DisableUser(userId);
-      setUser((prev) => ({
-        ...prev,
-        status: prev.status === "inactive" ? "active" : "inactive",
-      }));
-      refetch();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  const handleDisableUser = () => statusMutation.mutate(userId);
+  const handleArchiveUser = () => archiveMutation.mutate(userId);
 
-  const handleArchiveUser = async () => {
-    setActionLoading("archive");
-    try {
-      await ArchiveUser(userId);
-      setUser((prev) => ({ ...prev, status: "archived" }));
-      refetch();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  // const handleDisableUser = async () => {
+  //   setActionLoading("disable");
+  //   try {
+  //     await DisableUser(userId);
+  //     setUser((prev) => ({
+  //       ...prev,
+  //       status: prev.status === "inactive" ? "active" : "inactive",
+  //     }));
+  //     refetch();
+  //   } catch (err) {
+  //     console.error(err);
+  //   } finally {
+  //     setActionLoading(null);
+  //   }
+  // };
+
+  // const handleArchiveUser = async () => {
+  //   setActionLoading("archive");
+  //   try {
+  //     await ArchiveUser(userId);
+  //     setUser((prev) => ({ ...prev, status: "archived" }));
+  //     refetch();
+  //   } catch (err) {
+  //     console.error(err);
+  //   } finally {
+  //     setActionLoading(null);
+  //   }
+  // };
 
   const handleResetPassword = async () => {
     setActionLoading("reset");
@@ -135,6 +241,8 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
   };
 
   const assignedVaults = vaultList.filter((vault) => userAssignments.some((a) => a.vault_id === vault.id && (a.status === "active" || a.status === 1)));
+
+  console.log({ user });
 
   return (
     <AnimatePresence>
@@ -155,15 +263,11 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
-            // ✅ FIX: Replaced high-stiffness spring (stiffness: 280) with a
-            // gentler one. High stiffness causes overshoot → the visible
-            // "shake/bounce" on open. Lower stiffness + higher damping = smooth
-            // glide with no wobble.
             transition={{
               type: "spring",
-              damping: 30, // was 25 — higher = less oscillation
-              stiffness: 220, // was 280 — lower = no overshoot shake
-              mass: 0.8, // lighter feel, snappier without bouncing
+              damping: 30,
+              stiffness: 220,
+              mass: 0.8,
             }}
             className="fixed right-0 top-0 h-full w-[40%] bg-white z-[70] shadow-2xl overflow-hidden flex flex-col"
           >
@@ -195,22 +299,28 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
               <div className="flex-1 overflow-y-auto space-y-8">
                 <div className="flex items-center p-6 justify-between">
                   <div className="flex items-center gap-4">
-                    <Avatar src={user?.img} name={user?.name} size="lg" />
+                    <Avatar src={user?.img} name={user?.name} size="xl" />
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center mb-2 gap-2">
                         <h3 className="text-2xl font-bold text-[#1a2b4b]">{user?.name}</h3>
-                        <RiVerifiedBadgeFill className="w-6 h-6 text-blue-500" />
+                        <RiVerifiedBadgeFill className={`w-6 h-6 ${user?.verified ? "text-blue-500" : "text-gray-400"}`} />
                       </div>
-                      <p className="text-gray-600 mt-1">{user?.email}</p>
-                      <p className="text-gray-600">{user?.phone}</p>
+                      <p className="text-sm text-gray-400">{user?.email}</p>
+                      <p className="text-sm text-gray-400">{user?.phone}</p>
                     </div>
                   </div>
 
                   <div className="flex flex-col  gap-2">
                     <div className="flex justify-end items-center gap-2">
-                      <button className="flex items-center justify-center gap-2 text-black bg-white border border-gray-300 hover:border-gray-400 py-1 px-3 rounded-lg text-sm font-semibold transition">
-                        <Download size={14} /> ID
+                      <button
+                        onClick={handleDownloadId}
+                        disabled={isDownloading}
+                        className="flex items-center justify-center gap-2 text-black bg-white border border-gray-300 hover:border-gray-400 py-1.5 px-4 rounded-lg text-sm font-semibold transition disabled:opacity-70"
+                      >
+                        {isDownloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                        ID
                       </button>
+                     
                       <button
                         onClick={handleResetPassword}
                         disabled={actionLoading === "reset"}
@@ -218,7 +328,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                       >
                         {actionLoading === "reset" ? "Sending..." : "Reset Pass"}
                       </button>
-               
+
                       {/* Address Tooltip Container */}
                       <div className="relative group">
                         <button className="flex items-center justify-center gap-2 bg-indigo-500 border border-gray-300 hover:border-gray-400 py-2 px-3 rounded-lg text-xs font-semibold transition cursor-help">
@@ -230,11 +340,21 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                           <div className="space-y-3">
                             <div>
                               <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Current Address</p>
-                              <p className="text-xs text-gray-700 mt-0.5 leading-relaxed">{user?.current_address || "No current address provided"}</p>
+                              <p className="text-xs text-gray-700 mt-0.5 leading-relaxed">
+                                {[user?.current_address, user?.current_thana, user?.current_district, user?.current_division]
+                                  .filter(Boolean) // Removes null, undefined, or empty strings
+                                  .join(", ")}{" "}
+                                {/* Joins them with a comma and a space */}
+                              </p>
                             </div>
                             <div className="pt-2 border-t border-gray-100">
                               <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Permanent Address</p>
-                              <p className="text-xs text-gray-700 mt-0.5 leading-relaxed">{user?.permanent_address || "No permanent address provided"}</p>
+                              <p className="text-xs text-gray-700 mt-0.5 leading-relaxed">
+                                {[user?.permanent_address, user?.permanent_thana, user?.permanent_district, user?.permanent_division]
+                                  .filter(Boolean) // Removes null, undefined, or empty strings
+                                  .join(", ")}{" "}
+                                {/* Joins them with a comma and a space */}
+                              </p>
                             </div>
                           </div>
 
@@ -279,7 +399,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                           return (
                             <div
                               key={vault.id}
-                              className="text-sm text-black border-gray-100 rounded-3xl px-5 py-2.5 flex items-center justify-between hover:shadow-sm transition"
+                              className="text-sm text-black border-gray-100 rounded-3xl px-5 py-2.5 flex items-center justify-between  transition"
                             >
                               <div className="flex items-center text-xs gap-3">
                                 <div className="p-2 bg-gray-100 rounded-xl">🔒</div>
@@ -319,7 +439,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                             </div>
                           ))
                         ) : (
-                          <p className="text-gray-500 italic text-sm bg-white border border-gray-100 rounded-2xl p-4">No vault assigned yet.</p>
+                          <p className="text-gray-400 text-sm p-4">No vault assigned yet.</p>
                         )}
                       </div>
                     </div>

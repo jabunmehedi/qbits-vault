@@ -67,6 +67,15 @@ export const ArchiveUser = async (userId) => {
     return error?.response;
   }
 };
+export const UserVerification = async (data) => {
+  try {
+    const response = await axios.post(`/user/verification`, data);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response;
+  }
+};
 export const ResetUserPassword = async (userId) => {
   try {
     const response = await axios.post(`/users/${userId}/reset-password`);

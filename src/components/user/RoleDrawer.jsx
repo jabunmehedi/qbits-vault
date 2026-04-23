@@ -4,27 +4,31 @@ import { MdDelete } from "react-icons/md";
 import { useToast } from "../../hooks/useToast";
 import { useState } from "react";
 import axiosConfig from "../../utils/axiosConfig";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 const RoleDrawer = ({ isOpen, onClose, rolesList, refetchRoles }) => {
   const [newRoleName, setNewRoleName] = useState("");
 
   const { addToast } = useToast();
+  const queryClient = useQueryClient();
 
-
-
-  const handleCreateRole = async () => {
-    if (!newRoleName) return addToast({ type: "error", message: "Role name is required" });
-    try {
-      await axiosConfig.post("/roles", { name: newRoleName });
+  // 3. Define the mutation
+  const mutation = useMutation({
+    mutationFn: (roleName) => axiosConfig.post("/roles", { name: roleName }),
+    onSuccess: () => {
+      // 4. This is the magic part: it refreshes the "roles" query in the background
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
       addToast({ type: "success", message: "Role created successfully" });
       setNewRoleName("");
-
-      refetchRoles(); // Refresh roles list
-      // Refresh roles list
-      //   const res = await GetRoles();
-    } catch (err) {
+    },
+    onError: () => {
       addToast({ type: "error", message: "Failed to create role" });
-    }
+    },
+  });
+
+  const handleCreateRole = () => {
+    if (!newRoleName) return addToast({ type: "error", message: "Role name is required" });
+    mutation.mutate(newRoleName); // 5. Execute mutation
   };
 
   return (

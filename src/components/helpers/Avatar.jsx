@@ -2,7 +2,7 @@ import { UserIcon } from "lucide-react";
 const baseStorageUrl = import.meta.env.VITE_REACT_APP_STORAGE_URL;
 
 const Avatar = ({ src, name, size = "sm" }) => {
-  const dim = size === "lg" ? "w-13 h-13" : "w-9 h-9";
+  const dim = size === "lg" ? "w-13 h-13" : size === "xl" ? "w-18 h-18" : "w-9 h-9";
   const icon = size === "lg" ? "w-6 h-6" : "w-4 h-4";
 
   return src ? (
