@@ -5,7 +5,7 @@ import { FiTrendingUp, FiTrendingDown } from "react-icons/fi";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { GetDashboardReports } from "../../../services/Dashboard";
 import { useSelector } from "react-redux";
-import { selectAuthUser } from "../../../store/authSlice";
+import { selectAuthUser, selectIsSuperAdmin } from "../../../store/authSlice";
 import KYCReminderModal from "../../kycModal/KYCReminderModal";
 
 const chartData = [
@@ -25,6 +25,9 @@ export default function Dashboard() {
 
   const authUser = useSelector(selectAuthUser);
 
+  const isSuperAdmin = useSelector(selectIsSuperAdmin);
+
+
   useEffect(() => {
     GetDashboardReports().then((res) => {
       setDashboardData(res.data);
@@ -35,7 +38,7 @@ export default function Dashboard() {
     const hasSeenModal = sessionStorage.getItem("kyc_modal_shown");
 
     // Show if: User exists AND KYC is null AND they haven't seen it THIS session
-    if (authUser && authUser.kyc_verified_at === null && !hasSeenModal) {
+    if (authUser && authUser.kyc_verified_at === null && !hasSeenModal && !isSuperAdmin) {
       setShowKYCModal(true);
     }
   }, [authUser]);
