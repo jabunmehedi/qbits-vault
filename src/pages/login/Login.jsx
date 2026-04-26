@@ -37,7 +37,7 @@ const Login = () => {
         };
 
         sessionStorage.removeItem("kyc_modal_shown");
-        
+
         dispatch(login(auth));
         localStorage.setItem("auth", JSON.stringify(auth));
         navigate("/");
