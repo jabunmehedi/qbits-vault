@@ -383,7 +383,7 @@ const Vault = () => {
       reset({
         name: vaultData.name || "",
         vault_code: vaultData.vault_code || "",
-        limit: vaultData.limit || "",
+        bag_balance_limit: vaultData.bag_balance_limit || "",
         address: vaultData.address || "",
         total_racks: vaultData.total_racks || "",
       });
@@ -475,7 +475,7 @@ const Vault = () => {
       current_amount: validBags.reduce((s, b) => s + Number(b.current_amount), 0),
       total_bags: validBags.length,
       bags: validBags.length > 0 ? validBags : undefined,
-      limit: data.limit ? Number(data.limit) : null,
+      bag_balance_limit: data.bag_balance_limit ? Number(data.bag_balance_limit) : null,
     };
 
     // ── FIX: always send vault_id back on update so backend doesn't reset it ──
@@ -765,7 +765,7 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                   </div>
                   <div className="flex uppercase font-semibold items-center gap-2 cursor-pointer px-4 py-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg text-xs text-blue-400 ">
                     Limit
-                    <input type="text" {...register("limit")} className="p-2 px-4 w-24 text-center bg-white border border-slate-200 rounded-lg" />
+                    <input type="text" {...register("bag_balance_limit")} className="p-2 px-4 w-24 text-center bg-white border border-slate-200 rounded-lg" />
                   </div>
                 </div>
 
