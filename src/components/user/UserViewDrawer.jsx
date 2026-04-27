@@ -320,7 +320,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                         {isDownloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                         ID
                       </button>
-                     
+
                       <button
                         onClick={handleResetPassword}
                         disabled={actionLoading === "reset"}

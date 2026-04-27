@@ -7,16 +7,13 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (onSearch) {
-        onSearch(search.trim());
-      }
+      if (onSearch) onSearch(search.trim());
     }, 600);
     return () => clearTimeout(timer);
   }, [search, onSearch]);
 
   const generatePageNumbers = () => {
     if (!paginationData?.last_page) return [];
-
     const current = paginationData.current_page || 1;
     const last = paginationData.last_page;
     const delta = 2;
@@ -39,7 +36,6 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
 
   const handlePageClick = (page) => {
     if (typeof page !== "number") return;
-
     const link = paginationData.links?.find((l) => l.page === page);
     if (link?.url) {
       const url = new URL(link.url);
@@ -51,34 +47,20 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
   };
 
   return (
-    <div className={`relative ${className} flex flex-col backdrop-blur-xl rounded-2xl overflow-hidden`}>
-      {/* <div className="p-6 border-b border-white/10 bg-white shrink-0">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h3 className="text-xl font-semibold text-white"></h3>
-          <div className="relative">
-            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search ..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-white/10 border border-gray-200 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:border-cyan-400 transition w-full sm:w-64"
-              disabled={isLoading}
-            />
-          </div>
-        </div>
-      </div> */}
-
-      <div className="flex-1  overflow-hidden relative ">
-        <div className="h-full  overflow-y-auto scrollbar-custom relative">
-          <table className="w-full table-fixed border-collapse border  border-slate-200">
+    // ✅ FIX 1: Removed backdrop-blur-xl (breaks overflow clipping)
+    // ✅ FIX 2: Added isolate to create proper stacking context for border-radius clipping
+    <div className={`relative ${className} flex flex-col rounded-2xl overflow-hidden isolate`}>
+      <div className="flex-1 overflow-hidden relative">
+        {/* ✅ FIX 3: Removed conflicting overflow-hidden, kept only overflow-y-auto */}
+        <div className="h-full bg-white overflow-y-auto scrollbar-custom relative border border-slate-200">
+          <table className="w-full table-fixed border-collapse">
             <thead>
-              <tr className=" text-gray-800 border-b border-slate-200">
+              <tr className="text-gray-800 border-b  border-slate-200">
                 {columns.map((column, index) => (
                   <th
                     key={index}
-                    className={`px-6 py-3   text-xs font-semibold text-gray-800 sticky top-0 z-20 bg-[#F9FBFD] ${column?.className}`}
-                    onClick={() => (column.iconClickAction ? column.iconClickAction() : null)}
+                    className={`px-6 py-3 text-xs font-semibold text-gray-800 sticky top-0 z-20 bg-[#F9FBFD] ${column?.className}`}
+                    onClick={() => column.iconClickAction?.()}
                   >
                     <div>
                       <span>{column.title}</span>
@@ -98,10 +80,7 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
                 <tr className="h-[50vh]">
                   <td colSpan={columns.length} className="h-64">
                     <div className="flex items-center justify-center h-full">
-                      <div className="relative flex items-center justify-center">
-                        <div className="w-12 h-12 rounded-full border-4 border-gray-50 border-t-cyan-500 animate-spin"></div>
-                        {/* <span className="absolute text-sm font-medium text-cyan-600">Loading</span> */}
-                      </div>
+                      <div className="w-12 h-12 rounded-full border-4 border-gray-50 border-t-cyan-500 animate-spin" />
                     </div>
                   </td>
                 </tr>
@@ -112,17 +91,17 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className="border-b border-white/5 hover:bg-white/5 transition"
+                    className="border-b border-white/5 bg-white transition"
                   >
                     {columns.map((column, colIndex) => (
                       <td key={colIndex} className={`px-6 py-2 text-gray-600 border-b border-slate-100 text-start text-xs ${column?.className}`}>
-                        {column.render ? column.render(row, row, data.length) : row[column.key] || <span className="">-</span>}
+                        {column.render ? column.render(row, row, data.length) : row[column.key] || <span>-</span>}
                       </td>
                     ))}
                   </motion.tr>
                 ))
               )}
-              {data?.length === 0 && (
+              {data?.length === 0 && !isLoading && (
                 <tr className="h-[50vh]">
                   <td colSpan={columns.length} className="h-64">
                     <div className="flex items-center justify-center h-full">
@@ -136,7 +115,8 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
         </div>
       </div>
 
-      <div className="px-6 py-2 border border-gray-100 bg-gray-50 shrink-0">
+      {/* ✅ FIX 4: Last child — rounded-b-2xl ensures bottom corners clip correctly */}
+      <div className="px-6 py-2 bg-[#F9FBFD] border border-gray-200 shrink-0 rounded-b-2xl">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-400">
           <div>
             Showing {(paginationData?.current_page - 1) * paginationData?.per_page + 1} to{" "}

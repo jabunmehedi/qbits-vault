@@ -225,9 +225,7 @@ const User = () => {
       </div>
 
       {/* Data Table */}
-      <div className="bg-white rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-200/50 overflow-hidden">
-        <DataTable columns={columns} data={filteredUsers} isLoading={isLoading} className="matrix-table" />
-      </div>
+      <DataTable columns={columns} data={filteredUsers} isLoading={isLoading} className="h-[calc(100vh-200px)]" />
 
       <UserViewDrawer isOpen={openUserViewDrawer} onClose={() => setOpenUserViewDrawer(false)} userId={selectedUserId} />
 
