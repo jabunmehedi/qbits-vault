@@ -3,9 +3,9 @@ import DataTable from "../../components/global/dataTable/DataTable";
 import { CreateVault, GetVault, GetVaults, UpdateVault } from "../../services/Vault";
 import dayjs from "dayjs";
 import CustomModal from "../../components/global/modal/CustomModal";
-import { AiOutlineDelete, AiOutlinePlus } from "react-icons/ai";
+import { AiOutlinePlus } from "react-icons/ai";
 import { AnimatePresence, motion } from "framer-motion";
-import { set, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -27,6 +27,8 @@ import axiosConfig from "../../utils/axiosConfig";
 import { GoDatabase } from "react-icons/go";
 import { FiBox } from "react-icons/fi";
 import Drawer from "../../components/global/drawer/Drawer";
+import { useToast } from "../../hooks/useToast";
+
 
 // ─── Barcode Download Utility ─────────────────────────────────────────────────
 /**
@@ -238,6 +240,8 @@ const Vault = () => {
   const [editingVaultDisplayId, setEditingVaultDisplayId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // const toast = useToast();
+
   const {
     register,
     handleSubmit,
@@ -248,6 +252,8 @@ const Vault = () => {
 
   const watchedTotalRacks = watch("total_racks");
   const watchedName = watch("name");
+  const watchedBagLimit = watch("bag_limit");
+   const { addToast } = useToast();
 
   useEffect(() => {
     if (isOpenModal && !isEditMode) {
@@ -295,18 +301,30 @@ const Vault = () => {
 
   // ── Bag actions ───────────────────────────────────────────────────────────────
   const addBag = () => {
-    // Use the generated code if creating, or the existing display ID/code if editing
     const vaultCode = isEditMode ? watch("vault_code") || generatedVaultCode : generatedVaultCode;
 
     if (!vaultCode) {
-      toast.error("Vault code is missing. Please enter a name first.");
+      addToast({ type: "error", message: "Vault code is missing. Please enter a name first." });
       return;
     }
 
-    // 1. Find the highest current sequence number in the bags list
+    // --- Bag Limit Logic ---
+    if (watchedBagLimit !== undefined && watchedBagLimit !== null && watchedBagLimit !== "") {
+      const limit = parseInt(watchedBagLimit, 10);
+
+      if (limit === 0) {
+        addToast({ type: "error", message: "Bag limit is set to 0. No bags can be created." });
+        return;
+      }
+
+      if (limit !== null && bags.length >= limit) {
+        addToast({ type: "error", message: `You have reached the limit of ${limit} bags.` });
+        return;
+      }
+    }
+
     let maxSeq = 0;
     bags.forEach((bag) => {
-      // Extract the number after the "_" (e.g., "707_002" -> 2)
       const parts = bag.barcode.split("_");
       if (parts.length === 2) {
         const num = parseInt(parts[1], 10);
@@ -314,10 +332,8 @@ const Vault = () => {
       }
     });
 
-    // 2. Set the next number
     const nextNumber = maxSeq + 1;
     const n = String(nextNumber).padStart(3, "0");
-
     const humanBarcode = `${vaultCode}_${n}`;
     const year = new Date().getFullYear();
     const scannableBarcode = `QVB-${year}-${vaultCode}-${n}`;
@@ -325,7 +341,7 @@ const Vault = () => {
     setBags([
       ...bags,
       {
-        id: Date.now(), // Unique ID for React keys
+        id: Date.now(),
         barcode: humanBarcode,
         bag_identifier_barcode: scannableBarcode,
         rack_number: "",
@@ -383,7 +399,7 @@ const Vault = () => {
       reset({
         name: vaultData.name || "",
         vault_code: vaultData.vault_code || "",
-        bag_balance_limit: vaultData.bag_balance_limit || "",
+        bag_limit: vaultData.bag_limit || "",
         address: vaultData.address || "",
         total_racks: vaultData.total_racks || "",
       });
@@ -450,8 +466,20 @@ const Vault = () => {
 
   // ── Submit ────────────────────────────────────────────────────────────────────
   const onSubmit = async (data) => {
+    const limit = data.bag_limit ? parseInt(data.bag_limit, 10) : null;
+
+    if (limit !== null) {
+      if (limit === 0) {
+        addToast({ type: "error", message: "Bag limit is set to 0. You cannot save a vault with 0 bags allowed." });
+        return;
+      }
+      if (bags.length > limit) {
+        addToast({ type: "error", message: `Validation Error: You have ${bags.length} bags, but the limit is ${limit}.` });
+        return;
+      }
+    }
     if (Object.keys(rackErrors).length > 0) {
-      alert("Please fix rack number errors before submitting.");
+      addToast({ type: "error", message: "Please fix rack number errors before submitting." });
       return;
     }
 
@@ -473,7 +501,7 @@ const Vault = () => {
       current_amount: validBags.reduce((s, b) => s + Number(b.current_amount), 0),
       total_bags: validBags.length,
       bags: validBags.length > 0 ? validBags : undefined,
-      bag_balance_limit: data.bag_balance_limit ? Number(data.bag_balance_limit) : null,
+      bag_limit: data.bag_limit ? Number(data.bag_limit) : null,
     };
 
     // ── FIX: always send vault_id back on update so backend doesn't reset it ──
@@ -767,7 +795,12 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                   </div>
                   <div className="flex uppercase font-semibold items-center gap-2 cursor-pointer px-4 py-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg text-xs text-blue-400 ">
                     Limit
-                    <input type="text" {...register("bag_balance_limit")} className="p-2 px-4 w-24 text-center bg-white border border-slate-200 rounded-lg" />
+                    <input
+                      type="text"
+                      {...register("bag_limit")}
+                      placeholder="∞"
+                      className="p-2 px-4 w-24 text-center bg-white border border-slate-200 rounded-lg"
+                    />
                   </div>
                 </div>
 
@@ -825,11 +858,18 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                       type="button"
                       whileHover={{ scale: 1.01 }}
                       whileTap={{ scale: 0.98 }}
-                      className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 rounded-2xl bg-blue-50/30 hover:bg-blue-50 transition-colors min-h-[92px]"
+                      className={`flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 rounded-2xl bg-blue-50/30 hover:bg-blue-50 transition-colors min-h-[92px] ${watchedBagLimit > 0 && bags?.length >= watchedBagLimit ? "cursor-not-allowed border-gray-300 bg-gray-100 hover:bg-gray-100" : "cursor-pointer"}`}
                     >
-                      <div className="flex items-center gap-2 text-blue-400 font-semibold">
+                      <div className="flex  items-center gap-2 text-blue-400 font-semibold">
                         <AiOutlinePlus className="w-5 h-5" />
-                        <span>Add Bag</span>
+                        <span className=" text-sm font-bold text-blue-600">
+                          {watchedBagLimit > 0 && bags.length >= watchedBagLimit ? <span className="text-red-400">Limit Reached</span> : "Add New Bag"}
+                        </span>
+                        {watchedBagLimit > 0 && (
+                          <span className="text-[10px] text-gray-400 uppercase mt-1">
+                            {bags.length} / {watchedBagLimit} Used
+                          </span>
+                        )}
                       </div>
                       <p className="text-[10px] text-blue-300 mt-1 font-medium">Auto-generated ID with ৳ 0.00 base</p>
                     </motion.button>
