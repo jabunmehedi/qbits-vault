@@ -465,8 +465,6 @@ const Vault = () => {
       current_amount: parseFloat(b.current_amount || 0).toFixed(2),
     }));
 
-    console.log({ validBags });
-
     const payload = {
       vault_code: generatedVaultCode,
       name: data.name.trim(),
@@ -495,15 +493,17 @@ const Vault = () => {
         toast.success("Vault updated successfully.");
       } else {
         await CreateVault(payload);
-        setIsLoading;
         toast.success("Vault created successfully.");
-        if (validBags.length > 0) printBagBarcodes(validBags, data.name);
       }
 
       setIsLoading(false);
+      handleCloseModal();
 
       await fetchVaultData();
-      handleCloseModal();
+
+      if (!isEditMode && validBags.length > 0) {
+        printBagBarcodes(validBags, data.name);
+      }
     } catch (error) {
       const serverErrors = error?.response?.data?.errors;
       if (serverErrors?.length > 0) {
@@ -513,6 +513,8 @@ const Vault = () => {
       }
       console.error("Vault save failed:", error);
       toast.error("Failed to save vault.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
