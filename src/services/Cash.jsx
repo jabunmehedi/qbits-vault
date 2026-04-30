@@ -22,6 +22,16 @@ export const CreateCashIn = async (data) => {
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);
+    return error;
+  }
+};
+export const UpdateCashIn = async (id, data) => {
+  try {
+    const response = await axios.put(`/cash-in/${id}`, data);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error;
   }
 };
 export const CreateCashOut = async (data) => {

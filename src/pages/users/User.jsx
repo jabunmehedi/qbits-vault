@@ -89,7 +89,7 @@ const User = () => {
   const columns = useMemo(() => {
     const baseColumns = [
       {
-        title: "IDENTITY POINT",
+        title: "identity point",
         key: "name",
         className: "w-[320px] text-left",
         render: (row) => (

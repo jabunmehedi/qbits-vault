@@ -28,7 +28,7 @@ import { GoDatabase } from "react-icons/go";
 import { FiBox } from "react-icons/fi";
 import Drawer from "../../components/global/drawer/Drawer";
 import { useToast } from "../../hooks/useToast";
-
+import { useSearchParams } from "react-router-dom";
 
 // ─── Barcode Download Utility ─────────────────────────────────────────────────
 /**
@@ -225,6 +225,7 @@ const Vault = () => {
   const [rackErrors, setRackErrors] = useState({});
   const [bags, setBags] = useState([]);
   const [deleteErrors, setDeleteErrors] = useState([]);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedVault, setSelectedVault] = useState(null);
@@ -253,7 +254,7 @@ const Vault = () => {
   const watchedTotalRacks = watch("total_racks");
   const watchedName = watch("name");
   const watchedBagLimit = watch("bag_limit");
-   const { addToast } = useToast();
+  const { addToast } = useToast();
 
   useEffect(() => {
     if (isOpenModal && !isEditMode) {
@@ -291,13 +292,6 @@ const Vault = () => {
       .slice(0, 4)
       .join("");
   };
-
-  // const generateBagCodes = (vaultName, seq) => {
-  //   const year = new Date().getFullYear();
-  //   const prefix = getVaultPrefix(vaultName);
-  //   const n = String(seq).padStart(3, "0");
-  //   return { humanBarcode: `${prefix}${n}`, scannableBarcode: `QVB-${year}-${prefix}-${n}` };
-  // };
 
   // ── Bag actions ───────────────────────────────────────────────────────────────
   const addBag = () => {
@@ -361,6 +355,33 @@ const Vault = () => {
     setBags(bags.filter((b) => b.id !== id));
   };
 
+  // Put this inside the Vault component
+  useEffect(() => {
+    const editId = searchParams.get("vault_edit_id");
+
+    console.log({ editId });
+
+    // Only proceed if we have an ID to search for and vaults have loaded
+    if (editId && vaults.length > 0) {
+      // Find the vault matching the vault_code (display ID)
+      const vaultToEdit = vaults.find((v) => v.vault_id === editId);
+
+      console.log({ vaults });
+
+      openEditModal(editId);
+
+      // Clean up the URL so it doesn't reopen if the user refreshes or saves
+      setSearchParams(
+        (prev) => {
+          const newParams = new URLSearchParams(prev);
+          newParams.delete("vault_edit_id");
+          return newParams;
+        },
+        { replace: true },
+      );
+    }
+  }, [vaults, searchParams, setSearchParams]); //
+
   // const updateRack = (id, value) => {
   //   const cleaned = value.replace(/[^0-9]/g, "");
   //   const num = cleaned ? parseInt(cleaned, 10) : 0;
@@ -393,7 +414,7 @@ const Vault = () => {
 
   const openEditModal = async (vault) => {
     try {
-      const res = await GetVault(vault?.id);
+      const res = await GetVault(vault?.id || vault);
       const vaultData = res?.data ?? res;
 
       reset({
@@ -416,10 +437,10 @@ const Vault = () => {
       setBags(existingBags);
       setRackErrors({});
       setDeleteErrors([]);
-      setEditingVaultId(vault.id);
+      setEditingVaultId(vaultData.id || null);
 
       // ── FIX: store the human-readable vault_id so we can send it back ────────
-      setEditingVaultDisplayId(vaultData.vault_code || vault.vault_code || null);
+      setEditingVaultDisplayId(vaultData.vault_code || null);
 
       setIsEditMode(true);
       setIsOpenModal(true);
@@ -466,6 +487,7 @@ const Vault = () => {
 
   // ── Submit ────────────────────────────────────────────────────────────────────
   const onSubmit = async (data) => {
+
     const limit = data.bag_limit ? parseInt(data.bag_limit, 10) : null;
 
     if (limit !== null) {

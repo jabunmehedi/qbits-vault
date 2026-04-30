@@ -1,5 +1,4 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { AiOutlineClose } from "react-icons/ai";
 
 const Drawer = ({ isOpen, onClose, children, title = "Drawer" }) => {
   // Close on backdrop click

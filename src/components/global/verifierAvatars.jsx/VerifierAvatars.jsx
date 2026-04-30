@@ -1,151 +1,115 @@
-// components/global/verifierAvatars/VerifierAvatars.jsx
-import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
-import { Check, X } from "lucide-react";
+import { motion } from "framer-motion";
+import { useState, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
+import dayjs from "dayjs";
 
 const VerifierAvatars = ({ requiredVerifiers = [] }) => {
-  const [selectedVerifier, setSelectedVerifier] = useState(null); // only one tooltip at a time
+  const [isOpen, setIsOpen] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef(null);
 
-  if (requiredVerifiers.length === 0) {
-    return <span className="text-gray-400 text-xs italic">No verifiers assigned</span>;
-  }
+  if (!requiredVerifiers?.length) return <span className="text-gray-400 text-[10px]">None</span>;
 
-  const handleAvatarClick = (verifier, event) => {
-    event.stopPropagation();
-    setSelectedVerifier({
-      verifier,
-      position: {
-        x: event.clientX,
-        y: event.clientY,
-      },
-    });
-  };
+  const handleToggle = useCallback(
+    (e) => {
+      // Stop ALL other actions in the table
+      e.preventDefault();
+      e.stopPropagation();
+      e.nativeEvent.stopImmediatePropagation();
 
-  const closeTooltip = () => {
-    setSelectedVerifier(null);
-  };
+      if (!isOpen && triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect();
+        setCoords({
+          top: rect.top,
+          left: rect.left + rect.width / 2,
+        });
+      }
+      setIsOpen((prev) => !prev);
+    },
+    [isOpen, triggerRef],
+  );
 
   return (
-    <div className="relative">
-      {/* Avatar Stack */}
-      <div className="flex items-center -space-x-4 select-none">
-        {requiredVerifiers.slice(0, 6).map((verifier, index) => {
-          const isVerified = verifier.verified === 1 || verifier.verified === true || verifier.approved === 1 || verifier.verified === true;
-          const name = verifier.user?.name || "Unknown User";
-          const initials = name
-            .split(" ")
-            .map((n) => n[0])
-            .join("")
-            .toUpperCase()
-            .slice(0, 2);
-
-          return (
-            <motion.div
-              key={verifier.id || verifier.user_id}
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: index * 0.05 }}
-              whileHover={{ scale: 1.2, zIndex: 50 }}
-              onClick={(e) => handleAvatarClick(verifier, e)}
-              className={`
-                relative w-9 h-9 rounded-full flex items-center justify-center text-xs 
-                border-3 border-white cursor-pointer 
-                ${isVerified ? "bg-gradient-to-br from-cyan-500 to-cyan-600 text-white" : "bg-gray-300 text-gray-500"}
-              `}
-            >
-              {initials}
-            </motion.div>
-          );
-        })}
-
-        {/* +N Badge */}
-        {requiredVerifiers.length > 6 && (
-          <div className="w-11 h-11 rounded-full bg-gray-300 text-gray-700 text-xs font-bold flex items-center justify-center border-4 border-white shadow-lg">
-            +{requiredVerifiers.length - 6}
+    <div className="relative inline-block" style={{ isolation: "auto" }}>
+      {/* Clickable Stack */}
+      <div
+        ref={triggerRef}
+        onClickCapture={handleToggle} // Using Capture phase to beat table listeners
+        className="flex items-center -space-x-3 cursor-pointer p-1 group"
+      >
+        {requiredVerifiers.slice(0, 3).map((v, i) => (
+          <div
+            key={i}
+            className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white shadow-sm group-hover:scale-105 transition-transform ${
+              v.verified || v.approved ? "bg-cyan-500 text-white" : "bg-gray-300 text-gray-600"
+            }`}
+          >
+            {(v.name || v.user?.name || "U").charAt(0).toUpperCase()}
+          </div>
+        ))}
+        {requiredVerifiers.length > 3 && (
+          <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold flex items-center justify-center border-2 border-white">
+            +{requiredVerifiers.length - 3}
           </div>
         )}
       </div>
 
-      {/* Individual Tooltip */}
-      <AnimatePresence>
-        {selectedVerifier && (
-          <>
-            {/* Backdrop */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.4 }} exit={{ opacity: 0 }} onClick={closeTooltip} />
+      {isOpen &&
+        createPortal(
+          <div className="fixed inset-0" style={{ zIndex: 999999 }}>
+            {/* Transparent Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/5" // Slight tint to see it's working
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOpen(false);
+              }}
+            />
 
-            {/* Tooltip Card */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 10 }}
-              className="fixed z-50 bg-white rounded-2xl shadow-2xl border border-gray-200 p-5 w-72"
               style={{
-                top: `${selectedVerifier.position.y - 40}px`,
-                left: `${Math.min(
-                  selectedVerifier.position.x - 350, // half of 288px width
-                  window.innerWidth - 300
-                )}px`,
+                position: "fixed",
+                top: `${coords.top - 70}px`,
+                left: `${coords.left - 20}px`,
+                transform: "translate(-50%, -100%)",
+                pointerEvents: "auto",
               }}
+              className="w-64 bg-[#0B1120] text-white rounded-xl shadow-2xl p-4 border border-slate-700"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Arrow */}
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-5 h-5 bg-white border-l border-t border-gray-200 rotate-45" />
-
-              <div className="flex items-center gap-4">
-                {/* Avatar */}
-                <div
-                  className={`
-                    w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl
-                    ${
-                      selectedVerifier.verifier.verified === 1 ||
-                      selectedVerifier.verifier.verified === true ||
-                      selectedVerifier.verifier.approved === 1 ||
-                      selectedVerifier.verifier.approved === true
-                        ? "bg-gradient-to-br from-green-500 to-emerald-600"
-                        : "bg-gradient-to-br from-gray-400 to-gray-600"
-                    }
-                  `}
-                >
-                  {selectedVerifier.verifier.user?.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .toUpperCase()
-                    .slice(0, 2)}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1">
-                  <p className="font-medium text-gray-800 text-sm">{selectedVerifier.verifier.user?.name || "Unknown"}</p>
-                  <p className="text-xs text-gray-500">{selectedVerifier.verifier.user?.email || "N/A"}</p>
-
-                  {/* Status */}
-                  <div className="mt-3 flex items-center gap-2">
-                    {selectedVerifier.verifier.verified === 1 ||
-                    selectedVerifier.verifier.verified === true ||
-                    selectedVerifier.verifier.approved === 1 ||
-                    selectedVerifier.verifier.approved === true ? (
-                      <>
-                        <Check className="w-5 h-5 text-green-600" />
-                        <span className="text-green-600 font-semibold">Verified</span>
-                      </>
-                    ) : (
-                      <>
-                        <X className="w-5 h-5 text-orange-600" />
-                        <span className="text-orange-600 font-semibold">Pending</span>
-                      </>
-                    )}
-                  </div>
-                </div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold tracking-widest text-blue-400 uppercase">Verification Details</span>
+                <button onClick={() => setIsOpen(false)} className="text-slate-500 hover:text-white">
+                  ✕
+                </button>
               </div>
 
-              <button onClick={closeTooltip} className="mt-5 w-full py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-medium transition">
-                Close
-              </button>
+              <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar">
+                {requiredVerifiers.map((v, idx) => (
+                  <div key={idx} className="flex items-center gap-3">
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center border border-slate-700 bg-slate-800 text-xs font-bold ${v.verified || v.approved ? "text-blue-400" : "text-slate-500"}`}
+                    >
+                      {(v.name || v.user?.name || "U").charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-semibold">{v.name || v.user?.name}</span>
+                      <span className="text-[10px] text-slate-500">
+                        {v.verified_at || v.approved_at ? dayjs(v.verified_at || v.approved_at).format("DD MMM, hh:mm A") : "Pending"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Arrow */}
+              <div className="absolute -bottom-1.5 left-1/14 -translate-x-1/2 w-3 h-3 bg-[#0B1120] border-r border-b border-slate-700 rotate-45" />
             </motion.div>
-          </>
+          </div>,
+          document.body,
         )}
-      </AnimatePresence>
     </div>
   );
 };

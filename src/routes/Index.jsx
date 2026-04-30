@@ -75,7 +75,9 @@ const AppRoutes = () => {
           element: <ActivityLog />,
         },
       ],
+      
     },
+    
   ];
   const router = createBrowserRouter(Routes);
 
