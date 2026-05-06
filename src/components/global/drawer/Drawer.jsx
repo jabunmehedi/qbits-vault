@@ -1,12 +1,13 @@
 import { AnimatePresence, motion } from "framer-motion";
+import { AiOutlineClose } from "react-icons/ai";
 
 const Drawer = ({ isOpen, onClose, children, title = "Drawer" }) => {
   // Close on backdrop click
-  const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
+  // const handleBackdropClick = (e) => {
+  //   if (e.target === e.currentTarget) {
+  //     onClose();
+  //   }
+  // };
 
   return (
     <AnimatePresence>
@@ -34,12 +35,12 @@ const Drawer = ({ isOpen, onClose, children, title = "Drawer" }) => {
             className="fixed right-0 top-0 h-full w-[40%] bg-white z-[70] shadow-2xl overflow-hidden flex flex-col"
           >
             {/* Header */}
-            {/* <div className="flex items-center justify-between p-6 border-b border-[#353857]">
-          <h2 className="text-xl font-semibold text-white">{title}</h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
-            <AiOutlineClose className="w-6 h-6 text-gray-400" />
-          </button>
-        </div> */}
+            <div className="flex items-center justify-between p-6">
+              <h2 className="text-xl font-semibold text-white">{title}</h2>
+              <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
+                <AiOutlineClose className="w-4 h-4 text-gray-400 hover:text-red-500" />
+              </button>
+            </div>
 
             {/* Content */}
             {children}

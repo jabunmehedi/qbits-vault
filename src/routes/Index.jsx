@@ -14,6 +14,7 @@ import CashOut from "../pages/cashout/CashOut";
 import Reconcile from "../pages/reconcile/Reconcile";
 import ActivityLog from "../pages/activityLog/ActivityLog";
 import ResetPasswordPage from "../components/resetPassword/ResetPassword";
+import PermissionRoute from "../components/permissionRoute/PermissionRoute";
 
 const AppRoutes = () => {
   const Routes = [
@@ -40,23 +41,43 @@ const AppRoutes = () => {
         },
         {
           path: "/users",
-          element: <User />,
+          element: (
+            <PermissionRoute permission="user.view">
+              <User />
+            </PermissionRoute>
+          ),
         },
         {
           path: "/vault",
-          element: <Vault />,
+          element: (
+            <PermissionRoute permission="vault.view">
+              <Vault />
+            </PermissionRoute>
+          ),
         },
         {
           path: "/cashin",
-          element: <CashIn />,
+          element: (
+            <PermissionRoute permission="cash-in.view">
+              <CashIn />
+            </PermissionRoute>
+          ),
         },
         {
           path: "/cashout",
-          element: <CashOut />,
+          element: (
+            <PermissionRoute permission="cash-out.view">
+              <CashOut />
+            </PermissionRoute>
+          ),
         },
         {
           path: "/reconcile",
-          element: <Reconcile />,
+          element: (
+            <PermissionRoute permission="reconciliation.view">
+              <Reconcile />
+            </PermissionRoute>
+          ),
         },
         {
           path: "/profile",
@@ -75,9 +96,7 @@ const AppRoutes = () => {
           element: <ActivityLog />,
         },
       ],
-      
     },
-    
   ];
   const router = createBrowserRouter(Routes);
 

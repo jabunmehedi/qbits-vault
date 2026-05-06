@@ -4,185 +4,125 @@ import { MdArrowOutward, MdOutlineCalculate, MdRestartAlt } from "react-icons/md
 import DataTable from "../global/dataTable/DataTable";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CreateCashIn, GetCashIn, UpdateCashIn } from "../../services/Cash";
+import { CreateCashIn, UpdateCashIn } from "../../services/Cash";
 import { GetOrders } from "../../services/Orders";
 import dayjs from "dayjs";
 import { LuMinus, LuPlus } from "react-icons/lu";
-import { Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { RiCloseCircleLine } from "react-icons/ri";
+import ConfirmModal from "./ConfirmModal";
+import { useSelector } from "react-redux";
+import { selectAuthUser } from "../../store/authSlice";
+import VaultSelect from "./VaultSelect";
+import { BagCreateRequest } from "../../services/Vault";
+import { useToast } from "../../hooks/useToast";
 
 const DENOM_NOTES = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
 const INITIAL_DENOMINATIONS = Object.fromEntries(DENOM_NOTES.map((n) => [n, 0]));
 
+const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
+  const isEditMode = !!editData;
 
-const ErrorModal = ({ isOpen, message, onCancel, onCreate }) => {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
-      >
-        <div className="p-8 text-center">
-          <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-          </div>
-          <p className="text-slate-500 text-sm">{message?.message || "No bag available for cash-in"}</p>
-        </div>
-        <div className="flex mb-6 justify-between items-center gap-4 px-4">
-          <button
-            onClick={onCancel}
-            className="flex-1 px-4 py-2 rounded-2xl text-sm border border-slate-200 font-bold text-slate-500 hover:bg-slate-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onCreate}
-            className="px-4 flex-1 py-2 rounded-2xl bg-[#1a73e8] shadow-lg shadow-blue-200 hover:bg-blue-600 text-sm font-bold text-white transition-colors"
-          >
-            Create Bag
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
-
-// ─── Confirm Modal ────────────────────────────────────────────────────────────
-const ConfirmModal = ({ isOpen, grandTotal, onCancel, onConfirm, loading }) => {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
-      >
-        <div className="p-8 text-center">
-          <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h3 className="text-slate-800 font-bold text-lg mb-1">Confirm Submission</h3>
-          <p className="text-slate-500 text-sm">
-            You are about to submit a cash deposit of{" "}
-            <span className="font-bold text-slate-800">৳{grandTotal.toLocaleString("en-BD", { minimumFractionDigits: 2 })}</span>
-          </p>
-        </div>
-        <div className="flex mb-6 justify-between items-center gap-4 px-4">
-          <button
-            onClick={onCancel}
-            disabled={loading}
-            className="flex-1 px-4 py-2 rounded-2xl text-sm border border-slate-200 font-bold text-slate-500 hover:bg-slate-50 transition-colors disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={loading}
-            className="px-4 flex-1 py-2 rounded-2xl bg-[#1a73e8] shadow-lg shadow-blue-200 hover:bg-blue-600 text-sm font-bold text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {loading ? <Loader2 className="animate-spin w-4 h-4" /> : "Confirm & Submit"}
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
-
-// ─── Main Component ───────────────────────────────────────────────────────────
-const CashInRequestDrawer = ({ isOpen, onClose, refetch }) => {
-  // Step: 1 = order selection, 2 = denominations
   const [step, setStep] = useState(1);
-  const [cashInId, setCashInId] = useState(null); // store created cash-in ID for PUT
-
   const [selectedRows, setSelectedRows] = useState([]);
   const [paginationData, setPaginationData] = useState({});
   const [loading, setLoading] = useState(false);
   const [orders, setOrders] = useState([]);
-  const [cashIns, setCashIns] = useState([]);
-  const [cashInsLoaded, setCashInsLoaded] = useState(false);
+  const [ordersLoaded, setOrdersLoaded] = useState(false);
   const [denominations, setDenominations] = useState(INITIAL_DENOMINATIONS);
-
-  // Step 1 submission
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositError, setDepositError] = useState("");
-  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
-
-  // Step 2 submission
+  const [isDepositError, setIsDepositError] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [selectedVault, setSelectedVault] = useState(null);
+  const [error, setError] = useState(null);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const currentPage = parseInt(searchParams.get("page") || "1");
   const searchTerm = searchParams.get("search") || "";
   const perPage = parseInt(searchParams.get("per_page") || "10");
 
-  // ── Reset everything on drawer close ──
+  const user = useSelector(selectAuthUser);
+
+  const { addToast } = useToast();
+
+  // ── Reset on close ──
   const handleClose = useCallback(() => {
     setStep(1);
-    setCashInId(null);
     setSelectedRows([]);
     setDenominations(INITIAL_DENOMINATIONS);
     setDepositError("");
-    setIsErrorModalOpen(false);
+    setIsDepositError(false);
     setIsConfirmModalOpen(false);
+    setSelectedVault(null);
+    setError(null);
+    setOrdersLoaded(false);
     onClose();
   }, [onClose]);
 
-  // ── Fetch cash-ins (to exclude already-processed orders) ──
-  const fetchCashIns = useCallback(() => {
-    setLoading(true);
-    GetCashIn()
-      .then((res) => {
-        setCashIns(res?.data?.data || []);
-        setCashInsLoaded(true);
-      })
-      .catch(() => {
-        setCashIns([]);
-        setCashInsLoaded(true);
-      })
-      .finally(() => setLoading(false));
-  }, []);
-
+  // ── Seed vault + denominations from editData (runs once when editData arrives) ──
   useEffect(() => {
-    fetchCashIns();
-  }, []); // eslint-disable-line
+    if (!isEditMode || !editData) return;
 
-  // ── Fetch orders (exclude those already in a cash-in) ──
+    setDenominations(editData.denominations ? Object.fromEntries(DENOM_NOTES.map((n) => [n, editData.denominations[String(n)] ?? 0])) : INITIAL_DENOMINATIONS);
+
+    const vault = user?.vault_assignments?.find((v) => v.vault.id === editData.vault_id);
+    setSelectedVault(vault || null);
+  }, [isEditMode, editData]); // eslint-disable-line
+
+  // ── Seed default vault for create mode ──
+  useEffect(() => {
+    if (isEditMode) return;
+    if (user?.default_vault_id) {
+      const defaultV = user.vault_assignments?.find((v) => v.vault.id == user.default_vault_id);
+      setSelectedVault(defaultV || null);
+    }
+  }, [isEditMode]); // eslint-disable-line
+
+  // ── Seed selected rows — use orders directly, not ordersLoaded flag ──
+  useEffect(() => {
+    if (!isEditMode || !editData || orders.length === 0) {
+      return;
+    }
+
+    const editOrderIds = editData.orders.map((o) => o.order_id);
+    const matched = orders.filter((o) => editOrderIds.includes(o.order_id));
+
+    if (matched.length > 0) {
+      setSelectedRows(matched);
+    }
+  }, [orders]); // eslint-disable-line
+
+  // ── Fetch orders ──
   const fetchOrders = useCallback(async () => {
-    if (!cashInsLoaded) return;
     setLoading(true);
     try {
-      const excludedOrderIds = cashIns
-        .flatMap((c) => c.orders || [])
-        .map((o) => o.order_id)
-        .filter(Boolean);
-
       const res = await GetOrders({
         page: currentPage,
         search: searchTerm || undefined,
         per_page: perPage,
-        exclude_order_ids: excludedOrderIds.length > 0 ? excludedOrderIds : undefined,
       });
-      setOrders(res?.data?.orders || []);
+
+      const fetchedOrders = res?.data?.orders || [];
+
+      if (isEditMode && editData?.orders?.length > 0) {
+        const fetchedOrderIds = fetchedOrders.map((o) => o.order_id);
+        const missingOrders = editData.orders.filter((o) => !fetchedOrderIds.includes(o.order_id));
+        const merged = [...missingOrders, ...fetchedOrders];
+        setOrders(merged);
+      } else {
+        setOrders(fetchedOrders);
+      }
+
       setPaginationData(res?.data?.pagination || {});
-    } catch {
+    } catch (e) {
       setOrders([]);
       setPaginationData({});
     } finally {
       setLoading(false);
     }
-  }, [cashInsLoaded, cashIns, currentPage, searchTerm, perPage]);
+  }, [currentPage, searchTerm, perPage, isEditMode, editData]);
 
   useEffect(() => {
     fetchOrders();
@@ -222,69 +162,145 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch }) => {
     setDenominations((prev) => ({ ...prev, [value]: num }));
   };
 
-  // ── Step 1: Create cash-in → move to step 2 ──
-  const handleGenerateDeposit = async () => {
+  const handleGenerateDeposit = () => {
+    if (!selectedVault) return setError("Please select a vault.");
     setDepositLoading(true);
-    try {
-      const payload = {
-        cash_in_amount: totalAmount,
-        orders: selectedRows.map((row) => ({
-          id: row.id,
-          order_id: row.order_id,
-          total_cash_to_deposit: row.total_cash_to_deposit,
-          total_cash_in_amount: row.total_cash_to_deposit,
-        })),
-      };
-
-      const res = await CreateCashIn(payload);
-      console.log({ res });
-      if (res?.status === 500) {
-        setDepositError(res?.response?.data?.message || "An error occurred.");
-        setIsErrorModalOpen(true);
-      } else if (res?.status === 200 || res?.status === 201 || res?.success === true) {
-        setCashInId(res?.data?.id); // store for PUT
-        setStep(2);
-      }
-    } catch (err) {
-      setDepositError(err?.message || "An error occurred.");
-      setIsErrorModalOpen(true);
-    } finally {
-      setDepositLoading(false);
-    }
+    setStep(2);
   };
 
-  // ── Step 2: Open confirm modal ──
   const handleDoneClick = () => setIsConfirmModalOpen(true);
 
-  // ── Step 2: Confirm → PUT denominations → close ──
+  // ── Submit ──
+  //   const handleConfirmSubmit = async () => {
+  //     setSubmitLoading(true);
+  //     try {
+  //       const payload = {
+  //         cash_in_amount: totalAmount,
+  //         denominations: denominations,
+  //         vault_id: selectedVault?.vault.id || user?.default_vault_id,
+  //         orders: selectedRows.map((row) => ({
+  //           id: row.id,
+  //           order_id: row.order_id,
+  //           customer_name: row.customer_name,
+  //           payable_amount: row.total,
+  //           total_cash_to_deposit: row.total_cash_to_deposit,
+  //           total_cash_in_amount: row.total_cash_to_deposit,
+  //         })),
+  //       };
+
+  //       const res = isEditMode ? await UpdateCashIn(editData.id, payload) : await CreateCashIn(payload);
+
+  //       if (res?.status === 500 || res?.status === 422) {
+  //         setDepositError(res?.response?.data || "An error occurred.");
+  //         setIsDepositError(true);
+  //       } else if (res?.status === 200 || res?.status === 201 || res?.success === true) {
+  //         refetch?.();
+  //         handleClose();
+  //       }
+  //     } catch (err) {
+  //       console.error("Submit error:", err);
+  //     } finally {
+  //       setSubmitLoading(false);
+  //       setIsConfirmModalOpen(false);
+  //     }
+  //   };
+
   const handleConfirmSubmit = async () => {
     setSubmitLoading(true);
     try {
-      const payload = { denominations };
-      const res = await UpdateCashIn(cashInId, payload);
+      let payload;
 
-      if (res?.success === true) {
+      if (isEditMode) {
+        const originalOrderIds = editData.orders.map((o) => o.order_id);
+        const selectedOrderIds = selectedRows.map((o) => o.order_id);
+
+        // Orders that were original but now unselected → delete
+        const removedOrderIds = originalOrderIds.filter((id) => !selectedOrderIds.includes(id));
+
+        // Orders that are newly selected (not in original) → add
+        const addedOrders = selectedRows
+          .filter((row) => !originalOrderIds.includes(row.order_id))
+          .map((row) => ({
+            id: row.id,
+            order_id: row.order_id,
+            customer_name: row.customer_name,
+            payable_amount: row.total,
+            total_cash_to_deposit: row.total_cash_to_deposit,
+            total_cash_in_amount: row.total_cash_to_deposit,
+          }));
+
+        payload = {
+          cash_in_amount: totalAmount,
+          denominations: denominations,
+          vault_id: selectedVault?.vault.id || user?.default_vault_id,
+          added_orders: addedOrders, // new orders to add
+          removed_order_ids: removedOrderIds, // order_ids to remove
+        };
+      } else {
+        payload = {
+          cash_in_amount: totalAmount,
+          denominations: denominations,
+          vault_id: selectedVault?.vault.id || user?.default_vault_id,
+          orders: selectedRows.map((row) => ({
+            id: row.id,
+            order_id: row.order_id,
+            customer_name: row.customer_name,
+            payable_amount: row.total,
+            total_cash_to_deposit: row.total_cash_to_deposit,
+            total_cash_in_amount: row.total_cash_to_deposit,
+          })),
+        };
+      }
+
+      const res = isEditMode ? await UpdateCashIn(editData.id, payload) : await CreateCashIn(payload);
+
+      if (res?.status === 500 || res?.status === 422 || res?.success === false) {
+        console.log("come");
+        setIsDepositError(true);
+        setDepositError(res?.response?.data || "An error occurred.");
+      } else if (res?.status === 200 || res?.status === 201 || res?.success === true) {
         refetch?.();
         handleClose();
       }
     } catch (err) {
       console.error("Submit error:", err);
     } finally {
-      selectedRows([]);
       setSubmitLoading(false);
-      setIsConfirmModalOpen(false);
     }
   };
 
-  const handleCreateBagRedirect = () => {
-    window.open(`/vault?vault_edit_id=${depositError?.vault_id}`, "_blank");
-    setIsErrorModalOpen(false);
-    setSelectedRows([]);
+  const handleCancelConfirmSubmit = () => {
+    setSubmitLoading(false);
+    setIsDepositError(false);
     setDepositError("");
+    setIsConfirmModalOpen(false);
+  };
+
+  const handleCreateBagRedirect = async () => {
+    const vault_id = depositError?.vault_id ?? depositError?.message?.vault_id;
+
+    if (depositError?.bag_create_role) {
+      window.open(`/vault?vault_edit_id=${vault_id}`, "_blank");
+      setIsConfirmModalOpen(false);
+      return;
+    }
+
+    const res = await BagCreateRequest({
+      vault_id,
+      requester_id: user?.id,
+    });
+
+    setIsConfirmModalOpen(false);
+    setIsDepositError(false);
+
+    addToast({
+      type: res?.success === false ? "error" : "success",
+      message: res?.success === false ? res?.message : "Bag creation request sent successfully",
+    });
   };
 
   // ── Columns ──
-  const columnsStep1 = [
+  const columns = [
     {
       title: "Select",
       key: "selection",
@@ -312,8 +328,15 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch }) => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: isSelected ? 1 : 0, opacity: isSelected ? 1 : 0 }}
-                  transition={{ duration: 0.35, opacity: { duration: 0.15 }, pathLength: { delay: isSelected ? 0.1 : 0 } }}
+                  animate={{
+                    pathLength: isSelected ? 1 : 0,
+                    opacity: isSelected ? 1 : 0,
+                  }}
+                  transition={{
+                    duration: 0.35,
+                    opacity: { duration: 0.15 },
+                    pathLength: { delay: isSelected ? 0.1 : 0 },
+                  }}
                 />
               </motion.svg>
             </motion.button>
@@ -321,16 +344,52 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch }) => {
         );
       },
     },
-    { title: "Order ID", key: "order_id", render: (row) => <span className="font-mono text-cyan-400">{row.order_id}</span> },
-    { title: "Total", key: "payable_amount", render: (row) => <span>{row?.payable_amount}</span> },
-    { title: "Cash to Deposit", key: "received_st", render: (row) => <span>{row?.total_cash_to_deposit}</span> },
-    { title: "Customer", key: "customer", render: (row) => <span>{row?.customer_name}</span> },
-    { title: "Received Date", key: "received_date", render: (row) => <span>{dayjs(row.created_at).format("DD MMM, YYYY hh:mm A")}</span> },
+    {
+      title: "Order ID",
+      key: "order_id",
+      render: (row) => <span className="font-mono font-medium text-cyan-600">{row.order_id}</span>,
+    },
+    {
+      title: "Total",
+      key: "payable_amount",
+      render: (row) => <span>{row?.payable_amount}</span>,
+    },
+    {
+      title: "Cash to Deposit",
+      key: "received_st",
+      render: (row) => <span>{row?.total_cash_to_deposit}</span>,
+    },
+    {
+      title: "Customer",
+      key: "customer",
+      render: (row) => <span>{row?.customer_name}</span>,
+    },
+    {
+      title: "Received Date",
+      key: "received_date",
+      render: (row) => <span>{dayjs(row.created_at).format("DD MMM, YYYY hh:mm A")}</span>,
+    },
   ];
 
   return (
     <>
-      <Drawer isOpen={isOpen} onClose={handleClose}>
+      <Drawer
+        isOpen={isOpen}
+        onClose={handleClose}
+        title={
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+              <MdArrowOutward className="text-blue-500" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">{isEditMode ? "Edit Cash In Request" : "Cash In Request"}</h2>
+              <p className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
+                {isEditMode ? `Editing · ${editData?.tran_id}` : "Select orders to deposit into vault"}
+              </p>
+            </div>
+          </div>
+        }
+      >
         <AnimatePresence mode="wait">
           {/* ── Step 1: Order Selection ── */}
           {step === 1 && (
@@ -341,37 +400,33 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch }) => {
               exit={{ opacity: 0, x: -20 }}
               className="flex flex-col h-full bg-[#F8FAFC]"
             >
-              <div className="p-6 bg-white border-b border-slate-200">
-                <div className="flex items-center gap-3 mb-1">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-                    <MdArrowOutward className="text-blue-500" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-800">Cash In Request</h2>
-                    <p className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Select orders to deposit into vault</p>
-                  </div>
-                </div>
-                <div className="mt-8 flex items-end justify-between">
+              <div className="p-6 bg-white">
+                <div className="flex items-end justify-between">
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Selected Amount</p>
                     <h1 className="text-3xl font-bold text-slate-900">৳{totalAmount.toLocaleString("en-BD", { minimumFractionDigits: 2 })}</h1>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="px-4 py-2 rounded-full border border-slate-200 bg-white text-xs font-semibold text-slate-600">
-                      {selectedRows.length} Orders Selected
+                  <div className="flex items-center gap-4">
+                    <div className="flex flex-col">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mt-4 ml-1"></p>
+                      <div className={`px-4 py-2 rounded-full  text-xs font-semibold ${selectedRows.length > 0 ? "text-cyan-600" : "text-slate-400"}`}>
+                        {selectedRows.length} Orders Selected
+                      </div>
                     </div>
-                    <button
-                      onClick={handleGenerateDeposit}
-                      disabled={!isGenerateEnabled || depositLoading}
-                      className="px-6 py-2 cursor-pointer bg-[#1a73e8] shadow-lg shadow-blue-200 hover:bg-blue-600 text-white font-semibold text-sm rounded-lg transition-all disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none flex items-center gap-2"
-                    >
-                      {depositLoading ? <Loader2 className="animate-spin w-4 h-4" /> : "Generate Deposit"}
-                    </button>
+                    <VaultSelect
+                      vaults={user?.vault_assignments}
+                      defaultVault={user?.default_vault_id}
+                      selectedVault={selectedVault}
+                      onSelect={setSelectedVault}
+                      error={error}
+                      setError={setError}
+                    />
                   </div>
                 </div>
               </div>
+
               <DataTable
-                columns={columnsStep1}
+                columns={columns}
                 data={orders}
                 changePage={handlePageChange}
                 onSearch={handleSearch}
@@ -379,8 +434,30 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch }) => {
                 selectedRows={selectedRows}
                 loading={loading}
                 setSelectedRows={setSelectedRows}
-                className="h-[calc(100vh-100px)]"
+                className="h-[calc(100vh-310px)]"
               />
+
+              <div className="flex items-center bg-[#FDFDFE] border-t border-slate-200 mt-2 py-7 px-6 gap-4 justify-between">
+                <button
+                  onClick={handleClose}
+                  className="px-6 py-3 w-[35%] text-center justify-center cursor-pointer bg-[#fdfdfe] border border-slate-200 text-black hover:bg-blue-600 hover:text-white font-semibold text-sm rounded-xl transition-all flex items-center gap-2"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleGenerateDeposit}
+                  disabled={!isGenerateEnabled || depositLoading}
+                  className="px-6 w-[65%] py-3 cursor-pointer justify-center bg-[#1e293b] shadow-lg hover:bg-black text-white font-semibold text-sm rounded-xl transition-all disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none flex items-center gap-2"
+                >
+                  {depositLoading ? (
+                    <Loader2 className="animate-spin w-4 h-4" />
+                  ) : (
+                    <span className="flex gap-1 items-center">
+                      Next <ArrowRight className="w-4 h-4" />
+                    </span>
+                  )}
+                </button>
+              </div>
             </motion.div>
           )}
 
@@ -405,12 +482,23 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch }) => {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setDenominations(INITIAL_DENOMINATIONS)}
-                  className="text-red-500 text-sm font-semibold flex items-center gap-1 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
-                >
-                  <MdRestartAlt /> Reset
-                </button>
+                <div className="flex items-center">
+                  <button
+                    onClick={() => setDenominations(INITIAL_DENOMINATIONS)}
+                    className="text-red-500 text-sm font-semibold flex items-center gap-1 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    <MdRestartAlt /> Reset
+                  </button>
+                  <button
+                    onClick={() => {
+                      setDepositLoading(false);
+                      setStep(1);
+                    }}
+                    className="text-gray-500 text-sm flex items-center gap-1 hover:text-gray-800 px-3 py-1.5 cursor-pointer transition-colors"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Back
+                  </button>
+                </div>
               </div>
 
               <div className="flex flex-1 overflow-hidden">
@@ -432,7 +520,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch }) => {
                           </button>
                           <input
                             type="text"
-                            value={denominations[note] || 0}
+                            value={denominations[note] ?? 0}
                             onChange={(e) => handleInputChange(note, e.target.value)}
                             className="w-12 text-center bg-transparent text-blue-600 font-bold text-lg outline-none"
                           />
@@ -451,15 +539,15 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch }) => {
                 {/* Right: Summary */}
                 <div className="w-[45%] p-8 bg-[#FCFCFD] flex flex-col">
                   {difference > 0 && (
-                    <p className="text-red-400 mb-2 flex items-center gap-1 ring-red-500/20 bg-red-50 text-xs font-medium px-3 py-1.5 rounded-full">
-                      <RiCloseCircleLine size={16} /> ৳{difference} over - remove notes
+                    <p className="text-red-400 mb-2 flex items-center gap-1 bg-red-50 text-xs font-medium px-3 py-1.5 rounded-full">
+                      <RiCloseCircleLine size={16} /> ৳{difference.toLocaleString()} over — remove notes
                     </p>
                   )}
                   <div className="p-6 rounded-2xl border border-slate-200 bg-white space-y-6">
                     <div className="flex justify-between">
                       <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Expected Total</p>
-                        <p className="text-xl font-bold text-slate-800">{totalAmount.toLocaleString()}</p>
+                        <p className="text-xl font-bold text-slate-800">৳{totalAmount.toLocaleString()}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Difference</p>
@@ -470,7 +558,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch }) => {
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grand Total</p>
-                      <p className={`text-4xl font-black ${totalAmount < grandTotal ? "text-red-600" : "text-blue-600"} `}>৳{grandTotal.toLocaleString()}</p>
+                      <p className={`text-4xl font-black ${totalAmount < grandTotal ? "text-red-600" : "text-blue-600"}`}>৳{grandTotal.toLocaleString()}</p>
                     </div>
                   </div>
 
@@ -485,11 +573,12 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch }) => {
                       {Object.entries(denominations).filter(([, cnt]) => cnt > 0).length > 0 ? (
                         Object.entries(denominations)
                           .filter(([, cnt]) => cnt > 0)
+                          .sort(([a], [b]) => parseInt(b) - parseInt(a))
                           .map(([val, cnt]) => (
                             <div key={val} className="grid grid-cols-3 border-b py-3 border-slate-200 text-sm">
-                              <span className="font-bold text-slate-700">{val}</span>
+                              <span className="font-bold text-slate-700">৳{val}</span>
                               <span className="text-slate-500">x{cnt}</span>
-                              <span className="font-bold text-slate-800 text-right">৳{(val * cnt).toLocaleString()}</span>
+                              <span className="font-bold text-slate-800 text-right">৳{(parseInt(val) * cnt).toLocaleString()}</span>
                             </div>
                           ))
                       ) : (
@@ -498,7 +587,6 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch }) => {
                     </div>
                   </div>
 
-                  {/* Done button → opens confirm modal */}
                   <button
                     onClick={handleDoneClick}
                     disabled={grandTotal === 0 || difference !== 0}
@@ -510,7 +598,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch }) => {
                           ✓
                         </motion.div>
                       </div>
-                      Done
+                      {isEditMode ? "Update" : "Done"}
                     </motion.span>
                   </button>
                 </div>
@@ -520,22 +608,17 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch }) => {
         </AnimatePresence>
       </Drawer>
 
-      {/* Error modal (no bag) */}
-      <ErrorModal
-        isOpen={isErrorModalOpen}
-        message={depositError}
-        onCancel={() => setIsErrorModalOpen(false)} // ✅ fixed: was calling isOpenDepositErrorModal(false)
-        onCreate={handleCreateBagRedirect}
-      />
-
-      {/* Confirm submit modal */}
-      <ConfirmModal
-        isOpen={isConfirmModalOpen}
-        grandTotal={grandTotal}
-        onCancel={() => setIsConfirmModalOpen(false)}
-        onConfirm={handleConfirmSubmit}
-        loading={submitLoading}
-      />
+      {isConfirmModalOpen && (
+        <ConfirmModal
+          grandTotal={grandTotal}
+          onCancel={handleCancelConfirmSubmit}
+          onConfirm={handleConfirmSubmit}
+          loading={submitLoading}
+          isDepositError={isDepositError}
+          message={depositError}
+          onCreate={handleCreateBagRedirect}
+        />
+      )}
     </>
   );
 };

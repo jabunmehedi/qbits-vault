@@ -48,6 +48,14 @@ export const CreateVault = async (data) => {
     console.error(error?.response?.data?.message);
   }
 };
+export const BagCreateRequest = async (data) => {
+  try {
+    const response = await axiosConfig.post(`/bag/create-request`, data);
+    return response?.data;
+  } catch (error) {
+    return error?.response?.data;
+  }
+};
 
 export const ToggleVaultAccess = async (userId, vaultId) => {
   try {

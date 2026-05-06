@@ -9,7 +9,7 @@ import { FaCheckCircle } from "react-icons/fa";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import axiosConfig from "../../utils/axiosConfig";
 
-const baseStorageUrl = import.meta.env.VITE_REACT_APP_STORAGE_URL;
+// const baseStorageUrl = import.meta.env.VITE_REACT_APP_STORAGE_URL;
 
 const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
   const queryClient = useQueryClient();
@@ -376,8 +376,8 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                       </button>
                       <button
                         onClick={handleArchiveUser}
-                        disabled={actionLoading === "archive" || user?.status === "archived"}
-                        className={` text-white px-3 py-2 rounded-lg font-bold transition disabled:opacity-50 ${
+                        disabled={actionLoading === "archive" || user?.status === "archived" || isSuperAdmin}
+                        className={` text-white px-3 py-2 rounded-lg font-bold transition disabled:opacity-20 disabled:bg-gray-500 ${
                           user?.status === "archived" ? "bg-gray-400" : "bg-[#AE2448] hover:bg-red-800"
                         }`}
                       >
@@ -451,26 +451,28 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                         CAPABILITY MATRIX: <span className="text-gray-500">{vaultList.find((v) => v.id === activeVaultId)?.name}</span>
                       </h4>
                       <div className="grid grid-cols-2 text-black gap-3">
-                        {rolesList?.map((role) => {
-                          const isEnabled = activeRoles.includes(role.id);
-                          return (
-                            <div
-                              key={role.id}
-                              onClick={() => toggleRole(role)}
-                              className={`rounded-3xl p-4 flex items-center justify-between cursor-pointer transition-all border ${
-                                isEnabled ? "bg-blue-600 text-white border-blue-600" : "bg-white border-gray-200 hover:border-gray-300"
-                              }`}
-                            >
-                              <div>
-                                <p className="font-bold">{role?.name}</p>
-                                <p className="text-xs opacity-75">{isEnabled ? "Enabled" : "Disabled"}</p>
+                        {rolesList
+                          ?.filter((role) => role.name !== "super-admin" && role.name !== "Super Admin")
+                          .map((role) => {
+                            const isEnabled = activeRoles.includes(role.id);
+                            return (
+                              <div
+                                key={role.id}
+                                onClick={() => toggleRole(role)}
+                                className={`rounded-3xl p-4 flex items-center justify-between cursor-pointer transition-all border ${
+                                  isEnabled ? "bg-blue-600 text-white border-blue-600" : "bg-white border-gray-200 hover:border-gray-300"
+                                }`}
+                              >
+                                <div>
+                                  <p className="font-bold">{role?.name}</p>
+                                  <p className="text-xs opacity-75">{isEnabled ? "Enabled" : "Disabled"}</p>
+                                </div>
+                                <div className={`w-8 h-8 rounded-2xl flex items-center justify-center text-xl ${isEnabled ? "" : "bg-gray-100"}`}>
+                                  {isEnabled ? <FaCheckCircle /> : "○"}
+                                </div>
                               </div>
-                              <div className={`w-8 h-8 rounded-2xl flex items-center justify-center text-xl ${isEnabled ? "" : "bg-gray-100"}`}>
-                                {isEnabled ? <FaCheckCircle /> : "○"}
-                              </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
                       </div>
                     </div>
                   )}

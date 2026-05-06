@@ -1,8 +1,16 @@
 import axios from "../utils/axiosConfig";
 
-export const GetCashIn = async () => {
+export const GetCashIns = async () => {
   try {
     const response = await axios.get(`/cash-in`);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+  }
+};
+export const GetCashIn = async (id) => {
+  try {
+    const response = await axios.get(`/cash-in/${id}`);
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);
@@ -28,6 +36,15 @@ export const CreateCashIn = async (data) => {
 export const UpdateCashIn = async (id, data) => {
   try {
     const response = await axios.put(`/cash-in/${id}`, data);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error;
+  }
+};
+export const DeleteCashIn = async (id) => {
+  try {
+    const response = await axios.delete(`/cash-in/${id}`);
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);

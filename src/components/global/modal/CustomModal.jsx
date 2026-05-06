@@ -2,13 +2,11 @@ import { motion } from "framer-motion";
 import { X } from "lucide-react";
 
 const CustomModal = ({ isCloseModal, children, title = "Modal", className = "" }) => {
-  // Check if a specific width or max-width is provided in className
-  // If not, we apply a default max-width (e.g., max-w-3xl)
   const hasWidth = className.includes("max-w-") || className.includes("w-");
   const widthFallback = hasWidth ? "" : "max-w-2xl";
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex flex-col z-50 overflow-y-auto">
+    <div className="fixed inset-0 bg-black/70 flex flex-col z-[999] overflow-y-auto">
       <div className="flex min-h-screen items-center justify-center p-4 sm:p-8">
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }}
@@ -30,9 +28,7 @@ const CustomModal = ({ isCloseModal, children, title = "Modal", className = "" }
           </div>
 
           {/* Content */}
-          <div className="px-10 pb-10 text-gray-600 overflow-y-auto custom-scrollbar">
-            {children}
-          </div>
+          <div className="px-10 pb-10 text-gray-600 overflow-y-auto custom-scrollbar">{children}</div>
         </motion.div>
       </div>
     </div>

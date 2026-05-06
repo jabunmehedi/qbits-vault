@@ -4,8 +4,8 @@ import { FiHome, FiSettings, FiLogOut, FiSend, FiRefreshCw, FiX, FiMenu } from "
 import { AiOutlineAudit, AiOutlineUser } from "react-icons/ai";
 import { CiInboxOut, CiVault } from "react-icons/ci";
 import { Shield } from "lucide-react";
-
 import { Logout } from "../../../services/Auth";
+import { usePermissions } from "../../../hooks/usePermissions";
 
 const menuItems = [
   { icon: FiHome, label: "Overview", path: "/" },
@@ -24,6 +24,7 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
   const { pathname } = useLocation();
   const user = JSON.parse(localStorage.getItem("auth"))?.user ?? {};
   const showLabel = !isMinimized || isMobile;
+  const { hasPermission } = usePermissions();
 
   const isActive = (path) => path && (pathname === path || pathname.startsWith(`${path}/`));
 
@@ -67,29 +68,41 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
 
         {/* Menu */}
         <nav className="flex-1 space-y-1">
-          {menuItems.map((item) => {
-            const active = isActive(item.path);
+          {menuItems
+            .filter((item) => {
+              if (item.path === "/users" && !hasPermission("user.view")) return false;
+              if (item.path === "/vault" && !hasPermission("vault.view")) return false;
+              if (item.path === "/cashin" && !hasPermission("cash-in.view")) return false;
+              if (item.path === "/cashout" && !hasPermission("cash-out.view")) return false;
+              if (item.path === "/reconcile" && !hasPermission("reconciliation.view")) return false;
+              // if (item.path === "/verifications" && !hasPermission("verification.view")) return false;
+              if (item.path === "/role-and-permissions" && !hasPermission("permission.view")) return false;
+              if (item.path === "/activity-log" && !hasPermission("activity_log.view")) return false;
+              return true;
+            })
+            .map((item) => {
+              const active = isActive(item.path);
 
-            return (
-              <Link key={item.label} to={item.path ?? "#"} onClick={isMobile ? () => setIsDrawerOpen(false) : undefined} className="block">
-                <div
-                  className={`
+              return (
+                <Link key={item.label} to={item.path ?? "#"} onClick={isMobile ? () => setIsDrawerOpen(false) : undefined} className="block">
+                  <div
+                    className={`
             group text-[14px] flex items-center gap-4 px-4 py-2 rounded-lg transition-all duration-200
             ${active ? "bg-[#e8f3ff93] text-indigo-500 " : "text-gray-500 hover:bg-gray-50 hover:text-indigo-500"}
           `}
-                >
-                  <item.icon
-                    size={16}
-                    className={`
+                  >
+                    <item.icon
+                      size={16}
+                      className={`
               transition-colors duration-200
               ${active ? "text-indigo-500" : "text-gray-500 group-hover:text-indigo-500"}
             `}
-                  />
-                  {showLabel && <span className="text-sm">{item.label}</span>}
-                </div>
-              </Link>
-            );
-          })}
+                    />
+                    {showLabel && <span className="text-sm">{item.label}</span>}
+                  </div>
+                </Link>
+              );
+            })}
         </nav>
 
         {/* Footer */}

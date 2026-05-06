@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Shield, UserIcon, X } from "lucide-react";
+import { Check, UserIcon, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { UpdatePermissions } from "../../services/Permission";
 import { a } from "framer-motion/client";

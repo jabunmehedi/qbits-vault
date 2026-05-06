@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useSelector } from "react-redux";
+import { useState, useMemo } from "react";
 import DataTable from "../../components/global/dataTable/DataTable";
 import axiosConfig from "../../utils/axiosConfig";
 import { GetRoles, GetUsers } from "../../services/User";
@@ -32,6 +31,7 @@ const User = () => {
   const loggedUser = localStorage.getItem("auth") ? JSON.parse(localStorage.getItem("auth")).user : null;
   const isSuperAdmin = loggedUser?.roles?.some((role) => SUPERADMIN_NAMES.includes(role.name));
 
+
   // ── 2. Use React Query for Users ──
   const { data: users = [], isLoading: isUsersLoading } = useQuery({
     queryKey: ["users"],
@@ -59,6 +59,7 @@ const User = () => {
     },
   });
 
+
   const filteredUsers = useMemo(() => {
     if (!loggedUser) return users;
 
@@ -66,25 +67,6 @@ const User = () => {
 
     return users.filter((user) => !user.roles?.some((role) => SUPERADMIN_NAMES.includes(role.name)));
   }, [users, loggedUser]);
-
-  // ── Fetch Data ──
-  // const fetchData = useCallback(async () => {
-  //   setIsLoading(true);
-  //   try {
-  //     const [uRes, rRes, pRes] = await Promise.all([GetUsers(), GetRoles(), axiosConfig.get("/permissions")]);
-  //     setUsers(uRes?.data?.data || []);
-  //     setRoles(rRes?.data || []);
-  //     setPermissions(pRes.data.data || pRes.data || []);
-  //   } catch (err) {
-  //     console.error(err);
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // }, []);
-
-  // useEffect(() => {
-  //   fetchData();
-  // }, [fetchData]);
 
   const columns = useMemo(() => {
     const baseColumns = [
@@ -181,6 +163,8 @@ const User = () => {
     return [...baseColumns, ...roleColumns];
   }, [roles, hasPermission]);
 
+
+
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="font-sans">
@@ -231,14 +215,7 @@ const User = () => {
 
       {openModel && <CreateNewUserModal setOpenModel={setOpenModel} roles={roles} />}
 
-      {roleDrawerOpen && (
-        <RoleDrawer
-          isOpen={roleDrawerOpen}
-          onClose={() => setRoleDrawerOpen(false)}
-          rolesList={roles}
-          // refetchRoles={() => GetRoles().then((res) => setRoles(res?.data || []))}
-        />
-      )}
+      {roleDrawerOpen && <RoleDrawer isOpen={roleDrawerOpen} onClose={() => setRoleDrawerOpen(false)} rolesList={roles} />}
 
       <PermissionViewer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} user={selectedUser} permissions={permissions} />
     </div>

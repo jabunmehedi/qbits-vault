@@ -11,6 +11,7 @@ export const fetchAuthUser = createAsyncThunk("auth/fetchAuthUser", async (_, { 
     if (!userId) return rejectWithValue("No user id available");
 
     const res = await axiosConfig.get(`/users/${userId}`);
+    console.log(res)
     return res.data.data.data;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || "Failed to fetch user");

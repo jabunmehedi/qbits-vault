@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Shield, X } from "lucide-react";
-import { MdDelete } from "react-icons/md";
+import { Loader2, Shield, X } from "lucide-react";
+// import { MdDelete } from "react-icons/md";
 import { useToast } from "../../hooks/useToast";
 import { useState } from "react";
 import axiosConfig from "../../utils/axiosConfig";
@@ -8,12 +8,16 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 const RoleDrawer = ({ isOpen, onClose, rolesList, refetchRoles }) => {
   const [newRoleName, setNewRoleName] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const { addToast } = useToast();
   const queryClient = useQueryClient();
 
   // 3. Define the mutation
   const mutation = useMutation({
+    onMutate: () => {
+      setIsLoading(true);
+    },
     mutationFn: (roleName) => axiosConfig.post("/roles", { name: roleName }),
     onSuccess: () => {
       // 4. This is the magic part: it refreshes the "roles" query in the background
@@ -23,6 +27,9 @@ const RoleDrawer = ({ isOpen, onClose, rolesList, refetchRoles }) => {
     },
     onError: () => {
       addToast({ type: "error", message: "Failed to create role" });
+    },
+    onSettled: () => {
+      setIsLoading(false);
     },
   });
 
@@ -64,8 +71,12 @@ const RoleDrawer = ({ isOpen, onClose, rolesList, refetchRoles }) => {
                   placeholder="Role Name..."
                   className="flex-1 px-4 py-2 text-black bg-gray-50 border border-gray-100 rounded-lg outline-none focus:border-blue-400 text-sm"
                 />
-                <button onClick={handleCreateRole} className="bg-[#1a2b4b] text-white px-4 py-2 rounded-lg text-xs font-bold uppercase">
-                  Add
+                <button
+                  onClick={handleCreateRole}
+                  disabled={isLoading}
+                  className={`${isLoading ? "bg-gray-200 cursor-not-allowed" : "bg-[#1a2b4b]"} text-white px-4 py-2 rounded-lg text-xs font-bold uppercase`}
+                >
+                  {isLoading ? <Loader2 className="animate-spin w-4 h-4 mx-4 text-black" /> : "Create"}
                 </button>
               </div>
             </div>
@@ -82,9 +93,9 @@ const RoleDrawer = ({ isOpen, onClose, rolesList, refetchRoles }) => {
                     <Shield className="w-4 h-4 text-blue-500" />
                     <span className="text-sm font-bold text-gray-700 uppercase">{role.name}</span>
                   </div>
-                  <button className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all">
+                  {/* <button className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all">
                     <MdDelete size={18} />
-                  </button>
+                  </button> */}
                 </div>
               ))}
             </div>

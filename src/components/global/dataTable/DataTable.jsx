@@ -88,7 +88,7 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
                   {data.map((row, i) => (
                     <motion.tr
                       key={row.id || i}
-                      layout 
+                      layout
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
@@ -100,8 +100,7 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
                     >
                       {columns.map((column, colIndex) => (
                         <td key={colIndex} className={`px-6 py-3 text-gray-600 text-start text-xs transition-all duration-300 ${column?.className}`}>
-                         
-                          <motion.div >{column.render ? column.render(row, row, data.length) : row[column.key] || <span>-</span>}</motion.div>
+                          <motion.div>{column.render ? column.render(row, row, data.length) : row[column.key] || <span>-</span>}</motion.div>
                         </td>
                       ))}
                     </motion.tr>

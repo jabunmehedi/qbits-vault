@@ -36,11 +36,12 @@ function Root() {
         }
         persistor={persistor}
       >
-        {/* 3. Wrap everything inside the QueryClientProvider */}
         <QueryClientProvider client={queryClient}>
           <PermissionInitializer>
             <App />
-            <Toaster toasts={toasts} removeToast={removeToast} />
+            <div className="fixed z-[9999]">
+              <Toaster toasts={toasts} removeToast={removeToast} />
+            </div>
           </PermissionInitializer>
         </QueryClientProvider>
       </PersistGate>

@@ -5,14 +5,7 @@ import { GetVaultBagById, GetVaults } from "../../services/Vault";
 import { CreateCashIn } from "../../services/Cash";
 import { useNavigate } from "react-router-dom";
 
-export default function CashDepositConfirmModal({
-  amounts,
-  selectedRows,
-  showConfirmModal,
-  setShowConfirmModal,
-  totalEnteredAmount,
-  denominations,
-}) {
+export default function CashDepositConfirmModal({ amounts, selectedRows, showConfirmModal, setShowConfirmModal, totalEnteredAmount, denominations }) {
   const [selectedVault, setSelectedVault] = useState(null);
   const [selectedBag, setSelectedBag] = useState(null);
   const [availableBags, setAvailableBags] = useState([]);
@@ -105,7 +98,7 @@ export default function CashDepositConfirmModal({
 
     setTimeout(() => {
       document.body.innerHTML = original;
-      window.location.reload(); // or navigate
+      window.location.reload();
     }, 100);
   };
 
