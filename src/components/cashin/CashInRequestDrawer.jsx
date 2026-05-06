@@ -402,25 +402,28 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
             >
               <div className="p-6 bg-white">
                 <div className="flex items-end justify-between">
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Selected Amount</p>
-                    <h1 className="text-3xl font-bold text-slate-900">৳{totalAmount.toLocaleString("en-BD", { minimumFractionDigits: 2 })}</h1>
-                  </div>
+                  <VaultSelect
+                    vaults={user?.vault_assignments}
+                    defaultVault={user?.default_vault_id}
+                    selectedVault={selectedVault}
+                    onSelect={setSelectedVault}
+                    error={error}
+                    setError={setError}
+                  />
+
                   <div className="flex items-center gap-4">
                     <div className="flex flex-col">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase mt-4 ml-1"></p>
-                      <div className={`px-4 py-2 rounded-full  text-xs font-semibold ${selectedRows.length > 0 ? "text-cyan-600" : "text-slate-400"}`}>
+                      <p className="text-[10px] font-bold text-slate-400  uppercase mt-4 ml-1"></p>
+                      <div
+                        className={`px-4 py-2 rounded-full border border-slate-200  text-xs font-semibold ${selectedRows.length > 0 ? "text-cyan-600" : "text-slate-400"}`}
+                      >
                         {selectedRows.length} Orders Selected
                       </div>
                     </div>
-                    <VaultSelect
-                      vaults={user?.vault_assignments}
-                      defaultVault={user?.default_vault_id}
-                      selectedVault={selectedVault}
-                      onSelect={setSelectedVault}
-                      error={error}
-                      setError={setError}
-                    />
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Selected Amount</p>
+                      <h1 className="text-3xl font-bold text-end text-slate-900">৳{totalAmount.toLocaleString("en-BD", { minimumFractionDigits: 2 })}</h1>
+                    </div>
                   </div>
                 </div>
               </div>
