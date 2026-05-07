@@ -255,7 +255,6 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
       const res = isEditMode ? await UpdateCashIn(editData.id, payload) : await CreateCashIn(payload);
 
       if (res?.status === 500 || res?.status === 422 || res?.success === false) {
-        console.log("come");
         setIsDepositError(true);
         setDepositError(res?.response?.data || "An error occurred.");
       } else if (res?.status === 200 || res?.status === 201 || res?.success === true) {

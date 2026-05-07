@@ -242,8 +242,6 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
 
   const assignedVaults = vaultList.filter((vault) => userAssignments.some((a) => a.vault_id === vault.id && (a.status === "active" || a.status === 1)));
 
-  console.log({ user });
-
   return (
     <AnimatePresence>
       {isOpen && (

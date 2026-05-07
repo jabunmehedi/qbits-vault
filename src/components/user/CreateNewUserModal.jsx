@@ -71,7 +71,6 @@ const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRo
     }
   };
 
-  console.log({ roles });
 
   return (
     <CustomModal

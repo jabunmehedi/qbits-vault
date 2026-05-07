@@ -76,9 +76,9 @@ export const GetPendingCashOut = async () => {
     console.error(error?.response?.data?.message);
   }
 };
-export const VerifyCashIn = async (id, action, note = "") => {
+export const VerifyCashIn = async (id, action = "verify", note = "") => {
   try {
-    const response = await axios.post(`/verify/cash-in/${id}`, { action, note });
+    const response = await axios.post(`/verify/cash-in/${id}`, { action: action, note });
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);

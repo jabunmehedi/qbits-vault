@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { AiOutlineClose } from "react-icons/ai";
+import { cn } from "../../../utils/cn";
 
-const Drawer = ({ isOpen, onClose, children, title = "Drawer" }) => {
+const Drawer = ({ isOpen, onClose, children, title = "Drawer", className }) => {
   // Close on backdrop click
   // const handleBackdropClick = (e) => {
   //   if (e.target === e.currentTarget) {
@@ -32,7 +33,7 @@ const Drawer = ({ isOpen, onClose, children, title = "Drawer" }) => {
               stiffness: 220,
               mass: 0.8,
             }}
-            className="fixed right-0 top-0 h-full w-[40%] bg-white z-[70] shadow-2xl overflow-hidden flex flex-col"
+            className={cn("fixed right-0 top-0 h-full w-[40%] bg-white z-[70] shadow-2xl overflow-hidden flex flex-col", className)}
           >
             {/* Header */}
             <div className="flex items-center justify-between p-6">

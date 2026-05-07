@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import CashDepositConfirmModal from "../../components/cashin/CashDepositConfirmModal";
-import { DeleteCashIn, GetCashIn, GetCashIns } from "../../services/Cash";
+import { DeleteCashIn, GetCashIn, GetCashIns, VerifyCashIn } from "../../services/Cash";
 import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
 import { GetCashInLedger } from "../../services/Ledger";
 import { HiDotsHorizontal } from "react-icons/hi";
@@ -14,6 +14,9 @@ import { usePermissions } from "../../hooks/usePermissions";
 import OrderDetailsDrawer from "../../components/cashin/orderDetailsDrawer/OrderDetailsDrawer";
 import { useToast } from "../../hooks/useToast";
 import VerifyButton from "../../components/verifyButton/VerifyButton";
+import CashInDetails from "../../components/cashin/CashInDetails";
+import { useSelector } from "react-redux";
+import { selectAuthUser } from "../../store/authSlice";
 
 const DENOM_NOTES = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
 const INITIAL_DENOMINATIONS = Object.fromEntries(DENOM_NOTES.map((n) => [n, 0]));
@@ -38,8 +41,12 @@ const CashIn = () => {
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [deleteCoords, setDeleteCoords] = useState({ top: 0, left: 0 });
   const deleteButtonRef = useRef(null);
+  const [activeVerifyId, setActiveVerifyId] = useState(null);
+  const [activeApproveId, setActiveApproveId] = useState(null);
+  const [verifyLoading, setVerifyLoading] = useState(null);
 
   const { hasPermission } = usePermissions();
+  const user = useSelector(selectAuthUser);
   const { addToast } = useToast();
 
   const toggleRow = (rowId, e) => {
@@ -381,9 +388,10 @@ const CashIn = () => {
         <div className="flex flex-wrap gap-x-1 items-center">
           {previewOrders.map((order, i) => (
             <span
-              onClick={() => onIdClick()}
+              // FIX: Pass the specific order object here
+              onClick={() => onIdClick(order)}
               key={order.order_id || `preview-${i}`}
-              className="whitespace-nowrap hover:text-indigo-600 hover:underline cursor-pointer "
+              className="whitespace-nowrap hover:text-indigo-600 hover:underline cursor-pointer"
             >
               {order?.order_id}
               {i === previewOrders.length - 1 && !hasMore ? "" : ","}
@@ -403,7 +411,7 @@ const CashIn = () => {
         <motion.div
           initial={false}
           animate={{
-            height: isExpanded ? "auto" : 0,
+            height: isExpanded ? "auto" : "0px", // Use "0px" for better layout stability
             opacity: isExpanded ? 1 : 0,
           }}
           transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
@@ -411,7 +419,12 @@ const CashIn = () => {
         >
           <div className="flex flex-wrap gap-x-1 pt-1">
             {extraOrders.map((order, i) => (
-              <span key={order.order_id || `extra-${i}`} className="whitespace-nowrap">
+              <span
+                key={order.order_id || `extra-${i}`}
+                // FIX: Add onClick to extra orders so they are clickable too
+                onClick={() => onIdClick(order)}
+                className="whitespace-nowrap hover:text-indigo-600 hover:underline cursor-pointer"
+              >
                 {order?.order_id}
                 {i === extraOrders.length - 1 ? "" : ","}
               </span>
@@ -431,7 +444,6 @@ const CashIn = () => {
       </div>
     );
   };
-
   const handleOpenDetails = (orderData) => {
     setSelectedOrderDetails(orderData);
     setOpenOrderDetailsDrawer(true);
@@ -466,6 +478,20 @@ const CashIn = () => {
     }
   };
 
+  const handleVerifyClick = async (id) => {
+    setVerifyLoading(id);
+    try {
+      const res = await VerifyCashIn(id);
+
+      fetchCashInsData();
+      addToast({ message: "Cash-in verified successfully", type: "success" });
+    } catch (err) {
+      console.error("Failed to verify cash-in:", err);
+    } finally {
+      setVerifyLoading(null);
+    }
+  };
+
   const columns = [
     {
       title: "Vault",
@@ -497,7 +523,7 @@ const CashIn = () => {
       render: (row) => (
         <ExpandableOrderIds
           orders={row?.orders}
-          onIdClick={() => handleOpenDetails(row)}
+          onIdClick={(order) => handleOpenDetails(order)}
           isExpanded={!!expandedRows[row.id]}
           onToggle={(e) => toggleRow(row.id, e)}
         />
@@ -519,37 +545,61 @@ const CashIn = () => {
       title: "Verification",
       key: "required_verifiers",
       className: "w-20 text-center",
-      render: (row) => (
-        <div className="flex flex-col items-center gap-2">
-          <VerifierAvatars requiredVerifiers={row.required_verifiers || []} />
-          <VerifyButton />
-          <span
-            className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
-              row?.verifier_status === "pending" ? "bg-yellow-50 border-yellow-200 text-yellow-600" : "bg-green-50 border-green-200 text-green-500"
-            }`}
-          >
-            {row?.verifier_status}
-          </span>
-        </div>
-      ),
+      render: (row) => {
+        const isVerifierShowButton = row?.required_verifiers?.some((verifier) => verifier?.user_id === user?.id && !verifier?.verified);
+        return (
+          <div className="flex flex-col items-center gap-2">
+            <VerifierAvatars requiredVerifiers={row.required_verifiers || []} />
+            {isVerifierShowButton && (
+              <VerifyButton
+                handleVerifyClick={() => handleVerifyClick(row.id)}
+                isOpen={activeVerifyId === row.id}
+                isLoading={verifyLoading}
+                setOpen={(isOpen) => setActiveVerifyId(isOpen ? row.id : null)}
+                className="max-w-xl"
+              >
+                <CashInDetails cashIn={row} />
+              </VerifyButton>
+            )}
+            <span
+              className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
+                row?.verifier_status === "pending" ? "bg-yellow-50 border-yellow-200 text-yellow-600" : "bg-green-50 border-green-200 text-green-500"
+              }`}
+            >
+              {row?.verifier_status}
+            </span>
+          </div>
+        );
+      },
     },
     {
       title: "Approvals",
       key: "required_approvers",
       className: "w-20 text-center",
-      render: (row) => (
-        <div className="flex flex-col items-center gap-2">
-          <VerifierAvatars requiredVerifiers={row.required_approvers || []} />
-          <VerifyButton />
-          <span
-            className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
-              row?.approver_status === "pending" ? "bg-yellow-50 border-yellow-200 text-yellow-600" : "bg-green-50 border-green-200 text-green-500"
-            }`}
-          >
-            {row?.approver_status}
-          </span>
-        </div>
-      ),
+      render: (row) => {
+        const isApproverShowButton = row?.required_approvers?.some((approver) => approver?.user_id === user?.id && !approver?.verified);
+        const isVerified = row?.verifier_status === "verified";
+        return (
+          <div className="flex flex-col items-center gap-2">
+            <VerifierAvatars requiredVerifiers={row.required_approvers || []} />
+            {isApproverShowButton && isVerified && (
+              <VerifyButton
+                isOpen={activeApproveId === row.id}
+                isLoading={verifyLoading}
+                setOpen={(isOpen) => setActiveApproveId(isOpen ? row.id : null)}
+                className="max-w-xl"
+              ></VerifyButton>
+            )}
+            <span
+              className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
+                row?.approver_status === "pending" ? "bg-yellow-50 border-yellow-200 text-yellow-600" : "bg-green-50 border-green-200 text-green-500"
+              }`}
+            >
+              {row?.approver_status}
+            </span>
+          </div>
+        );
+      },
     },
     {
       title: "Status",
@@ -637,6 +687,7 @@ const CashIn = () => {
     },
   ];
 
+
   return (
     <div>
       {/* Header */}
@@ -686,7 +737,9 @@ const CashIn = () => {
         <CashInRequestDrawer editData={editCashInData} isOpen={openCashInReqDrawer} onClose={() => setOpenCashInReqDrawer(false)} refetch={fetchCashInsData} />
       )}
 
-      <OrderDetailsDrawer isOpen={openOrderDetailsDrawer} onClose={() => setOpenOrderDetailsDrawer(false)} />
+      {openOrderDetailsDrawer && (
+        <OrderDetailsDrawer orderId={selectedOrderDetails?.order_id} isOpen={openOrderDetailsDrawer} onClose={() => setOpenOrderDetailsDrawer(false)} />
+      )}
 
       {deleteConfirmId &&
         createPortal(

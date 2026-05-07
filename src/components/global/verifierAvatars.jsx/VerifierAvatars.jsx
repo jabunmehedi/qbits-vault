@@ -91,7 +91,7 @@ const VerifierAvatars = ({ requiredVerifiers = [] }) => {
                 {requiredVerifiers.map((v, idx) => (
                   <div key={idx} className="flex items-center gap-3">
                     <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center border border-slate-700 bg-slate-800 text-xs font-bold ${v.verified || v.approved ? "text-blue-400" : "text-slate-500"}`}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center border  text-xs font-bold ${v.verified || v.approved ? "text-white bg-indigo-400 border-indigo-700 " : "text-slate-500 bg-slate-800 border-slate-700 "}`}
                     >
                       {(v.name || v.user?.name || "U").charAt(0).toUpperCase()}
                     </div>

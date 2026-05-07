@@ -359,14 +359,12 @@ const Vault = () => {
   useEffect(() => {
     const editId = searchParams.get("vault_edit_id");
 
-    console.log({ editId });
 
     // Only proceed if we have an ID to search for and vaults have loaded
     if (editId && vaults.length > 0) {
       // Find the vault matching the vault_code (display ID)
       const vaultToEdit = vaults.find((v) => v.vault_id === editId);
 
-      console.log({ vaults });
 
       openEditModal(editId);
 
