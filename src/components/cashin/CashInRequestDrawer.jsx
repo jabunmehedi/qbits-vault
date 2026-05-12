@@ -278,7 +278,8 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const handleCreateBagRedirect = async () => {
     const vault_id = depositError?.vault_id ?? depositError?.message?.vault_id;
 
-    if (depositError?.bag_create_role) {
+
+    if (depositError?.message?.bag_create_role) {
       window.open(`/vault?vault_edit_id=${vault_id}`, "_blank");
       setIsConfirmModalOpen(false);
       return;
