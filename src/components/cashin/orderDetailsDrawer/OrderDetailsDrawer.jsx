@@ -2,7 +2,38 @@ import { useEffect, useMemo, useState } from "react";
 import Drawer from "../../global/drawer/Drawer";
 import { ArrowRight, ClockIcon, UserIcon } from "lucide-react";
 import dayjs from "dayjs";
-import { GetOrderHistory } from "../../../services/Orders";
+// import { GetOrderHistory } from "../../../services/Orders";
+
+// --- STATIC DEMO DATA FOR HISTORY ---
+const demoHistories = [
+  {
+    id: 1,
+    installment_no: 1,
+    payment_status: "pending",
+    amount: 15000,
+    partial_percentage: 50,
+    created_at: "2026-05-10T10:00:00.000Z",
+    user: { name: "John Doe" }
+  },
+  {
+    id: 2,
+    installment_no: 1,
+    payment_status: "received",
+    amount: 15000,
+    partial_percentage: 0,
+    created_at: "2026-05-11T12:30:00.000Z",
+    user: { name: "Jane Smith" }
+  },
+  {
+    id: 3,
+    installment_no: 2,
+    payment_status: "pending",
+    amount: 20000,
+    partial_percentage: 100,
+    created_at: "2026-05-12T09:15:00.000Z",
+    user: { name: "Alex Kumar" }
+  }
+];
 
 const StatusBadge = ({ status, className = "" }) => {
   const map = {
@@ -25,11 +56,17 @@ const OrderDetailsDrawer = ({ orderId, isOpen, onClose, payment_type, onEdit }) 
   // console.log({isOpen})
 
   useEffect(() => {
+    // --- COMMENTED OUT API CALL ---
+    /*
     GetOrderHistory(orderId).then((res) => {
       if (res?.success === true) {
         setHistories(res?.data?.data);
       }
     });
+    */
+
+    // --- USING STATIC DATA FOR NOW ---
+    setHistories(demoHistories);
   }, [orderId]);
 
   const paymentGroups = useMemo(() => {
