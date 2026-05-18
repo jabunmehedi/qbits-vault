@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { Loader2 } from "lucide-react";
 
-const VerifyButton = ({ children, isOpen, setOpen, className, handleVerifyClick, isLoading }) => {
+const VerifyButton = ({ children, isOpen, setOpen, className, handleSubmit, isLoading }) => {
   const handleToggle = (e) => {
     e.stopPropagation();
     setOpen(!isOpen);
@@ -72,7 +72,7 @@ const VerifyButton = ({ children, isOpen, setOpen, className, handleVerifyClick,
                     </button>
                     <button
                       disabled={isLoading}
-                      onClick={() => handleVerifyClick()}
+                      onClick={() => handleSubmit()}
                       className={`flex-1 py-3 text-[11px] flex items-center justify-center font-bold uppercase tracking-widest ${isLoading ? "bg-indigo-50 cursor-not-allowed border border-indigo-200" : "bg-indigo-600 shadow-xl shadow-indigo-200 hover:bg-indigo-700"} text-white rounded-2xl    active:scale-95 transition-all`}
                     >
                       {isLoading ? <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" /> : "Confirm"}

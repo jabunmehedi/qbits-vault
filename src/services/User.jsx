@@ -49,6 +49,15 @@ export const GetRoles = async () => {
     return error?.response;
   }
 };
+export const GetCustodiansByVaultId = async (vaultId) => {
+  try {
+    const response = await axios.get(`/users/custodian/${vaultId}`);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response;
+  }
+};
 export const DisableUser = async (userId) => {
   try {
     const response = await axios.put(`/users/${userId}/toggle-status`);

@@ -59,7 +59,7 @@ const VerifierAvatars = ({ requiredVerifiers = [] }) => {
           <div className="fixed inset-0" style={{ zIndex: 999999 }}>
             {/* Transparent Backdrop */}
             <div
-              className="absolute inset-0 bg-black/5" // Slight tint to see it's working
+              className="absolute inset-0 bg-black/5"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsOpen(false);

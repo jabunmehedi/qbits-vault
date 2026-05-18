@@ -11,8 +11,6 @@ import InitialVerification from "../initialVerification/InitialVerification";
 import { fetchAuthUser, selectAuthLoading, selectIsSuperAdmin, selectIsFullyVerified, selectAuthUser } from "../../store/authSlice";
 import { fetchReconciliationStatus, selectIsLockedForOperations } from "../../store/checkReconcile";
 
-// ── AppShell declared OUTSIDE Layout — fixes "component created during render" ─
-// Props passed explicitly instead of closing over Layout's state
 const AppShell = ({ isMobile, isMinimized, isDrawerOpen, setIsDrawerOpen, sidebarWidthClass, contentMargin, children }) => (
   <div className="min-h-screen text-white relative overflow-hidden">
     {isMobile && (
@@ -92,20 +90,19 @@ const Layout = () => {
   const contentMargin = isMobile ? "ml-0" : isMinimized ? "ml-16" : "";
 
   // ── Spinner while user loads ─────────────────────────────────────────────────
-  if (authLoading || !authUser) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f8fafd]">
-        <Loader2 size={36} className="animate-spin text-[#0061ff]" />
-      </div>
-    );
-  }
+  // if (authLoading || !authUser) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-purple-50 via-pink-50 to-blue-50">
+  //       <Loader2 size={36} className="animate-spin text-[#0061ff]" />
+  //     </div>
+  //   );
+  // }
 
   // ── Verification gate ────────────────────────────────────────────────────────
   if (!isSuperAdmin && !isFullyVerified) {
     return <InitialVerification onSuccess={() => dispatch(fetchAuthUser())} />;
   }
 
-  // ── Render (normal + locked both use the same AppShell) ──────────────────────
   return (
     <AppShell
       isMobile={isMobile}

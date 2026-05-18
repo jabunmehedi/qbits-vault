@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchUserPermissions } from "../../store/authSlice";
+import { Loader2 } from "lucide-react";
 
 const PermissionInitializer = ({ children }) => {
   const dispatch = useDispatch();
@@ -31,10 +32,9 @@ const PermissionInitializer = ({ children }) => {
 
   if (token && !isReady) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-purple-50 via-pink-50 to-blue-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-300 text-lg">Loading permissions...</p>
+         <Loader2 className="animate-spin"/>
         </div>
       </div>
     );

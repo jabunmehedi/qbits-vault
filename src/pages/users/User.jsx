@@ -31,7 +31,6 @@ const User = () => {
   const loggedUser = localStorage.getItem("auth") ? JSON.parse(localStorage.getItem("auth")).user : null;
   const isSuperAdmin = loggedUser?.roles?.some((role) => SUPERADMIN_NAMES.includes(role.name));
 
-
   // ── 2. Use React Query for Users ──
   const { data: users = [], isLoading: isUsersLoading } = useQuery({
     queryKey: ["users"],
@@ -58,7 +57,6 @@ const User = () => {
       return res.data.data || res.data || [];
     },
   });
-
 
   const filteredUsers = useMemo(() => {
     if (!loggedUser) return users;
@@ -162,8 +160,6 @@ const User = () => {
 
     return [...baseColumns, ...roleColumns];
   }, [roles, hasPermission]);
-
-
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (

@@ -60,6 +60,16 @@ export const CreateCashOut = async (data) => {
   }
 };
 
+export const DeleteCashOut = async (id) => {
+  try {
+    const response = await axios.delete(`/cash-out/${id}`);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error;
+  }
+};
+
 export const GetPendingCashIn = async () => {
   try {
     const response = await axios.get(`/pending/cash-in`);
@@ -103,6 +113,23 @@ export const ApproveCashIn = async (id, note = "") => {
 export const ApproveCashOut = async (id, note = "") => {
   try {
     const response = await axios.post(`/approve/cash-out/${id}`, { note });
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+  }
+};
+
+export const GetCashInsByVaultId = async (id) => {
+  try {
+    const response = await axios.get(`/cash-ins/${id}`);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+  }
+};
+export const CustodianVerifyCashReceived = async (id) => {
+  try {
+    const response = await axios.post(`/custodian/verify/${id}`);
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);

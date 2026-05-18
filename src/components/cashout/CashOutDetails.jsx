@@ -1,26 +1,28 @@
 import { HiOutlineHashtag, HiOutlineUser, HiOutlineInboxIn } from "react-icons/hi";
 
-const CashInDetails = ({ cashIn }) => {
-  if (!cashIn) return null;
+const CashOutDetails = ({ cashOut }) => {
+  if (!cashOut) return null;
 
-  const totalAmount = parseFloat(cashIn.cash_in_amount).toLocaleString();
-  const bagBarcode = cashIn.bags?.barcode || "N/A";
-  const tranId = cashIn.tran_id;
+  console.log({ cashOut });
+
+  const totalAmount = parseFloat(cashOut.cash_out_amount).toLocaleString();
+  const bagBarcode = cashOut?.cash_out_bags?.map((bag) => bag?.bag?.barcode).join(", ") || "N/A";
+  const tranId = cashOut.tran_id;
 
   return (
     <div className="w-full space-y-6 text-left">
       {/* 1. Header Section */}
       <div className="text-center pb-6 border-b border-slate-100">
-        <p className="text-[10px] uppercase tracking-[2px] text-slate-400 font-bold mb-1">Total Cash In</p>
+        <p className="text-[10px] uppercase tracking-[2px] text-slate-400 font-bold mb-1">Total Cash Out</p>
         <h2 className="text-4xl font-black text-indigo-600 tracking-tight">৳{totalAmount}</h2>
         <div className="mt-3 flex justify-center gap-2">
           <span
-            className={`px-3 py-1 ${cashIn.verifier_status == "verified" ? "bg-green-50 text-green-600" : "bg-yellow-50 text-yellow-600"} text-[10px] font-bold rounded-full border border-yellow-100 uppercase`}
+            className={`px-3 py-1 ${cashOut.verifier_status == "verified" ? "bg-green-50 text-green-600" : "bg-yellow-50 text-yellow-600"} text-[10px] font-bold rounded-full border border-yellow-100 uppercase`}
           >
-            Verifier: {cashIn.verifier_status}
+            Verifier: {cashOut.verifier_status}
           </span>
           <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full border border-blue-100 uppercase">
-            Vault: {cashIn.vault?.name}
+            Vault: {cashOut.vault?.name}
           </span>
         </div>
       </div>
@@ -30,7 +32,7 @@ const CashInDetails = ({ cashIn }) => {
         <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
           <div className="flex items-center gap-2 text-slate-400 mb-1">
             <HiOutlineInboxIn className="text-sm" />
-            <span className="text-[10px] font-bold uppercase tracking-wider">Bag Barcode</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider">Bag Barcodes</span>
           </div>
           <p className="text-sm font-mono font-bold text-slate-700 truncate">{bagBarcode}</p>
         </div>
@@ -50,7 +52,7 @@ const CashInDetails = ({ cashIn }) => {
         <div className="space-y-3">
           <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1">Linked Orders</h4>
           <div className="space-y-1 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
-            {cashIn.orders?.map((order) => (
+            {cashOut.orders?.map((order) => (
               <div key={order.id} className="p-3 rounded-xl border border-slate-100 bg-white hover:border-indigo-100 transition-all">
                 <div className="flex items-center gap-3 mb-1">
                   {/* <div className="w-7 h-7 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-[10px] font-bold uppercase">
@@ -80,7 +82,7 @@ const CashInDetails = ({ cashIn }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {Object.entries(cashIn.denominations || {})
+                {Object.entries(cashOut.denominations || {})
                   .filter(([_, count]) => count > 0)
                   .sort((a, b) => b[0] - a[0])
                   .map(([note, count]) => (
@@ -111,13 +113,13 @@ const CashInDetails = ({ cashIn }) => {
         <div className="flex items-center gap-2">
           <HiOutlineUser className="text-sm" />
           <span className="text-[10px]">
-            Prepared by <span className="font-bold text-slate-600">{cashIn.user?.name}</span>
+            Prepared by <span className="font-bold text-slate-600">{cashOut.user?.name}</span>
           </span>
         </div>
-        <span className="text-[9px] font-mono opacity-50">{new Date(cashIn.created_at).toLocaleDateString()}</span>
+        <span className="text-[9px] font-mono opacity-50">{new Date(cashOut.created_at).toLocaleDateString()}</span>
       </div>
     </div>
   );
 };
 
-export default CashInDetails;
+export default CashOutDetails;

@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { HiChevronUpDown } from "react-icons/hi2";
 import { MdCheck, MdOutlineAccountBalanceWallet } from "react-icons/md";
 
 const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, setError }) => {
@@ -16,11 +16,11 @@ const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, set
   }, []);
 
   return (
-    <div className="relative w-64" ref={containerRef}>
-      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Select Vault</p>
+    <div className="relative min-w-64 " ref={containerRef}>
+      <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase mb-1 ml-1">Select Vault</p>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center  justify-between px-4 py-2.5 bg-white border ${error ? "border-red-300" : "border-slate-200"} rounded-xl hover:border-cyan-500 transition-all  group`}
+        className={`w-full flex items-center  justify-between px-4 py-2.5 bg-[#F8FAFC] border ${error ? "border-red-300" : "border-slate-200"} rounded-xl hover:border-cyan-500 transition-all  group`}
       >
         <div className="flex items-center gap-2 overflow-hidden">
           <MdOutlineAccountBalanceWallet className="text-slate-400 group-hover:text-cyan-500 transition-colors" size={18} />
@@ -28,7 +28,7 @@ const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, set
             {selectedVault ? selectedVault.vault.name + (selectedVault?.vault.id == defaultVault ? " (Default)" : "") : "Select Vault"}
           </span>
         </div>
-        <HiChevronUpDown className="text-slate-400" />
+        <ChevronDown className="text-slate-400 w-4 h-4" />
       </button>
 
       <AnimatePresence>
@@ -48,7 +48,7 @@ const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, set
                     setIsOpen(false);
                     setError("");
                   }}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-cyan-50 transition-colors text-left"
+                  className="w-full flex items-center justify-between px-4 py-2 hover:bg-[#F8FAFC] transition-colors text-left"
                 >
                   <div className="flex flex-col">
                     <span className={`text-sm ${selectedVault?.id === vault.id ? "font-bold text-cyan-600" : "font-medium text-slate-600"}`}>

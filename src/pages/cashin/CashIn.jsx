@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import CashDepositConfirmModal from "../../components/cashin/CashDepositConfirmModal";
-import { DeleteCashIn, GetCashIn, GetCashIns, VerifyCashIn } from "../../services/Cash";
+import { ApproveCashIn, DeleteCashIn, GetCashIn, GetCashIns, VerifyCashIn } from "../../services/Cash";
 import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
 import { GetCashInLedger } from "../../services/Ledger";
 import { HiDotsHorizontal } from "react-icons/hi";
@@ -491,6 +491,21 @@ const CashIn = () => {
       setVerifyLoading(null);
     }
   };
+  const handleApprovedClick = async (id) => {
+    setVerifyLoading(id);
+    try {
+      const res = await ApproveCashIn(id);
+
+      // console.log({ res });
+
+      fetchCashInsData();
+      addToast({ message: "Cash-in verified successfully", type: "success" });
+    } catch (err) {
+      console.error("Failed to verify cash-in:", err);
+    } finally {
+      setVerifyLoading(null);
+    }
+  };
 
   const columns = [
     {
@@ -552,7 +567,7 @@ const CashIn = () => {
             <VerifierAvatars requiredVerifiers={row.required_verifiers || []} />
             {isVerifierShowButton && (
               <VerifyButton
-                handleVerifyClick={() => handleVerifyClick(row.id)}
+                handleSubmit={() => handleVerifyClick(row.id)}
                 isOpen={activeVerifyId === row.id}
                 isLoading={verifyLoading}
                 setOpen={(isOpen) => setActiveVerifyId(isOpen ? row.id : null)}
@@ -577,18 +592,21 @@ const CashIn = () => {
       key: "required_approvers",
       className: "w-20 text-center",
       render: (row) => {
-        const isApproverShowButton = row?.required_approvers?.some((approver) => approver?.user_id === user?.id && !approver?.verified);
+        const isApproverShowButton = row?.required_approvers?.some((approver) => approver?.user_id === user?.id && !approver?.approved);
         const isVerified = row?.verifier_status === "verified";
         return (
           <div className="flex flex-col items-center gap-2">
             <VerifierAvatars requiredVerifiers={row.required_approvers || []} />
             {isApproverShowButton && isVerified && (
               <VerifyButton
+                handleSubmit={() => handleApprovedClick(row.id)}
                 isOpen={activeApproveId === row.id}
                 isLoading={verifyLoading}
                 setOpen={(isOpen) => setActiveApproveId(isOpen ? row.id : null)}
                 className="max-w-xl"
-              ></VerifyButton>
+              >
+                <CashInDetails cashIn={row} />
+              </VerifyButton>
             )}
             <span
               className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
@@ -687,10 +705,8 @@ const CashIn = () => {
     },
   ];
 
-
   return (
     <div>
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-lg font-semibold text-gray-600 uppercase">Cash In List</h1>

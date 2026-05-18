@@ -278,7 +278,6 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const handleCreateBagRedirect = async () => {
     const vault_id = depositError?.vault_id ?? depositError?.message?.vault_id;
 
-
     if (depositError?.message?.bag_create_role) {
       window.open(`/vault?vault_edit_id=${vault_id}`, "_blank");
       setIsConfirmModalOpen(false);
@@ -398,7 +397,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="flex flex-col h-full bg-[#F8FAFC]"
+              className="flex flex-col h-full "
             >
               <div className="p-6 bg-white">
                 <div className="flex items-end justify-between">
@@ -428,17 +427,19 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                 </div>
               </div>
 
-              <DataTable
-                columns={columns}
-                data={orders}
-                changePage={handlePageChange}
-                onSearch={handleSearch}
-                paginationData={paginationData}
-                selectedRows={selectedRows}
-                loading={loading}
-                setSelectedRows={setSelectedRows}
-                className="h-[calc(100vh-310px)]"
-              />
+              <div className="px-6">
+                <DataTable
+                  columns={columns}
+                  data={orders}
+                  changePage={handlePageChange}
+                  onSearch={handleSearch}
+                  paginationData={paginationData}
+                  selectedRows={selectedRows}
+                  loading={loading}
+                  setSelectedRows={setSelectedRows}
+                  className="h-[calc(100vh-310px)]"
+                />
+              </div>
 
               <div className="flex items-center bg-[#FDFDFE] border-t border-slate-200 mt-2 py-7 px-6 gap-4 justify-between">
                 <button

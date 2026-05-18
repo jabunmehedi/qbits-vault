@@ -1,45 +1,128 @@
 import { useEffect, useState } from "react";
 import DataTable from "../../components/global/dataTable/DataTable";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
 
 import dayjs from "dayjs";
-import { CheckCircle, ChevronDown, Hash, Package } from "lucide-react";
-import { GetVaultBagById, GetVaults } from "../../services/Vault";
-import { useSearchParams } from "react-router-dom";
+import { GetVaults } from "../../services/Vault";
+// import { useSearchParams } from "react-router-dom";
 import CashOutConfirmationModal from "../../components/cashout/CashOutConfirmationModal";
-import { GetCashOuts } from "../../services/Cash";
+import { ApproveCashOut, CustodianVerifyCashReceived, DeleteCashOut, GetCashOuts, VerifyCashOut } from "../../services/Cash";
 import { useSelector } from "react-redux";
-import { selectIsLockedForOperations } from "../../store/checkReconcile";
+import { usePermissions } from "../../hooks/usePermissions";
+import { selectAuthUser } from "../../store/authSlice";
+import CashOutRequestDrawer from "../../components/cashout/CashOutRequestDrawer";
+import VerifyButton from "../../components/verifyButton/VerifyButton";
+import { useToast } from "../../hooks/useToast";
+import CashOutDetails from "../../components/cashout/CashOutDetails";
+import CashOutCustodianModal from "../../components/cashout/CashOutCustodianModal";
+import { HiDotsHorizontal } from "react-icons/hi";
+import BagDetailsDrawer from "../../components/cashout/bagDetailsDrawer.jsx/BagDetailsDrawer";
+
+const ExpandableBagIds = ({ bags, isExpanded, onToggle, onIdClick }) => {
+  if (!bags || bags.length === 0) return <span className="text-gray-400">—</span>;
+
+  const previewbags = bags.cash_out_bags.slice(0, 2);
+  const extrabags = bags.cash_out_bags.slice(2);
+  const hasMore = extrabags.length > 0;
+
+  return (
+    <div className="flex flex-col w-full max-w-[200px]">
+      <div className="flex flex-wrap gap-x-1 items-center">
+        {previewbags?.map((bag, i) => (
+          <span
+            onClick={() => onIdClick(bag)}
+            key={bag.id || `preview-${i}`}
+            className="whitespace-nowrap font-semibold bg-white rounded-md px-2 py-1 border border-gray-200 hover:bg-indigo-50 cursor-pointer"
+          >
+            {bag?.bag?.barcode} - RN
+            {i === previewbags.length - 1 && !hasMore ? "" : ","}
+          </span>
+        ))}
+        {hasMore && !isExpanded && (
+          <button
+            type="button"
+            onClick={onToggle}
+            className="text-blue-500 bg-slate-200 py-1 cursor-pointer rounded-sm hover:text-blue-700 text-[11px] font-bold px-1 transition-all active:scale-95"
+          >
+            <HiDotsHorizontal className="text-slate-500" />
+          </button>
+        )}
+      </div>
+
+      <motion.div
+        initial={false}
+        animate={{
+          height: isExpanded ? "auto" : "0px",
+          opacity: isExpanded ? 1 : 0,
+        }}
+        transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+        className="overflow-hidden"
+      >
+        <div className="flex flex-wrap gap-x-1 pt-1">
+          {extrabags.map((bag, i) => (
+            <span
+              key={bag.id || `extra-${i}`}
+              onClick={() => onIdClick(bag)}
+              className="whitespace-nowrap font-semibold bg-white rounded-md px-2 py-1 border border-gray-200 hover:bg-indigo-50 cursor-pointer"
+            >
+              {bag?.bag?.barcode} - RN
+              {i === extrabags.length - 1 ? "" : ","}
+            </span>
+          ))}
+          <button
+            type="button"
+            onClick={onToggle}
+            className="text-[10px] text-blue-400 underline hover:text-red-600 font-medium flex items-center gap-1 w-full mt-1 transition-colors"
+          >
+            less
+            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+            </svg>
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 
 const CashOut = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const step = parseInt(searchParams.get("step") || "0");
-  const [isCashOut, setIsCashOut] = useState(step >= 1);
+  // const [searchParams, setSearchParams] = useSearchParams();
+  // const step = parseInt(searchParams.get("step") || "0");
+  // const [isCashOut, setIsCashOut] = useState(step >= 1);
   const [vaults, setVaults] = useState([]);
   const [selectedVaultId, setSelectedVaultId] = useState(null);
-  const [bags, setBags] = useState([]);
-  const [cashOutAmount, setCashOutAmount] = useState("");
-  const [suggestedBags, setSuggestedBags] = useState([]);
+  // const [bags, setBags] = useState([]);
   const [selectedRows, setSelectedRows] = useState([]);
   const [cashOuts, setCashOuts] = useState([]);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [bestMatchAmount, setBestMatchAmount] = useState();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [selectedBags, setSelectedBags] = useState([]);
+  const [editCashOutData, setEditCashOutData] = useState(null);
+  const [openCashOutReqDrawer, setOpenCashOutReqDrawer] = useState(false);
   const [selectedBagsTotalAmount, setSelectedBagsTotalAmount] = useState(0);
-  const isLocked = useSelector(selectIsLockedForOperations);
+  const [verifyLoading, setVerifyLoading] = useState(null);
+  const [activeCustodianId, setActiveCustodianId] = useState(null);
+  const [activeVerifyId, setActiveVerifyId] = useState(null);
+  const [activeApproveId, setActiveApproveId] = useState(null);
+  const [activeActionMenuId, setActiveActionMenuId] = useState(null);
+  const [openBagDetailsDrawer, setOpenBagDetailsDrawer] = useState(false);
+  const [expandedRows, setExpandedRows] = useState({});
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+
+  const { hasPermission } = usePermissions();
+  const user = useSelector(selectAuthUser);
+
+  const { addToast } = useToast();
+
+  const toggleRow = (rowId, e) => {
+    e.stopPropagation();
+    setExpandedRows((prev) => ({ ...prev, [rowId]: !prev[rowId] }));
+  };
 
   useEffect(() => {
     // Fetch vaults
     GetVaults().then((res) => setVaults(res.data || []));
   }, []);
-
-  // Sync URL step
-  useEffect(() => {
-    setSearchParams({ step: step.toString() });
-    setIsCashOut(step >= 1);
-  }, [step]);
 
   const fetchCashOutLits = async () => {
     const res = await GetCashOuts();
@@ -50,402 +133,359 @@ const CashOut = () => {
     fetchCashOutLits();
   }, []);
 
-
-
-  const fetchVaultBagsByVaultId = async () => {
-    if (selectedVaultId) {
-      const res = await GetVaultBagById(selectedVaultId, "");
-      setBags(res?.data || []);
-    }
-  };
-
-  const handleClearBestMatch = () => {
-    fetchVaultBagsByVaultId();
-
-    setBestMatchAmount("");
-    setSuggestedBags([]);
-    setSelectedRows([]);
-  };
-
-  useEffect(() => {
-    fetchVaultBagsByVaultId();
-  }, [selectedVaultId]);
-
-
-  const handleVaultSelect = (vaultId) => {
-    setSelectedVaultId(vaultId);
-    setDropdownOpen(false);
-  };
-
-  const bestMatch = async () => {
-    const amount = parseFloat(bestMatchAmount);
-    if (isNaN(amount) || amount <= 0) {
-      alert("Please enter a valid amount");
-      return;
-    }
-    if (!selectedVaultId) {
-      alert("Please select a vault first");
-      return;
-    }
-
-    const queryString = `amount=${amount}`;
-
-    try {
-      // Use your existing service or direct fetch
-      const res = await GetVaultBagById(selectedVaultId, queryString);
-      // Assuming your service supports params
-      if (res.success) {
-        const { matched_bags = [], total_matched = 0 } = res.data;
-
-        setBags(res?.data);
-
-        setSuggestedBags(matched_bags);
-        setSelectedRows(matched_bags); // Auto-select in table
-
-        // if (matched_bags.length === 0) {
-        //   alert("No bags can match this amount");
-        // } else {
-        //   alert(`Best match: ${matched_bags.length} bag(s) = ${total_matched}`);
-        // }
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Failed to find best match");
-    }
-  };
-
-  const suggestBags = (amount) => {
-    // Simple greedy suggestion: sort bags descending, pick until >= amount
-    const sortedBags = [...bags].sort((a, b) => b.current_amount - a.current_amount);
-    let sum = 0;
-    const selected = [];
-    for (let bag of sortedBags) {
-      if (sum + bag.current_amount <= amount * 1.05) {
-        // Allow 5% over
-        selected.push(bag);
-        sum += bag.current_amount;
-        if (sum >= amount) break;
-      }
-    }
-    setSuggestedBags(selected);
-  };
-
-  const handleBack = () => {
-    if (step > 1) {
-      setSearchParams({ step: step - 1 });
-    } else if (step === 1) {
-      setSearchParams({ step: step - 1 });
-    } else {
-      localStorage.removeItem("cashInWizard");
-      setSelectedRows([]);
-      // setAmounts({});
-      // setTransactionId(null);
-    }
-  };
-
-  const handleNext = () => {
-    if (step === 1 && selectedRows.length === 0) {
-      alert("Please select at least one order");
-      return;
-    }
-    // if (step === 2) {
-    //   const hasAmount = selectedRows.some((row) => parseFloat(amounts[row.id]) > 0);
-    //   if (!hasAmount) {
-    //     alert("Please enter amount for at least one order");
-    //     return;
-    //   }
-    // }
-    setSearchParams({ step: step + 1 });
-  };
-
-  const handleCashOutSubmit = async () => {
-    if (!cashOutAmount || suggestedBags.length === 0) return alert("Invalid request");
-
-    const payload = {
-      vault_id: selectedVaultId,
-      bags: suggestedBags.map((bag) => bag.id),
-      amount: cashOutAmount,
-      note: "Cash out request",
-    };
-
-    try {
-      await CreateCashOutRequest(payload);
-      alert("Cash out requested - awaiting approval");
-      setCashOutAmount("");
-      setSuggestedBags([]);
-    } catch (err) {
-      alert("Failed to request cash out");
-    }
-  };
-
-  const handleFinish = () => {
-    // if (Math.abs(totalDenominationAmount - totalEnteredAmount) > 0.01) {
-    //   alert(`Denomination total (৳${totalDenominationAmount}) must match entered amount (৳${totalEnteredAmount})`);
-    //   return;
-    // }
-    setShowConfirmModal(true);
-  };
-
-  useEffect(() => {
-    if (selectedRows.length > 0) {
-      const total = selectedRows?.reduce((total, bag) => total + bag.current_amount, 0);
-      setSelectedBagsTotalAmount(total);
-    }
-  }, [selectedRows]);
-
-  const removeSelectedBag = (barcode) => {
-    setSelectedRows(selectedRows.filter((bag) => bag.barcode !== barcode));
-  };
-
-  const confirmCashOut = async () => {
-    setShowConfirmModal(true);
-  };
-
   const refetch = () => {
     fetchCashOutLits();
   };
 
+  useEffect(() => {
+    const handleOutsideClick = () => {
+      setActiveActionMenuId(null);
+      setDeleteConfirmId(null);
+    };
+    if (activeActionMenuId !== null) {
+      window.addEventListener("click", handleOutsideClick);
+    }
+    return () => {
+      window.removeEventListener("click", handleOutsideClick);
+    };
+  }, [activeActionMenuId]);
+
+  const handleVerify = async (id) => {
+    setVerifyLoading(id);
+    try {
+      const res = await VerifyCashOut(id);
+
+      // console.log({ res });
+
+      fetchCashOutLits();
+      addToast({ message: "Cashout verified successfully", type: "success" });
+    } catch (err) {
+      console.error("Failed to verify cash-in:", err);
+    } finally {
+      setVerifyLoading(null);
+    }
+  };
+  const handleApprove = async (id) => {
+    setVerifyLoading(id);
+    try {
+      const res = await ApproveCashOut(id);
+
+      if (res?.success === true) {
+        fetchCashOutLits();
+        addToast({ message: "Cashout approved successfully", type: "success" });
+      } else {
+        addToast({ message: res?.message, type: "error" });
+      }
+    } catch (err) {
+      console.error("Failed to verify cash-in:", err);
+    } finally {
+      setVerifyLoading(null);
+    }
+  };
+  const handleCustodianVerify = async (id) => {
+    setVerifyLoading(id);
+    try {
+      const res = await CustodianVerifyCashReceived(id);
+
+      if (res?.success === true) {
+        fetchCashOutLits();
+        addToast({ message: "Custodian verified successfully", type: "success" });
+      }
+    } catch (err) {
+      console.error("Failed to verify cash-in:", err);
+      addToast({ message: "Failed to verify", type: "error" });
+    } finally {
+      setVerifyLoading(null);
+    }
+  };
+
+  const handleDeleteSubmit = async (id) => {
+    try {
+      const res = await DeleteCashOut(id);
+
+      if (res?.success === false) {
+        addToast({ message: res?.message, type: "error" });
+        return;
+      }
+
+      fetchCashOutLits();
+      addToast({ message: "Cashout data deleted successfully", type: "success" });
+    } catch (err) {
+      console.error("Failed to delete cashout item:", err);
+      addToast({ message: "Failed to delete item", type: "error" });
+    } finally {
+      setDeleteConfirmId(null);
+      setActiveActionMenuId(null);
+    }
+  };
+
+  const handleOpenDetails = (bag) => {
+    setSelectedBags(bag);
+    setOpenBagDetailsDrawer(true);
+  };
 
   const columnsCashOutLists = [
     {
-      title: "Transaction ID",
+      title: "Vault name",
+      key: "name",
+      className: "w-24",
+      render: (row) => <span className="text-indigo-600 font-semibold">{row?.vault?.name}</span>,
+    },
+    {
+      title: "Tran ID",
       key: "tran_id",
       className: "w-32",
-      render: (row) => <span className="">{row?.tran_id}</span>,
+      render: (row) => <span className="text-gray-400 ">{row?.tran_id}</span>,
     },
     {
-      title: "Vault",
-      key: "vault_id",
-      className: "w-24",
-      render: (row) => <span className="">{row?.vault?.vault_id}</span>,
-    },
-    {
-      title: "Bag",
+      title: "Bags ID",
       key: "customer.name",
-      className: "w-50", // Adjust width as needed
+      className: "w-50",
       render: (row) => (
-        <div className="flex flex-wrap items-center gap-2 -ml-1 -mt-1">
-          {/* Main horizontal flex container */}
-          {row?.cash_out_bags?.length > 0 ? (
-            row.cash_out_bags.map((bag, i) => (
-              <span key={i} className="inline-flex items-center px-3 py-1.5 bg-cyan-50 border border-cyan-200 text-xs font-medium rounded-full">
-                {bag?.bag?.barcode} - RN#{bag?.bag?.rack_number}
-              </span>
-            ))
-          ) : (
-            <span className="text-gray-400 text-xs">No bags</span>
-          )}
-        </div>
+        <ExpandableBagIds bags={row} onIdClick={(bag) => handleOpenDetails(bag)} isExpanded={!!expandedRows[row.id]} onToggle={(e) => toggleRow(row.id, e)} />
       ),
     },
     {
-      title: "Amount",
+      title: "req Amount",
+      key: "current_amount",
+      className: "w-26",
+      render: (row) => <span className="">{row?.request_amount}</span>,
+    },
+    {
+      title: "bag Amount",
       key: "current_amount",
       className: "w-20",
       render: (row) => <span className="">{row?.cash_out_amount}</span>,
     },
+    {
+      title: "Diff",
+      key: "current_amount",
+      className: "w-54",
+      render: (row) => {
+        const isVerifierShowButton = row?.custodian?.custodian_id === user?.id && row?.custodian?.status === "pending";
+        const amount = parseFloat(row?.cash_out_amount) - parseFloat(row?.request_amount);
+        return (
+          <>
+            <div className="flex flex-col py-2">
+              <span className="font-semibold">
+                {amount > 0 ? <span className="text-orange-400">+{amount}</span> : <span className="text-gray-400">{amount}</span>}
+              </span>
+              {row?.custodian && (
+                <div className="flex items-center gap-1">
+                  <span>Custodian :</span>{" "}
+                  <span className="text-gray-500 flex items-center gap-1 font-semibold">
+                    {row?.custodian?.custodian?.name}{" "}
+                    <span
+                      className={` border font-medium capitalize rounded-full ${row?.custodian?.status === "verified" ? "bg-green-50 border-green-200 text-green-600" : "bg-yellow-50 text-yellow-600 border-yellow-300"}  px-2 text-[10px] py-1`}
+                    >
+                      {row?.custodian?.status}
+                    </span>
+                  </span>
+                </div>
+              )}
+            </div>
+            {isVerifierShowButton && (
+              <VerifyButton
+                handleSubmit={() => handleCustodianVerify(row.id)}
+                isOpen={activeCustodianId === row.id}
+                isLoading={verifyLoading}
+                setOpen={(isOpen) => setActiveCustodianId(isOpen ? row.id : null)}
+                className="max-w-xl"
+              >
+                <CashOutCustodianModal cashOut={row} />
+              </VerifyButton>
+            )}
+          </>
+        );
+      },
+    },
 
     {
-      title: "Requested at",
+      title: "Req at",
       key: "created_at",
       className: "w-34",
       render: (row) => <span className="">{dayjs(row.created_at).format("DD MMM, YYYY")}</span>,
     },
     {
-      title: "Vault Verifier",
+      title: "Verifications",
       key: "required_verifiers",
-      className: "w-40",
+      className: "w-32 text-center",
       render: (row) => {
-        const requiredVerifiers = row.required_verifiers || [];
-
-        return <VerifierAvatars requiredVerifiers={requiredVerifiers} />;
-      },
-    },
-    {
-      title: "Verifier Approver",
-      key: "required_verifiers",
-      className: "w-40",
-      render: (row) => {
-        const requiredApprovers = row.required_approvers || [];
-
-        return <VerifierAvatars requiredVerifiers={requiredApprovers} />;
-      },
-    },
-    {
-      title: "Verifiers",
-      key: "created_at",
-      className: "w-20",
-      render: (row) => (
-        <span
-          className={`capitalize text-xs ${
-            row?.verifier_status === "pending" ? "bg-yellow-50 border border-yellow-200 text-yellow-600" : "bg-green-50 border border-green-200 text-green-500"
-          } px-2.5 py-1  rounded-full`}
-        >
-          {row?.verifier_status}
-        </span>
-      ),
-    },
-    {
-      title: "Approvers",
-      key: "created_at",
-      className: "w-32",
-      render: (row) => (
-        <span
-          className={`capitalize text-xs ${
-            row?.status === "pending" ? "bg-yellow-50 border border-yellow-200 text-yellow-600" : "bg-green-50 border border-green-200 text-green-500"
-          } px-2.5 py-1  rounded-full`}
-        >
-          {row?.status}
-        </span>
-      ),
-    },
-    {
-      title: "Action",
-      key: "actions",
-      className: "w-24 ",
-      render: (row) => {
-        const handleEdit = (e) => {
-          e.stopPropagation();
-          // Your edit logic here
-          // e.g., open edit modal with row data
-          // setEditData(row);
-          // setIsEditModalOpen(true);
-        };
-
-        const handleDelete = (e) => {
-          e.stopPropagation();
-          // Your delete logic here
-          // e.g., show confirm dialog then call API
-          if (window.confirm(`Delete vault "${row.name}"?`)) {
-            // DeleteVault(row.id).then(() => fetchVaultData());
-          }
-        };
-
+        const isVerifierShowButton = row?.required_verifiers?.some((verifier) => verifier?.user_id === user?.id && !verifier?.verified);
         return (
-          <div className="flex items-center justify-center gap-3 py-2">
-            {/* Edit Button */}
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleEdit}
-              className="p-2 rounded-lg bg-blue-500/10 cursor-pointer hover:bg-blue-500/20 text-blue-600 border border-blue-400/20 transition-all "
-              aria-label="Edit vault"
+          <div className="flex flex-col items-center gap-2">
+            <VerifierAvatars requiredVerifiers={row.required_verifiers || []} />
+            {isVerifierShowButton && (
+              <VerifyButton
+                handleSubmit={() => handleVerify(row.id)}
+                isOpen={activeVerifyId === row.id}
+                isLoading={verifyLoading}
+                setOpen={(isOpen) => setActiveVerifyId(isOpen ? row.id : null)}
+                className="max-w-xl"
+              >
+                <CashOutDetails cashOut={row} />
+              </VerifyButton>
+            )}
+            <span
+              className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
+                row?.verifier_status === "pending" ? "bg-yellow-50 border-yellow-200 text-yellow-600" : "bg-green-50 border-green-200 text-green-500"
+              }`}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
-              </svg>
-            </motion.button>
-
-            {/* Delete Button */}
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleDelete}
-              className="p-2 rounded-lg bg-red-500/10 cursor-pointer hover:bg-red-500/20 text-red-600 border border-red-400/20 transition-all "
-              aria-label="Delete vault"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
-            </motion.button>
+              {row?.verifier_status}
+            </span>
           </div>
         );
       },
     },
-  ];
-  const columns = [
     {
-      title: "Bag",
-      key: "customer.name",
-      className: "w-32",
-      render: (row) => <span className="">{row?.barcode}</span>,
-    },
-    {
-      title: "Rack",
-      key: "customer.name",
-      className: "w-32",
-      render: (row) => <span className="">{row?.rack_number}</span>,
-    },
-    {
-      title: "Amount (৳)",
-      key: "current_amount",
-      className: "w-20",
-      render: (row) => <span className="">{row?.current_amount}</span>,
-    },
-    {
-      title: "Select",
-      key: "selection",
-      className: "w-40",
+      title: "Approvals",
+      key: "required_verifiers",
+      className: "w-32 text-center",
       render: (row) => {
-        const isSelected = selectedRows.some((selected) => selected.id === row.id);
-  
-        const toggleSelection = (e) => {
+        const isApproverShowButton = row?.required_approvers?.some((approver) => approver?.user_id === user?.id && !approver?.approved);
+        const isVerified = row?.verifier_status === "verified";
+        const isCustodianRequired = row?.custodian && row?.custodian?.status === "verified";
+        return (
+          <div className="flex flex-col items-center gap-2">
+            <VerifierAvatars requiredVerifiers={row.required_approvers || []} />
+            {isApproverShowButton && isVerified && isCustodianRequired && (
+              <VerifyButton
+                handleSubmit={() => handleApprove(row.id)}
+                isOpen={activeApproveId === row.id}
+                isLoading={verifyLoading}
+                setOpen={(isOpen) => setActiveApproveId(isOpen ? row.id : null)}
+                className="max-w-xl"
+              >
+                <CashOutDetails cashOut={row} />
+              </VerifyButton>
+            )}
+            <span
+              className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
+                row?.approver_status === "pending" ? "bg-yellow-50 border-yellow-200 text-yellow-600" : "bg-green-50 border-green-200 text-green-500"
+              }`}
+            >
+              {row?.approver_status}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      title: "Action",
+      key: "actions",
+      className: "w-14 relative",
+      render: (row) => {
+        const isMenuOpen = activeActionMenuId === row.id;
+        const isConfirmingDelete = deleteConfirmId === row.id;
+
+        const toggleMenu = (e) => {
           e.stopPropagation();
-          setSelectedRows((prev) => {
-            const exists = prev.some((item) => item.id === row.id);
-            if (exists) {
-              return prev.filter((item) => item.id !== row.id);
-            } else {
-              return [...prev, row];
-            }
-          });
+          setActiveActionMenuId(isMenuOpen ? null : row.id);
+          setDeleteConfirmId(null);
+        };
+
+        const handleEdit = (e) => {
+          e.stopPropagation();
+          setActiveActionMenuId(null);
+          // console.log("Edit clicked for row:", row.id);
+        };
+
+        const handleDeleteClick = (e) => {
+          e.stopPropagation(); // Stop parent triggers
+          setDeleteConfirmId(row.id); // Shift dropdown view into inline verification mode
+        };
+
+        const handleCancelDelete = (e) => {
+          e.stopPropagation();
+          setDeleteConfirmId(null);
         };
 
         return (
-          <div className="flex items-center justify-start ">
-            <motion.button
-              whileTap={{ scale: 0.92 }}
-              onClick={toggleSelection}
-              className={`
-                relative w-7 h-7 ${row?.current_amount > 0 ? "flex" : "hidden"} rounded-full flex items-center justify-center border  overflow-hidden
-                transition-all duration-300 ease-out
-                ${isSelected ? "bg-cyan-50 border-cyan-500" : "bg-transparent border border-gray-200 hover:border-sky-500 hover:shadow-md"}
-              `}
-              aria-label={isSelected ? "Deselect row" : "Select row"}
+          <div className="relative inline-block text-left">
+            <button
+              onClick={toggleMenu}
+              className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 focus:outline-none transition-colors duration-200 cursor-pointer"
+              aria-label="Actions"
             >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 12c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+              </svg>
+            </button>
+
+            {isMenuOpen && (
               <motion.div
-                className="absolute inset-0 bg-cyan-500/20"
-                initial={false}
-                animate={{ scale: isSelected ? 1 : 0 }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-              />
-              <motion.svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 relative z-10 pointer-events-none" initial={false}>
-                <motion.path
-                  d="M4 12L9 17L20 6"
-                  stroke="blue"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{
-                    pathLength: isSelected ? 1 : 0,
-                    opacity: isSelected ? 1 : 0,
-                  }}
-                  transition={{
-                    duration: 0.35,
-                    ease: "easeOut",
-                    opacity: { duration: 0.15 },
-                    pathLength: { delay: isSelected ? 0.1 : 0 },
-                  }}
-                />
-              </motion.svg>
-              <motion.div
-                className="absolute inset-0 rounded-xl"
-                whileTap={{
-                  background: "radial-gradient(circle, rgba(255,255,255,0.3) 10%, transparent 70%)",
-                }}
-              />
-            </motion.button>
+                initial={{ opacity: 0, scale: 0.95, y: -5 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -5 }}
+                transition={{ duration: 0.15 }}
+                className={`absolute right-0 mt-1 bg-white border border-gray-200 divide-y divide-gray-100 rounded-lg shadow-xl z-50 overflow-hidden transition-all ${
+                  isConfirmingDelete ? "w-44" : "w-28"
+                }`}
+              >
+                <AnimatePresence mode="wait">
+                  {!isConfirmingDelete ? (
+                    <motion.div key="options" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                      {/* Edit Option */}
+                      <button
+                        onClick={handleEdit}
+                        className="flex items-center w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors gap-2 font-medium cursor-pointer"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
+                        </svg>
+                        Edit
+                      </button>
+
+                      {/* Delete Option Trigger */}
+                      <button
+                        onClick={handleDeleteClick}
+                        className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors gap-2 font-medium cursor-pointer"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                        Delete
+                      </button>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="confirm"
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      className="py-4 text-center"
+                    >
+                      <p className="text-xs text-gray-500 font-medium mb-2">Are you sure you want to delete?</p>
+                      <div className="flex justify-center gap-2">
+                        <button
+                          onClick={handleCancelDelete}
+                          className="px-2 py-1 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSubmit(row.id);
+                          }}
+                          className="px-2 py-1 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded transition-colors cursor-pointer"
+                        >
+                          Confirm
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            )}
           </div>
         );
       },
@@ -453,205 +493,32 @@ const CashOut = () => {
   ];
 
   return (
-    <div className="p-4">
-      <div className="flex items-center  justify-between p-2">
-        <h1 className="text-lg font-semibold text-gray-600">
-          {step === 0 && "Cash Out Lists"}
-          {step === 1 && "Cash Out Request"}
-          {step === 2 && "Requested Bag Details"}
-        </h1>
+    <div className="">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h1 className="text-lg font-semibold text-gray-600 uppercase">Cash Out List</h1>
+          <p className="text-xs text-gray-400">Manage Your All Cash Out</p>
+        </div>
         <div className="flex items-center gap-4">
-          {step === 1 && (
+          {hasPermission("cash-in.request") && (
             <div
-              onClick={handleBack}
-              className="cursor-pointer transition-all duration-300 ease-in-out px-4 py-1 hover:bg-gray-50 backdrop-blur-xl rounded-lg overflow-hidden hover:text-black bg-transparent text-zinc-500 border border-zinc-100"
+              onClick={() => {
+                setEditCashOutData(null);
+                setOpenCashOutReqDrawer(true);
+              }}
+              className="cursor-pointer transition-all px-4 py-2 hover:bg-black rounded text-white bg-[#424242]"
             >
-              <p>Back</p>
+              Cash Out Request
             </div>
           )}
-
-          {step === 0 && (
-            <div
-              onClick={handleNext}
-              className={`cursor-pointer ${isLocked ? "hidden" : ""} transition-all duration-300 ease-in-out px-4 py-1 hover:bg-cyan-100 backdrop-blur-xl rounded-lg overflow-hidden hover:text-cyan-600 bg-cyan-50 text-cyan-500 border border-cyan-300`}
-            >
-              <p>Cash Out</p>
-            </div>
-          )}
-          {step > 1 && (
-            <div
-              onClick={handleBack}
-              className="cursor-pointer transition-all duration-300 ease-in-out px-4 py-1 hover:bg-gray-100 backdrop-blur-xl rounded-lg overflow-hidden  bg-transparent text-zinc-300 border hover:text-zinc-500 border-zinc-200"
-            >
-              <p>Back</p>
-            </div>
-          )}
-
-          {step === 1 && selectedRows.length > 0 && (
-            <div
-              onClick={handleNext}
-              className="cursor-pointer transition-all duration-300 ease-in-out px-4 py-1 hover:bg-white/10 backdrop-blur-xl rounded-lg overflow-hidden hover:text-cyan-600 bg-cyan-50 text-cyan-300 border border-cyan-300"
-            >
-              <p>Next</p>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div
-              onClick={handleFinish}
-              className="cursor-pointer transition-all duration-300 ease-in-out px-4 py-1 hover:bg-cyan-500 backdrop-blur-xl rounded-lg overflow-hidden text-cyan-300 bg-cyan-50 border border-cyan-500/50 font-semibold"
-            >
-              <p>Finish</p>
-            </div>
-          )}
-
         </div>
       </div>
-      {step === 1 && (
-        <div className="flex items-center justify-between">
-          <div className="mb-6 text-gray-600">
-            <p className="text-xs font-semibold mb-2">Select Vault</p>
-            <motion.div className="relative " initial={false} animate={{ height: dropdownOpen ? "auto" : "fit-content" }}>
-              <button
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="min-w-50 px-4 py-1 text-xs bg-white border border-gray-300 rounded-md flex justify-between items-center text-gray-700"
-              >
-                {selectedVaultId ? vaults.find((v) => v.id === selectedVaultId)?.name : "Choose Vault"}
-                <ChevronDown className={`w-5 h-5 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
-              </button>
-              <AnimatePresence>
-                {dropdownOpen && (
-                  <motion.ul
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="absolute z-10 bg-white border border-gray-300 rounded-md mt-1 text-xs min-w-50 max-h-60 overflow-y-auto"
-                  >
-                    {vaults.map((vault) => (
-                      <li key={vault.id} onClick={() => handleVaultSelect(vault.id)} className="px-4 py-2 hover:bg-cyan-50 cursor-pointer">
-                        {vault.name} ({vault.vault_id})
-                      </li>
-                    ))}
-                  </motion.ul>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          </div>
-          {bags.length > 0 && (
-            <>
-              <div className="flex items-center justify-between gap-2">
-                <input
-                  type="text"
-                  value={bestMatchAmount}
-                  placeholder="Enter Amount"
-                  onChange={(e) => setBestMatchAmount(e.target.value)}
-                  className="px-4 py-1 border border-gray-200 rounded-lg  text-gray-600 placeholder-gray-400 placeholder:text-xs focus:outline-none focus:border-cyan-400 transition w-full sm:w-40"
-                />
-                <div onClick={bestMatch} className="bg-cyan-400 hover:bg-white border border-cyan-200 text-black px-4 py-2 cursor-pointer rounded-lg text-xs">
-                  Best Match
-                </div>
-                {bestMatchAmount && (
-                  <p onClick={handleClearBestMatch} className="text-xs hover:text-red-400 cursor-pointer">
-                    Clear
-                  </p>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      )}
 
-      {step === 0 && <DataTable columns={columnsCashOutLists} data={cashOuts} className="h-[calc(100vh-100px)]" />}
-      {step === 1 && <DataTable columns={columns} data={bags} className="h-[calc(100vh-300px)]" />}
+      <DataTable columns={columnsCashOutLists} data={cashOuts} className="h-[calc(100vh-100px)]" />
 
-      {step === 2 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-          className="fixed inset-x-4 top-20 left-1/2 -translate-x-1/2 max-w-2xl mx-auto z-50"
-        >
-          <div className="bg-white rounded-2xl  border border-gray-200 overflow-hidden">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Package className="w-6 h-6 text-white" />
-                <h3 className="text-lg font-bold text-white">Selected Bags ({selectedRows?.length})</h3>
-              </div>
-            </div>
+      {openCashOutReqDrawer && <CashOutRequestDrawer isOpen={openCashOutReqDrawer} onClose={() => setOpenCashOutReqDrawer(false)} refetch={refetch} />}
 
-            {/* Bags List */}
-            <div className="max-h-96 overflow-y-auto">
-              {selectedRows?.map((bag, index) => (
-                <motion.div
-                  key={bag.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="px-6 py-4 border-b border-gray-100 hover:bg-gray-50 transition"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-4">
-                        <div className="bg-cyan-100 rounded-xl p-3">
-                          <Package className="w-8 h-8 text-cyan-600" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <Hash className="w-4 h-4 text-gray-500" />
-                            <p className="font-semibold text-gray-900">{bag.barcode}</p>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
-                            <span className="font-medium">Rack:</span>
-                            <span>{bag.rack_number || "N/A"}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <p className="text-xl font-bold text-gray-900">৳{bag.current_amount?.toLocaleString() || 0}</p>
-                      {
-                        <button
-                          onClick={() => removeSelectedBag(bag.barcode)}
-                          className="text-xs cursor-pointer text-red-500 hover:text-red-700 mt-1 underline"
-                        >
-                          Remove
-                        </button>
-                      }
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* Footer - Total & Confirm */}
-            <div className="bg-gray-50 px-6 py-5">
-              <div className="flex items-center justify-between mb-5">
-                <div>
-                  <p className="text-sm text-gray-600">Total Selected Amount</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <p className="text-2xl font-bold text-gray-900">৳{selectedBagsTotalAmount}</p>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <p className="text-xs text-gray-500">Number of bags</p>
-                  <p className="text-lg font-semibold text-gray-700">{selectedBags.length}</p>
-                </div>
-              </div>
-
-              <button
-                onClick={confirmCashOut}
-                className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-semibold py-4 rounded-xl flex items-center justify-center gap-3 transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
-              >
-                <CheckCircle className="w-6 h-6" />
-                Confirm Cash Out Selection
-              </button>
-            </div>
-          </div>
-        </motion.div>
-      )}
+      {openBagDetailsDrawer && <BagDetailsDrawer bag={selectedBags} isOpen={openBagDetailsDrawer} onClose={() => setOpenBagDetailsDrawer(false)} />}
 
       <CashOutConfirmationModal
         showConfirmModal={showConfirmModal}
