@@ -1,9 +1,8 @@
-// Layout.jsx
 import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { FiMenu } from "react-icons/fi";
 import { useDispatch, useSelector } from "react-redux";
-import { Loader2 } from "lucide-react";
+
 
 import Sidebar from "./sidebar/Sidebar";
 import InitialVerification from "../initialVerification/InitialVerification";
@@ -51,11 +50,11 @@ const Layout = () => {
   const dispatch = useDispatch();
   const location = useLocation();
 
-  const authUser = useSelector(selectAuthUser);
-  const authLoading = useSelector(selectAuthLoading);
+  // const authUser = useSelector(selectAuthUser);
+  // const authLoading = useSelector(selectAuthLoading);
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const isFullyVerified = useSelector(selectIsFullyVerified);
-  const isOperationsLocked = useSelector(selectIsLockedForOperations);
+  // const isOperationsLocked = useSelector(selectIsLockedForOperations);
 
   // ── Fetch fresh user from API on mount ───────────────────────────────────────
   useEffect(() => {

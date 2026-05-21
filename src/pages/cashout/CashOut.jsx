@@ -7,7 +7,7 @@ import dayjs from "dayjs";
 import { GetVaults } from "../../services/Vault";
 // import { useSearchParams } from "react-router-dom";
 import CashOutConfirmationModal from "../../components/cashout/CashOutConfirmationModal";
-import { ApproveCashOut, CustodianVerifyCashReceived, DeleteCashOut, GetCashOuts, VerifyCashOut } from "../../services/Cash";
+import { ApproveCashOut, CustodianVerifyCashReceived, DeleteCashOut, GetCashOut, GetCashOuts, VerifyCashOut } from "../../services/Cash";
 import { useSelector } from "react-redux";
 import { usePermissions } from "../../hooks/usePermissions";
 import { selectAuthUser } from "../../store/authSlice";
@@ -384,10 +384,32 @@ const CashOut = () => {
           setDeleteConfirmId(null);
         };
 
-        const handleEdit = (e) => {
+        const handleEdit = async (e) => {
           e.stopPropagation();
           setActiveActionMenuId(null);
-          // console.log("Edit clicked for row:", row.id);
+
+          try {
+            // 1. Call the API to get up-to-date details for this specific cashout
+            const res = await GetCashOut(row.id);
+
+            console.log({ res });
+
+            // if (res?.success || res?.data) {
+              // 2. Extract the data object based on your API structure (e.g., res.data or res.data.data)
+              const freshCashOutData = res.data?.data || res.data || res;
+
+              // 3. Set the specific data into your edit state
+              setEditCashOutData(freshCashOutData);
+
+              // 4. Open the Cash Out Request Drawer
+              setOpenCashOutReqDrawer(true);
+            // } else {
+            //   addToast({ message: res?.message || "Failed to fetch cashout details.", type: "error" });
+            // }
+          } catch (err) {
+            console.error("Error fetching specific cashout item details:", err);
+            addToast({ message: "An error occurred while fetching details.", type: "error" });
+          }
         };
 
         const handleDeleteClick = (e) => {
@@ -516,7 +538,9 @@ const CashOut = () => {
 
       <DataTable columns={columnsCashOutLists} data={cashOuts} className="h-[calc(100vh-100px)]" />
 
-      {openCashOutReqDrawer && <CashOutRequestDrawer isOpen={openCashOutReqDrawer} onClose={() => setOpenCashOutReqDrawer(false)} refetch={refetch} />}
+      {openCashOutReqDrawer && (
+        <CashOutRequestDrawer isOpen={openCashOutReqDrawer} onClose={() => setOpenCashOutReqDrawer(false)} refetch={refetch} editData={editCashOutData} />
+      )}
 
       {openBagDetailsDrawer && <BagDetailsDrawer bag={selectedBags} isOpen={openBagDetailsDrawer} onClose={() => setOpenBagDetailsDrawer(false)} />}
 

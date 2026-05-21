@@ -15,6 +15,8 @@ import Reconcile from "../pages/reconcile/Reconcile";
 import ActivityLog from "../pages/activityLog/ActivityLog";
 import ResetPasswordPage from "../components/resetPassword/ResetPassword";
 import PermissionRoute from "../components/permissionRoute/PermissionRoute";
+import VaultAudit from "../pages/settings/vaultAudit/VaultAudit";
+
 
 const AppRoutes = () => {
   const Routes = [
@@ -94,6 +96,10 @@ const AppRoutes = () => {
         {
           path: "/activity-log",
           element: <ActivityLog />,
+        },
+        {
+          path: "/settings/config-vault-audit",
+          element: <VaultAudit />,
         },
       ],
     },

@@ -1,6 +1,7 @@
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useLocation, Link } from "react-router-dom";
-import { FiHome, FiSettings, FiLogOut, FiSend, FiRefreshCw, FiX, FiMenu } from "react-icons/fi";
+import { FiHome, FiSettings, FiLogOut, FiSend, FiRefreshCw, FiX, FiMenu, FiChevronDown } from "react-icons/fi";
 import { AiOutlineAudit, AiOutlineUser } from "react-icons/ai";
 import { CiInboxOut, CiVault } from "react-icons/ci";
 import { Shield } from "lucide-react";
@@ -16,15 +17,25 @@ const menuItems = [
   { icon: AiOutlineAudit, label: "Reconcile", path: "/reconcile" },
   { icon: Shield, label: "Verifications", path: "/verifications" },
   { icon: FiSettings, label: "Permissions", path: "/role-and-permissions" },
-  { icon: FiSettings, label: "Settings" },
+  {
+    icon: FiSettings,
+    label: "Settings",
+    children: [
+      { label: "Config Vault Aduit", path: "/settings/config-vault-audit" },
+      { label: "Default", path: "/settings/default" },
+    ],
+  },
   { icon: FiRefreshCw, label: "Activity Log", path: "/activity-log" },
 ];
 
-export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDrawerOpen, sidebarWidthClass }) {
+export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDrawerOpen, sidebarWidthClass, setIsMinimized }) {
   const { pathname } = useLocation();
   const user = JSON.parse(localStorage.getItem("auth"))?.user ?? {};
   const showLabel = !isMinimized || isMobile;
   const { hasPermission } = usePermissions();
+
+  // State to handle Settings dropdown visibility
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const isActive = (path) => path && (pathname === path || pathname.startsWith(`${path}/`));
 
@@ -75,28 +86,86 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
               if (item.path === "/cashin" && !hasPermission("cash-in.view")) return false;
               if (item.path === "/cashout" && !hasPermission("cash-out.view")) return false;
               if (item.path === "/reconcile" && !hasPermission("reconciliation.view")) return false;
-              // if (item.path === "/verifications" && !hasPermission("verification.view")) return false;
               if (item.path === "/role-and-permissions" && !hasPermission("permission.view")) return false;
               if (item.path === "/activity-log" && !hasPermission("activity_log.view")) return false;
               return true;
             })
             .map((item) => {
+              // Check if item has children submenus
+              const hasChildren = !!item.children;
               const active = isActive(item.path);
 
+              // If it has children, we render a button that toggles the dropdown
+              if (hasChildren) {
+                return (
+                  <div key={item.label} className="w-full">
+                    <button
+                      onClick={() => {
+                        if (isMinimized && !isMobile) {
+                          // Expand sidebar first if user clicks setting while sidebar is minimized
+                          setIsMinimized(false);
+                        }
+                        setIsSettingsOpen(!isSettingsOpen);
+                      }}
+                      className={`
+                        w-full group text-[14px] flex items-center justify-between px-4 py-2 rounded-lg transition-all duration-200 cursor-pointer
+                        text-gray-500 hover:bg-gray-50 hover:text-indigo-500
+                      `}
+                    >
+                      <div className="flex items-center gap-4">
+                        <item.icon size={16} className="text-gray-500 group-hover:text-indigo-500 transition-colors" />
+                        {showLabel && <span className="text-sm">{item.label}</span>}
+                      </div>
+                      {showLabel && <FiChevronDown size={16} className={`transform transition-transform duration-200 ${isSettingsOpen ? "rotate-180" : ""}`} />}
+                    </button>
+
+                    {/* Smooth Animate Submenu Dropdown */}
+                    <AnimatePresence>
+                      {isSettingsOpen && showLabel && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="pl-8 mt-1 space-y-1 overflow-hidden"
+                        >
+                          {item.children.map((subItem) => {
+                            const subActive = isActive(subItem.path);
+                            return (
+                              <Link key={subItem.label} to={subItem.path} onClick={isMobile ? () => setIsDrawerOpen(false) : undefined} className="block">
+                                <div
+                                  className={`
+                                    text-[13px] px-4 py-1.5 rounded-md transition-all duration-200
+                                    ${subActive ? "bg-[#e8f3ff93] text-indigo-500 font-medium" : "text-gray-400 hover:bg-gray-50 hover:text-indigo-500"}
+                                  `}
+                                >
+                                  {subItem.label}
+                                </div>
+                              </Link>
+                            );
+                          })}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              }
+
+              // Normal single-link rendering
               return (
                 <Link key={item.label} to={item.path ?? "#"} onClick={isMobile ? () => setIsDrawerOpen(false) : undefined} className="block">
                   <div
                     className={`
-            group text-[14px] flex items-center gap-4 px-4 py-2 rounded-lg transition-all duration-200
-            ${active ? "bg-[#e8f3ff93] text-indigo-500 " : "text-gray-500 hover:bg-gray-50 hover:text-indigo-500"}
-          `}
+                      group text-[14px] flex items-center gap-4 px-4 py-2 rounded-lg transition-all duration-200
+                      ${active ? "bg-[#e8f3ff93] text-indigo-500 " : "text-gray-500 hover:bg-gray-50 hover:text-indigo-500"}
+                    `}
                   >
                     <item.icon
                       size={16}
                       className={`
-              transition-colors duration-200
-              ${active ? "text-indigo-500" : "text-gray-500 group-hover:text-indigo-500"}
-            `}
+                        transition-colors duration-200
+                        ${active ? "text-indigo-500" : "text-gray-500 group-hover:text-indigo-500"}
+                      `}
                     />
                     {showLabel && <span className="text-sm">{item.label}</span>}
                   </div>

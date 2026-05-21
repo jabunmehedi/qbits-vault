@@ -21,9 +21,9 @@ const CustomModal = ({ isCloseModal, children, title = "Modal", className = "" }
             <button
               type="button" // CRITICAL: Ensures clicking X doesn't submit forms
               onClick={isCloseModal}
-              className="p-1 rounded-full hover:bg-gray-100 transition-colors group"
+              className="p-1 rounded-full  transition-colors group"
             >
-              <X className="w-6 h-6 text-gray-400 group-hover:text-red-500 cursor-pointer" />
+              <X className="w-4 h-4 text-gray-400 group-hover:text-red-400 cursor-pointer" />
             </button>
           </div>
 

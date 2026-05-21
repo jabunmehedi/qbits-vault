@@ -60,9 +60,17 @@ export const StartReconciliation = async (id) => {
     console.error(error?.response?.data?.message);
   }
 };
+export const EndReconciliation = async (id) => {
+  try {
+    const response = await axiosConfig.post(`/reconcile/end/${id}`);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+  }
+};
 export const CompleteReconciliation = async (id, data) => {
   try {
-    const response = await axiosConfig.put(`/reconciliation/complete/${id}`, data);
+    const response = await axiosConfig.put(`/reconciliation/save/${id}`, data);
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);
@@ -71,6 +79,14 @@ export const CompleteReconciliation = async (id, data) => {
 export const CheckReconcile = async () => {
   try {
     const response = await axiosConfig.get(`/reconciliation/check`);
+    return response;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+  }
+};
+export const ViewReconcile = async (reconclieId) => {
+  try {
+    const response = await axiosConfig.get(`/reconciles/${reconclieId}`);
     return response;
   } catch (error) {
     console.error(error?.response?.data?.message);

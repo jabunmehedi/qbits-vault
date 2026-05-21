@@ -127,6 +127,14 @@ export const GetCashInsByVaultId = async (id) => {
     console.error(error?.response?.data?.message);
   }
 };
+export const GetCashOut = async (id) => {
+  try {
+    const response = await axios.get(`/cash-out/${id}`);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+  }
+};
 export const CustodianVerifyCashReceived = async (id) => {
   try {
     const response = await axios.post(`/custodian/verify/${id}`);

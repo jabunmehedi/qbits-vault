@@ -3,13 +3,18 @@ import DataTable from "../../components/global/dataTable/DataTable";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import ReconcileModel from "../../components/reconcile/ReconcileModel";
-import { GetReconciles } from "../../services/Reconcile";
+import { GetReconciles, VerifyReconcile } from "../../services/Reconcile";
 import dayjs from "dayjs";
 import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
 import { ChevronRight } from "lucide-react";
 import VaultBagsDrawer from "../../components/reconcile/VaultBagsDrawer";
 import { useSelector } from "react-redux";
 import { selectIsLockedForOperations } from "../../store/checkReconcile";
+import ReconcileViewDrawer from "../../components/reconcile/ReconcileViewDrawer";
+import VerifyButton from "../../components/verifyButton/VerifyButton";
+import { useToast } from "../../hooks/useToast";
+import ReconclieDetails from "../../components/reconcile/ReconclieDetails";
+import { selectAuthUser } from "../../store/authSlice";
 
 const Reconcile = () => {
   const [reconcileData, setReconcileData] = useState([]);
@@ -19,18 +24,25 @@ const Reconcile = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loadingBags, setLoadingBags] = useState(false);
   const [expandedBag, setExpandedBag] = useState(null);
+  const [openReconcileViewDrawer, setOpenReconcileViewDrawer] = useState(false);
+  const [verifyLoading, setVerifyLoading] = useState(null);
+  const [activeVerifyId, setActiveVerifyId] = useState(null);
   const step = parseInt(searchParams.get("step") || "0");
+  const { addToast } = useToast();
 
   const isLocked = useSelector(selectIsLockedForOperations);
+  const user = useSelector(selectAuthUser);
 
-  const FetchReconcileData = () => {
+  console.log({ user });
+
+  const fetchReconcileData = () => {
     GetReconciles().then((res) => {
       setReconcileData(res?.data?.data || []);
     });
   };
 
   useEffect(() => {
-    FetchReconcileData();
+    fetchReconcileData();
   }, []);
 
   const openVaultDrawer = async (vault) => {
@@ -59,23 +71,42 @@ const Reconcile = () => {
   };
 
   const refetch = () => {
-    FetchReconcileData();
+    fetchReconcileData();
   };
 
   useEffect(() => {}, []);
+
+  const handleOpenViewDrawer = () => {
+    setSelectedReconcile();
+    setOpenReconcileModel(true);
+  };
+
+  const handleVerifyClick = async (id) => {
+    setVerifyLoading(id);
+    try {
+      const res = await VerifyReconcile(id);
+
+      fetchReconcileData();
+      addToast({ message: "Cash-in verified successfully", type: "success" });
+    } catch (err) {
+      console.error("Failed to verify cash-in:", err);
+    } finally {
+      setVerifyLoading(null);
+    }
+  };
 
   const columns = [
     {
       title: "Vault",
       key: "vault_id",
       className: "w-14",
-      render: (row) => <span className="font-mono">{row.vault?.vault_id}</span>,
+      render: (row) => <span className="font-mono">{row.vault?.name}</span>,
     },
     {
       title: "Reconcile Id",
       key: "reconcile_tran_id",
       className: "w-40",
-      render: (row) => <span className="font-mono text-cyan-400">{row.reconcile_tran_id}</span>,
+      render: (row) => <span className="font-mono text-indigo-400">{row.reconcile_tran_id}</span>,
     },
     {
       title: "Expected",
@@ -118,13 +149,13 @@ const Reconcile = () => {
       },
     },
     {
-      title: "From Date",
+      title: "start Date",
       key: "from_date",
       className: "w-34",
       render: (row) => <span className="">{dayjs(row.from_date).format("DD MMM, YYYY")}</span>,
     },
     {
-      title: "To Date",
+      title: "End Date",
       key: "to_date",
       className: "w-34",
       render: (row) => <span className="">{dayjs(row.to_date).format("DD MMM, YYYY")}</span>,
@@ -133,20 +164,33 @@ const Reconcile = () => {
       title: "Verifiers",
       key: "created_at",
       className: "w-20",
-      render: (row) => {
-        const requiredVerifiers = row.required_verifiers || [];
 
-        return <VerifierAvatars requiredVerifiers={requiredVerifiers} />;
-      },
-    },
-    {
-      title: "Approvers",
-      key: "status",
-      className: "w-32",
       render: (row) => {
-        const requiredVerifiers = row.required_approvers || [];
-
-        return <VerifierAvatars requiredVerifiers={requiredVerifiers} />;
+        const isVerifierShowButton = row?.required_verifiers?.some((verifier) => verifier?.user_id === user?.id && !verifier?.verified);
+        const isAuditCountingDone = row?.started_by && row?.status === "counted";
+        return (
+          <div className="flex flex-col items-center gap-2">
+            <VerifierAvatars requiredVerifiers={row.required_verifiers || []} />
+            {isVerifierShowButton && isAuditCountingDone && (
+              <VerifyButton
+                handleSubmit={() => handleVerifyClick(row.id)}
+                isOpen={activeVerifyId === row.id}
+                isLoading={verifyLoading}
+                setOpen={(isOpen) => setActiveVerifyId(isOpen ? row.id : null)}
+                className="max-w-xl"
+              >
+                <ReconclieDetails reconcile={row} />
+              </VerifyButton>
+            )}
+            <span
+              className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
+                row?.verifier_status === "pending" ? "bg-yellow-50 border-yellow-200 text-yellow-600" : "bg-green-50 border-green-200 text-green-500"
+              }`}
+            >
+              {row?.verifier_status}
+            </span>
+          </div>
+        );
       },
     },
     {
@@ -160,7 +204,9 @@ const Reconcile = () => {
               ? "bg-yellow-50 border border-yellow-200 text-yellow-600"
               : row?.status === "completed"
                 ? "bg-green-50 border border-green-200 text-green-500"
-                : "bg-orange-50 border border-orange-200 text-orange-500"
+                : row?.status === "counted"
+                  ? "bg-indigo-50 border border-indigo-200 text-indigo-500"
+                  : "bg-orange-50 border border-orange-200 text-orange-500"
           } px-2.5 py-1  rounded-full`}
         >
           {row?.status}
@@ -172,59 +218,31 @@ const Reconcile = () => {
       key: "actions",
       className: "w-24 ",
       render: (row) => {
-        const handleEdit = (e) => {
-          e.stopPropagation();
-          // Your edit logic here
-          // e.g., open edit modal with row data
-          // setEditData(row);
-          // setIsEditModalOpen(true);
-        };
-
-        const handleDelete = (e) => {
-          e.stopPropagation();
-          // Your delete logic here
-          // e.g., show confirm dialog then call API
-          if (window.confirm(`Delete vault "${row.name}"?`)) {
-            // DeleteVault(row.id).then(() => fetchVaultData());
-          }
-        };
-
         return (
-          <div className="flex items-center justify-center gap-3 py-2">
+          <div className="flex gap-2 py-2">
             {/* Edit Button */}
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
-              onClick={handleEdit}
-              className="p-2 rounded-lg bg-blue-500/10 cursor-pointer hover:bg-blue-500/20 text-blue-600 border border-blue-400/20 transition-all "
+              onClick={() => {
+                setSelectedReconcile(row);
+                setOpenReconcileViewDrawer(true);
+              }}
+              className="p-2 rounded-lg cursor-pointer text-blue-600 transition-all "
               aria-label="Edit vault"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
-              </svg>
+              <span>View</span>
             </motion.button>
 
             {/* Delete Button */}
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
-              onClick={handleDelete}
-              className="p-2 rounded-lg bg-red-500/10 cursor-pointer hover:bg-red-500/20 text-red-600 border border-red-400/20 transition-all "
+              // onClick={handleDelete}
+              className="p-2 rounded-lg cursor-pointer text-orange-600 transition-all "
               aria-label="Delete vault"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
+              <span>Reschedule</span>
             </motion.button>
           </div>
         );
@@ -235,48 +253,14 @@ const Reconcile = () => {
   return (
     <>
       <div className="flex items-center  justify-between p-2">
-        <h1 className="text-lg font-semibold text-gray-600">
-          {step === 0 && "Reconcile List"}
-          {step === 1 && "Orders List"}
-          {step === 2 && "Enter Deposit Amounts"}
-          {step === 3 && "Enter Denominations"}
-          {step === 4 && "Transaction Complete"}
-        </h1>
+        <div>
+          <h1 className="text-lg font-semibold text-gray-600 uppercase">Reconcile List</h1>
+          <p className="text-xs text-gray-400">Manage Your All Reconcile</p>
+        </div>
         <div className="flex items-center gap-4">
-          {step === 1 && (
-            <div
-              //   onClick={handleBack}
-              className="cursor-pointer transition-all duration-300 ease-in-out px-4 py-1 hover:bg-gray-50 backdrop-blur-xl rounded-lg overflow-hidden hover:text-black bg-transparent text-zinc-500 border border-zinc-100"
-            >
-              <p>Back</p>
-            </div>
-          )}
-
-          {step === 0 && (
-            <div
-              onClick={() => setOpenReconcileModel(true)}
-              className={`cursor-pointer ${isLocked ? "hidden" : "flex"} transition-all duration-300 ease-in-out px-4 py-1 hover:bg-cyan-100 backdrop-blur-xl rounded-lg overflow-hidden hover:text-cyan-600 bg-cyan-50 text-cyan-500 border border-cyan-300`}
-            >
-              <p>Request Reconcile</p>
-            </div>
-          )}
-          {step > 1 && (
-            <div
-              //   onClick={handleBack}
-              className="cursor-pointer transition-all duration-300 ease-in-out px-4 py-1 hover:bg-gray-100 backdrop-blur-xl rounded-lg overflow-hidden  bg-transparent text-zinc-300 border hover:text-zinc-500 border-zinc-200"
-            >
-              <p>Back</p>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div
-              //   onClick={handleNext}
-              className="cursor-pointer transition-all duration-300 ease-in-out px-4 py-1 hover:bg-white/10 backdrop-blur-xl rounded-lg overflow-hidden hover:text-gray-600 bg-cyan-500 text-white border border-cyan-500/50"
-            >
-              <p>Next</p>
-            </div>
-          )}
+          <div onClick={() => setOpenReconcileModel(true)} className="cursor-pointer transition-all px-4 py-2 hover:bg-black rounded text-white bg-[#424242]">
+            <p>Request Reconcile</p>
+          </div>
         </div>
       </div>
       {step === 0 && (
@@ -296,6 +280,15 @@ const Reconcile = () => {
       {drawerOpen && <VaultBagsDrawer selectedReconcile={selectedReconcile} setDrawerOpen={setDrawerOpen} />}
 
       {openReconcileModel && <ReconcileModel isClose={() => setOpenReconcileModel(false)} refetch={refetch} />}
+      {openReconcileViewDrawer && (
+        <ReconcileViewDrawer
+          reconcileId={selectedReconcile?.id}
+          reconcileTranId={selectedReconcile?.reconcile_tran_id}
+          isOpen={openReconcileViewDrawer}
+          onClose={() => setOpenReconcileViewDrawer(false)}
+          refetch={refetch}
+        />
+      )}
     </>
   );
 };
