@@ -1,20 +1,28 @@
-// src/features/reconciliation/reconciliationSlice.js
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { CheckReconcile } from "../services/Reconcile";
 
-export const fetchReconciliationStatus = createAsyncThunk("reconciliation/fetchStatus", async (_, { rejectWithValue }) => {
-  try {
-    const response = await CheckReconcile();
-    return response.data;
-  } catch (err) {
-    return rejectWithValue(err?.response?.data || "Failed to fetch status");
+// 1. Accept vaultId as an argument for the Thunk payload
+export const fetchReconciliationStatus = createAsyncThunk(
+  "reconciliation/fetchStatus", 
+  async (vaultId, { rejectWithValue }) => {
+    if (!vaultId || vaultId === "undefined") {
+      return rejectWithValue("Skipped request: Vault ID is undefined.");
+    }
+
+    try {
+      // Passes down a guaranteed valid vault configuration ID instance
+      const response = await CheckReconcile(vaultId);
+      return { data: response.data, vaultId };
+    } catch (err) {
+      return rejectWithValue(err?.response?.data || "Failed to fetch status");
+    }
   }
-});
+);
 
 const reconciliationSlice = createSlice({
   name: "reconciliation",
   initialState: {
-    isLocked: false,
+    vaultLocks: {}, // Changed from a single boolean to an object map (e.g., { "5": true, "12": false })
     status: "pending",
     loading: false,
     error: null,
@@ -29,11 +37,15 @@ const reconciliationSlice = createSlice({
       .addCase(fetchReconciliationStatus.fulfilled, (state, action) => {
         state.loading = false;
 
-        // Try both shapes
-        const data = action.payload?.data || action.payload;
+        const { data, vaultId } = action.payload;
+        const actualData = data?.data || data;
 
-        state.isLocked = data?.is_locked === true;
-        state.status = data?.status || "none";
+        if (vaultId) {
+          // Store the specific lock status using the vaultId as the key
+          state.vaultLocks[vaultId] = actualData?.is_locked === true;
+        }
+        
+        state.status = actualData?.status || "none";
       })
       .addCase(fetchReconciliationStatus.rejected, (state, action) => {
         state.loading = false;
@@ -42,6 +54,10 @@ const reconciliationSlice = createSlice({
   },
 });
 
-export const selectIsLockedForOperations = (state) => state.reconciliation.isLocked && state.reconciliation.status === "in_progress";
+// 3. Update Selector to look up the specific vaultId dynamically
+export const selectIsLockedForOperations = (state, vaultId) => {
+  if (!vaultId) return false;
+  return state.reconciliation.vaultLocks[vaultId] || false;
+};
 
 export default reconciliationSlice.reducer;

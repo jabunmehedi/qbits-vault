@@ -4,17 +4,19 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import ReconcileModel from "../../components/reconcile/ReconcileModel";
 import { GetReconciles, VerifyReconcile } from "../../services/Reconcile";
-import dayjs from "dayjs";
 import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
 import { ChevronRight } from "lucide-react";
 import VaultBagsDrawer from "../../components/reconcile/VaultBagsDrawer";
 import { useSelector } from "react-redux";
-import { selectIsLockedForOperations } from "../../store/checkReconcile";
 import ReconcileViewDrawer from "../../components/reconcile/ReconcileViewDrawer";
 import VerifyButton from "../../components/verifyButton/VerifyButton";
 import { useToast } from "../../hooks/useToast";
 import ReconclieDetails from "../../components/reconcile/ReconclieDetails";
 import { selectAuthUser } from "../../store/authSlice";
+import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+
+dayjs.extend(customParseFormat);
 
 const Reconcile = () => {
   const [reconcileData, setReconcileData] = useState([]);
@@ -30,7 +32,6 @@ const Reconcile = () => {
   const step = parseInt(searchParams.get("step") || "0");
   const { addToast } = useToast();
 
-  const isLocked = useSelector(selectIsLockedForOperations);
   const user = useSelector(selectAuthUser);
 
   console.log({ user });
@@ -149,16 +150,20 @@ const Reconcile = () => {
       },
     },
     {
-      title: "start Date",
+      title: "Audit Date",
       key: "from_date",
       className: "w-34",
       render: (row) => <span className="">{dayjs(row.from_date).format("DD MMM, YYYY")}</span>,
     },
     {
-      title: "End Date",
-      key: "to_date",
+      title: "Audit Time",
+      key: "audit_time",
       className: "w-34",
-      render: (row) => <span className="">{dayjs(row.to_date).format("DD MMM, YYYY")}</span>,
+      render: (row) => {
+        const timeStr = row?.audit_time;
+        const formattedTime = timeStr ? dayjs(timeStr, "HH:mm:ss").format("hh:mm A") : "N/A";
+        return <span className="text-gray-600 font-medium capitalize">{formattedTime}</span>;
+      },
     },
     {
       title: "Verifiers",
@@ -220,7 +225,7 @@ const Reconcile = () => {
       render: (row) => {
         return (
           <div className="flex gap-2 py-2">
-            {/* Edit Button */}
+            {/* view Button */}
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
@@ -234,16 +239,18 @@ const Reconcile = () => {
               <span>View</span>
             </motion.button>
 
-            {/* Delete Button */}
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              // onClick={handleDelete}
-              className="p-2 rounded-lg cursor-pointer text-orange-600 transition-all "
-              aria-label="Delete vault"
-            >
-              <span>Reschedule</span>
-            </motion.button>
+            {/* reschedule Button */}
+            {row?.status === "pending" && (
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                // onClick={handleDelete}
+                className="p-2 rounded-lg cursor-pointer text-orange-600 transition-all "
+                aria-label="Delete vault"
+              >
+                <span>Reschedule</span>
+              </motion.button>
+            )}
           </div>
         );
       },

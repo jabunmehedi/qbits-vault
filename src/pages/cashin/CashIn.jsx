@@ -17,6 +17,7 @@ import VerifyButton from "../../components/verifyButton/VerifyButton";
 import CashInDetails from "../../components/cashin/CashInDetails";
 import { useSelector } from "react-redux";
 import { selectAuthUser } from "../../store/authSlice";
+import ApprovalCell from "../../components/cashin/ApprovalCell";
 
 const DENOM_NOTES = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
 const INITIAL_DENOMINATIONS = Object.fromEntries(DENOM_NOTES.map((n) => [n, 0]));
@@ -44,6 +45,7 @@ const CashIn = () => {
   const [activeVerifyId, setActiveVerifyId] = useState(null);
   const [activeApproveId, setActiveApproveId] = useState(null);
   const [verifyLoading, setVerifyLoading] = useState(null);
+
 
   const { hasPermission } = usePermissions();
   const user = useSelector(selectAuthUser);
@@ -591,33 +593,16 @@ const CashIn = () => {
       title: "Approvals",
       key: "required_approvers",
       className: "w-20 text-center",
-      render: (row) => {
-        const isApproverShowButton = row?.required_approvers?.some((approver) => approver?.user_id === user?.id && !approver?.approved);
-        const isVerified = row?.verifier_status === "verified";
-        return (
-          <div className="flex flex-col items-center gap-2">
-            <VerifierAvatars requiredVerifiers={row.required_approvers || []} />
-            {isApproverShowButton && isVerified && (
-              <VerifyButton
-                handleSubmit={() => handleApprovedClick(row.id)}
-                isOpen={activeApproveId === row.id}
-                isLoading={verifyLoading}
-                setOpen={(isOpen) => setActiveApproveId(isOpen ? row.id : null)}
-                className="max-w-xl"
-              >
-                <CashInDetails cashIn={row} />
-              </VerifyButton>
-            )}
-            <span
-              className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
-                row?.approver_status === "pending" ? "bg-yellow-50 border-yellow-200 text-yellow-600" : "bg-green-50 border-green-200 text-green-500"
-              }`}
-            >
-              {row?.approver_status}
-            </span>
-          </div>
-        );
-      },
+      render: (row) => (
+        <ApprovalCell
+          row={row}
+          user={user}
+          activeApproveId={activeApproveId}
+          setActiveApproveId={setActiveApproveId}
+          verifyLoading={verifyLoading}
+          handleApprovedClick={handleApprovedClick}
+        />
+      ),
     },
     {
       title: "Status",

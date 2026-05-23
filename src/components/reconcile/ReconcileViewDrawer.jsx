@@ -5,7 +5,7 @@ import { useToast } from "../../hooks/useToast";
 import { useSelector } from "react-redux";
 import { selectAuthUser } from "../../store/authSlice";
 
-const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId }) => {
+const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, refetch }) => {
   const [currentStep, setCurrentStep] = useState("intro"); // "intro" or "counting"
   const [racks, setRacks] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -250,6 +250,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId }) 
   const handleStartAuditSession = () => {
     setCurrentStep("counting");
     StartReconciliation(reconcileId).then((res) => {
+      refetch();
       console.log("Session initialization details:", res);
     });
   };

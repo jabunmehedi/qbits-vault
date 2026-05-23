@@ -7,8 +7,8 @@ import { useDispatch, useSelector } from "react-redux";
 import Sidebar from "./sidebar/Sidebar";
 import InitialVerification from "../initialVerification/InitialVerification";
 
-import { fetchAuthUser, selectAuthLoading, selectIsSuperAdmin, selectIsFullyVerified, selectAuthUser } from "../../store/authSlice";
-import { fetchReconciliationStatus, selectIsLockedForOperations } from "../../store/checkReconcile";
+import { fetchAuthUser, selectAuthLoading, selectIsSuperAdmin, selectIsFullyVerified, } from "../../store/authSlice";
+// import { fetchReconciliationStatus, selectIsLockedForOperations } from "../../store/checkReconcile";
 
 const AppShell = ({ isMobile, isMinimized, isDrawerOpen, setIsDrawerOpen, sidebarWidthClass, contentMargin, children }) => (
   <div className="min-h-screen text-white relative overflow-hidden">
@@ -61,16 +61,16 @@ const Layout = () => {
     dispatch(fetchAuthUser());
   }, [dispatch]);
 
-  // ── Reconciliation polling ───────────────────────────────────────────────────
-  useEffect(() => {
-    dispatch(fetchReconciliationStatus());
-  }, [location.pathname, dispatch]);
+  // // ── Reconciliation polling ───────────────────────────────────────────────────
+  // useEffect(() => {
+  //   dispatch(fetchReconciliationStatus());
+  // }, [location.pathname, dispatch]);
 
-  useEffect(() => {
-    const onFocus = () => dispatch(fetchReconciliationStatus());
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [dispatch]);
+  // useEffect(() => {
+  //   const onFocus = () => dispatch(fetchReconciliationStatus());
+  //   window.addEventListener("focus", onFocus);
+  //   return () => window.removeEventListener("focus", onFocus);
+  // }, [dispatch]);
 
   // ── Responsive sidebar ───────────────────────────────────────────────────────
   useEffect(() => {

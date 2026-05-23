@@ -76,9 +76,9 @@ export const CompleteReconciliation = async (id, data) => {
     console.error(error?.response?.data?.message);
   }
 };
-export const CheckReconcile = async () => {
+export const CheckReconcile = async (vaultId) => {
   try {
-    const response = await axiosConfig.get(`/reconciliation/check`);
+    const response = await axiosConfig.get(`/reconciliation/check/${vaultId}`);
     return response;
   } catch (error) {
     console.error(error?.response?.data?.message);
