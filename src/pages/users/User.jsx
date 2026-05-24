@@ -9,7 +9,7 @@ import CreateNewUserModal from "../../components/user/CreateNewUserModal";
 import RoleDrawer from "../../components/user/RoleDrawer";
 import Avatar from "../../components/helpers/Avatar";
 import UserViewDrawer from "../../components/user/UserViewDrawer";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePermissions } from "../../hooks/usePermissions";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -19,19 +19,20 @@ const SUPERADMIN_NAMES = ["Superadmin", "Super Admin", "superadmin", "super_admi
 const User = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [roleDrawerOpen, setRoleDrawerOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [openModel, setOpenModel] = useState(false);
   const [openUserViewDrawer, setOpenUserViewDrawer] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [roleSearch, setRoleSearch] = useState("");
 
   const { hasPermission } = usePermissions();
+  const queryClient = useQueryClient();
 
   // ── Filter Users (Superadmin Logic) ──
   const loggedUser = localStorage.getItem("auth") ? JSON.parse(localStorage.getItem("auth")).user : null;
   const isSuperAdmin = loggedUser?.roles?.some((role) => SUPERADMIN_NAMES.includes(role.name));
 
-  // ── 2. Use React Query for Users ──
+  // ── React Query for Users ──
   const { data: users = [], isLoading: isUsersLoading } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
@@ -40,7 +41,7 @@ const User = () => {
     },
   });
 
-  // ── 3. Use React Query for Roles ──
+  // ── React Query for Roles ──
   const { data: roles = [] } = useQuery({
     queryKey: ["roles"],
     queryFn: async () => {
@@ -49,7 +50,7 @@ const User = () => {
     },
   });
 
-  // ── 4. Use React Query for Permissions ──
+  // ── React Query for Permissions ──
   const { data: permissions = [] } = useQuery({
     queryKey: ["permissions"],
     queryFn: async () => {
@@ -60,9 +61,7 @@ const User = () => {
 
   const filteredUsers = useMemo(() => {
     if (!loggedUser) return users;
-
     if (isSuperAdmin) return users;
-
     return users.filter((user) => !user.roles?.some((role) => SUPERADMIN_NAMES.includes(role.name)));
   }, [users, loggedUser]);
 
@@ -114,7 +113,6 @@ const User = () => {
       },
     ];
 
-    // Only show MANAGE column if user has permission
     if (hasPermission("permission.view")) {
       baseColumns.push({
         title: "MANAGE",
@@ -126,7 +124,7 @@ const User = () => {
               setSelectedUser(row);
               setDrawerOpen(true);
             }}
-            className={`${isSuperAdmin && row.id === loggedUser.id ? "hidden" : "flex"}  items-center gap-2 border shadow border-slate-300 px-4 py-1.5 rounded-lg text-[#1a2b4b] font-bold text-[11px] uppercase tracking-widest hover:bg-[#1a2b4b] hover:text-white transition-all active:scale-95`}
+            className={`${isSuperAdmin && row.id === loggedUser.id ? "hidden" : "flex"} items-center gap-2 border shadow border-slate-300 px-4 py-1.5 rounded-lg text-[#1a2b4b] font-bold text-[11px] uppercase tracking-widest hover:bg-[#1a2b4b] hover:text-white transition-all active:scale-95`}
           >
             <Settings2 className="w-3.5 h-3.5" />
             Permissions
@@ -135,7 +133,6 @@ const User = () => {
       });
     }
 
-    // Role Columns
     const roleColumns = roles
       .filter((role) => !SUPERADMIN_NAMES.includes(role.name))
       .map((role) => ({
@@ -205,11 +202,22 @@ const User = () => {
       </div>
 
       {/* Data Table */}
-      <DataTable columns={columns} data={filteredUsers} isLoading={isLoading} className="h-[calc(100vh-200px)]" />
+      <DataTable columns={columns} data={filteredUsers} isLoading={isUsersLoading} className="h-[calc(100vh-200px)]" />
 
       <UserViewDrawer isOpen={openUserViewDrawer} onClose={() => setOpenUserViewDrawer(false)} userId={selectedUserId} />
 
-      {openModel && <CreateNewUserModal setOpenModal={setOpenModel} roles={roles} />}
+      {openModel && (
+        <CreateNewUserModal
+          setOpenModal={(val) => {
+            setOpenModel(val);
+            if (!val) setRoleSearch("");
+          }}
+          roles={roles}
+          roleSearch={roleSearch}
+          setRoleSearch={setRoleSearch}
+          onUserCreated={() => queryClient.invalidateQueries({ queryKey: ["users"] })}
+        />
+      )}
 
       {roleDrawerOpen && <RoleDrawer isOpen={roleDrawerOpen} onClose={() => setRoleDrawerOpen(false)} rolesList={roles} />}
 
