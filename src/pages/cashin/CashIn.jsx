@@ -605,16 +605,6 @@ const CashIn = () => {
       ),
     },
     {
-      title: "Status",
-      key: "status",
-      className: "w-20 text-center",
-      render: (row) => (
-        <div className="flex flex-col items-center gap-2">
-          <span className={`capitalize text-xs px-2.5 py-1 rounded-full border bg-green-50 border-green-200 text-green-500`}>Received By AT</span>
-        </div>
-      ),
-    },
-    {
       title: "Action",
       key: "actions",
       className: "w-24",

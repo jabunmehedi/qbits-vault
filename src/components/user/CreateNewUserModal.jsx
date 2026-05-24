@@ -1,20 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import CustomModal from "../global/modal/CustomModal";
 import { useToast } from "../../hooks/useToast";
-import axiosConfig from "../../utils/axiosConfig";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { CreateUser } from "../../services/User";
 
 const INITIAL_FORM = { name: "", email: "", password: "", role: [] };
 
-const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRoleSearch }) => {
+const CreateNewUserModal = ({ setOpenModal, roles, roleSearch, setRoleSearch }) => {
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { addToast } = useToast();
   const dropdownRef = useRef(null);
 
-  // Toggle Role - Fixed logic
+
   const toggleRole = (role) => {
     const isSelected = formData.role.includes(role.id);
 
@@ -35,7 +36,6 @@ const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRo
     }
   };
 
-  // Sync selectedRoles when formData.role changes (important for reset)
   useEffect(() => {
     const currentRoleNames = roles.filter((role) => formData?.role?.includes(role.id)).map((role) => role.name);
 
@@ -55,30 +55,44 @@ const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRo
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.role.length) {
+
+    if (!formData.role || !formData.role.length) {
       addToast({ type: "error", message: "Please select at least one role" });
       return;
     }
+
+    setIsSubmitting(true);
+
     try {
-      await axiosConfig.post("/users", formData);
+      const res = await CreateUser(formData);
+      const { success, message } = res;
+
+      if (!success) {
+        addToast({ type: "error", message: message || "Failed to create user" });
+        return;
+      }
+
       addToast({ type: "success", message: "User created successfully" });
       setFormData(INITIAL_FORM);
-      setSelectedRoles([]); // Reset selected roles
-      setOpenModel(false);
-      fetchUsers();
+      setSelectedRoles([]);
+      setOpenModal(false);
     } catch (err) {
-      addToast({ type: "error", message: err.response?.data?.message || "Failed to create user" });
+      console.log({ err });
+      const errorMessage = err.response?.data?.message || "Failed to create user";
+      addToast({ type: "error", message: errorMessage });
+    } finally {
+      setIsSubmitting(false);
     }
   };
-
 
   return (
     <CustomModal
       isCloseModal={() => {
-        setOpenModel(false);
+        setOpenModal(false);
         setFormData(INITIAL_FORM);
         setSelectedRoles([]);
       }}
+      className="max-w-lg"
     >
       <h2 className="text-lg font-bold text-[#1a2b4b] mb-6 uppercase tracking-tight">Create New User</h2>
       <form onSubmit={handleCreateSubmit} className="space-y-4">
@@ -151,8 +165,12 @@ const CreateNewUserModal = ({ setOpenModel, fetchUsers, roles, roleSearch, setRo
           </AnimatePresence>
         </div>
 
-        <button type="submit" className="w-full py-3 bg-[#1a2b4b] text-white rounded-xl font-bold uppercase text-xs tracking-widest mt-4">
-          Create User
+        <button
+          disabled={isSubmitting}
+          type="submit"
+          className={`w-full flex items-center justify-center gap-2 py-3 ${isSubmitting ? "bg-gray-200" : "bg-indigo-500"} text-white rounded-xl font-bold uppercase text-xs tracking-widest mt-4`}
+        >
+          {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create User"}
         </button>
       </form>
     </CustomModal>

@@ -209,7 +209,7 @@ const User = () => {
 
       <UserViewDrawer isOpen={openUserViewDrawer} onClose={() => setOpenUserViewDrawer(false)} userId={selectedUserId} />
 
-      {openModel && <CreateNewUserModal setOpenModel={setOpenModel} roles={roles} />}
+      {openModel && <CreateNewUserModal setOpenModal={setOpenModel} roles={roles} />}
 
       {roleDrawerOpen && <RoleDrawer isOpen={roleDrawerOpen} onClose={() => setRoleDrawerOpen(false)} rolesList={roles} />}
 

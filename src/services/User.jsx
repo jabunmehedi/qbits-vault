@@ -1,5 +1,14 @@
 import axios from "../utils/axiosConfig";
 
+export const CreateUser = async (data) => {
+  try {
+    const response = await axios.post(`/users`, data);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response;
+  }
+};
 export const GetUsers = async () => {
   try {
     const response = await axios.get(`/users`);
