@@ -1,14 +1,12 @@
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { FiMenu } from "react-icons/fi";
 import { useDispatch, useSelector } from "react-redux";
 
-
 import Sidebar from "./sidebar/Sidebar";
 import InitialVerification from "../initialVerification/InitialVerification";
 
-import { fetchAuthUser, selectAuthLoading, selectIsSuperAdmin, selectIsFullyVerified, } from "../../store/authSlice";
-// import { fetchReconciliationStatus, selectIsLockedForOperations } from "../../store/checkReconcile";
+import { fetchAuthUser, selectIsSuperAdmin, selectIsFullyVerified } from "../../store/authSlice";
 
 const AppShell = ({ isMobile, isMinimized, isDrawerOpen, setIsDrawerOpen, sidebarWidthClass, contentMargin, children }) => (
   <div className="min-h-screen text-white relative overflow-hidden">
@@ -48,29 +46,12 @@ const Layout = () => {
   const [isMobile, setIsMobile] = useState(false);
 
   const dispatch = useDispatch();
-  const location = useLocation();
-
-  // const authUser = useSelector(selectAuthUser);
-  // const authLoading = useSelector(selectAuthLoading);
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const isFullyVerified = useSelector(selectIsFullyVerified);
-  // const isOperationsLocked = useSelector(selectIsLockedForOperations);
 
-  // ── Fetch fresh user from API on mount ───────────────────────────────────────
   useEffect(() => {
     dispatch(fetchAuthUser());
   }, [dispatch]);
-
-  // // ── Reconciliation polling ───────────────────────────────────────────────────
-  // useEffect(() => {
-  //   dispatch(fetchReconciliationStatus());
-  // }, [location.pathname, dispatch]);
-
-  // useEffect(() => {
-  //   const onFocus = () => dispatch(fetchReconciliationStatus());
-  //   window.addEventListener("focus", onFocus);
-  //   return () => window.removeEventListener("focus", onFocus);
-  // }, [dispatch]);
 
   // ── Responsive sidebar ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -87,15 +68,6 @@ const Layout = () => {
 
   const sidebarWidthClass = isMinimized ? "w-16" : "w-[220px]";
   const contentMargin = isMobile ? "ml-0" : isMinimized ? "ml-16" : "";
-
-  // ── Spinner while user loads ─────────────────────────────────────────────────
-  // if (authLoading || !authUser) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-purple-50 via-pink-50 to-blue-50">
-  //       <Loader2 size={36} className="animate-spin text-[#0061ff]" />
-  //     </div>
-  //   );
-  // }
 
   // ── Verification gate ────────────────────────────────────────────────────────
   if (!isSuperAdmin && !isFullyVerified) {

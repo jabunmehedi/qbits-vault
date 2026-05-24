@@ -2,8 +2,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, UserIcon, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { UpdatePermissions } from "../../services/Permission";
-import { a } from "framer-motion/client";
 import { useToast } from "../../hooks/useToast";
+import { useSelector } from "react-redux";
+import { selectIsAdmin, selectIsSuperAdmin } from "../../store/authSlice";
+import { usePermissions } from "../../hooks/usePermissions";
 
 const baseStorageUrl = import.meta.env.VITE_REACT_APP_STORAGE_URL;
 
@@ -24,6 +26,13 @@ const PermissionViewer = ({ isOpen, onClose, user, permissions }) => {
   const [selectedPerms, setSelectedPerms] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const { addToast } = useToast();
+
+  const isSuperAdmin = useSelector(selectIsSuperAdmin);
+  const isAdmin = useSelector(selectIsAdmin);
+
+  const { hasPermission } = usePermissions();
+
+  const canEdit = isSuperAdmin || (isAdmin && hasPermission("permission.edit"));
 
   // Load current user permissions
   useEffect(() => {
@@ -64,14 +73,14 @@ const PermissionViewer = ({ isOpen, onClose, user, permissions }) => {
     return groupIds.every((id) => selectedPerms.includes(id));
   };
 
-  const isGroupPartiallySelected = (groupName) => {
-    const groupIds = groupedPermissions[groupName].map((p) => p.id);
-    return groupIds.some((id) => selectedPerms.includes(id)) && !isGroupFullySelected(groupName);
-  };
+  // const isGroupPartiallySelected = (groupName) => {
+  //   const groupIds = groupedPermissions[groupName].map((p) => p.id);
+  //   return groupIds.some((id) => selectedPerms.includes(id)) && !isGroupFullySelected(groupName);
+  // };
 
-  const handleReset = () => {
-    setSelectedPerms(user?.permissions?.map((p) => p.id) || []);
-  };
+  // const handleReset = () => {
+  //   setSelectedPerms(user?.permissions?.map((p) => p.id) || []);
+  // };
 
   const handleSave = async () => {
     if (!user?.id) return;
@@ -81,14 +90,13 @@ const PermissionViewer = ({ isOpen, onClose, user, permissions }) => {
     try {
       await UpdatePermissions(user.id, selectedPerms);
 
-      // Force toast with more visible styling
       addToast({
         type: "success",
-        message: "✅ Permissions updated successfully!",
+        message: "Permissions updated successfully!",
         duration: 2000,
       });
     } catch (error) {
-      console.error("❌ Error:", error);
+      console.error(" Error:", error);
       addToast({
         type: "error",
         message: "Failed to update permissions",
@@ -129,14 +137,9 @@ const PermissionViewer = ({ isOpen, onClose, user, permissions }) => {
               )}
 
               <div className="flex items-center gap-3">
-                {/* <button
-                  onClick={handleReset}
-                  className="px-6 py-3 border border-gray-200 text-[#1a2b4b] rounded-2xl text-sm font-bold hover:bg-gray-50 transition"
-                >
-                  Reset to Default
-                </button> */}
                 <button
                   onClick={handleSave}
+                  disabled={!canEdit || isSaving}
                   className="px-6 py-2 uppercase bg-blue-800 text-white rounded-2xl font-bold text-sm hover:bg-black transition shadow-lg"
                 >
                   Update Permission
@@ -152,7 +155,7 @@ const PermissionViewer = ({ isOpen, onClose, user, permissions }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
                 {Object.entries(groupedPermissions).map(([groupName, perms]) => {
                   const allSelected = isGroupFullySelected(groupName);
-                  const partiallySelected = isGroupPartiallySelected(groupName);
+                  // const partiallySelected = isGroupPartiallySelected(groupName);
 
                   return (
                     <div key={groupName} className="bg-white rounded-3xl border border-gray-100">
@@ -162,6 +165,7 @@ const PermissionViewer = ({ isOpen, onClose, user, permissions }) => {
                           <label className="flex items-center gap-2 cursor-pointer">
                             <input
                               type="checkbox"
+                              disabled={!canEdit}
                               checked={allSelected}
                               onChange={() => toggleGroup(groupName)}
                               className="w-5 h-5 accent-[#3EAAFF] cursor-pointer"
@@ -178,7 +182,7 @@ const PermissionViewer = ({ isOpen, onClose, user, permissions }) => {
                           return (
                             <div
                               key={perm.id}
-                              onClick={() => togglePermission(perm.id)}
+                              onClick={() => canEdit && togglePermission(perm.id)}
                               className="flex items-center gap-3 py-2 rounded-2xl hover:bg-gray-50 cursor-pointer transition-all"
                             >
                               <div

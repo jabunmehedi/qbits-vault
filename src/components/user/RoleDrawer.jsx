@@ -5,6 +5,9 @@ import { useToast } from "../../hooks/useToast";
 import { useState } from "react";
 import axiosConfig from "../../utils/axiosConfig";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSelector } from "react-redux";
+import { selectIsAdmin, selectIsSuperAdmin } from "../../store/authSlice";
+import { usePermissions } from "../../hooks/usePermissions";
 
 const RoleDrawer = ({ isOpen, onClose, rolesList, refetchRoles }) => {
   const [newRoleName, setNewRoleName] = useState("");
@@ -12,6 +15,13 @@ const RoleDrawer = ({ isOpen, onClose, rolesList, refetchRoles }) => {
 
   const { addToast } = useToast();
   const queryClient = useQueryClient();
+
+  const isSuperAdmin = useSelector(selectIsSuperAdmin);
+  const isAdmin = useSelector(selectIsAdmin);
+
+  const { hasPermission } = usePermissions();
+
+  const canCreateRole = isSuperAdmin || (isAdmin && hasPermission("role.create"));
 
   // 3. Define the mutation
   const mutation = useMutation({
@@ -71,13 +81,15 @@ const RoleDrawer = ({ isOpen, onClose, rolesList, refetchRoles }) => {
                   placeholder="Role Name..."
                   className="flex-1 px-4 py-2 text-black bg-gray-50 border border-gray-100 rounded-lg outline-none focus:border-blue-400 text-sm"
                 />
-                <button
-                  onClick={handleCreateRole}
-                  disabled={isLoading}
-                  className={`${isLoading ? "bg-gray-200 cursor-not-allowed" : "bg-[#1a2b4b]"} text-white px-4 py-2 rounded-lg text-xs font-bold uppercase`}
-                >
-                  {isLoading ? <Loader2 className="animate-spin w-4 h-4 mx-4 text-black" /> : "Create"}
-                </button>
+                {canCreateRole && (
+                  <button
+                    onClick={handleCreateRole}
+                    disabled={isLoading}
+                    className={`${isLoading ? "bg-gray-200 cursor-not-allowed" : "bg-[#1a2b4b]"} text-white px-4 py-2 rounded-lg text-xs font-bold uppercase`}
+                  >
+                    {isLoading ? <Loader2 className="animate-spin w-4 h-4 mx-4 text-black" /> : "Create"}
+                  </button>
+                )}
               </div>
             </div>
 

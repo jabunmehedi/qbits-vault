@@ -4,7 +4,6 @@ import { useLocation, Link } from "react-router-dom";
 import { FiHome, FiSettings, FiLogOut, FiSend, FiRefreshCw, FiX, FiMenu, FiChevronDown } from "react-icons/fi";
 import { AiOutlineAudit, AiOutlineUser } from "react-icons/ai";
 import { CiInboxOut, CiVault } from "react-icons/ci";
-import { Shield } from "lucide-react";
 import { Logout } from "../../../services/Auth";
 import { usePermissions } from "../../../hooks/usePermissions";
 
@@ -15,17 +14,16 @@ const menuItems = [
   { icon: FiSend, label: "Cash In", path: "/cashin" },
   { icon: CiInboxOut, label: "Cash Out", path: "/cashout" },
   { icon: AiOutlineAudit, label: "Reconcile", path: "/reconcile" },
-  { icon: Shield, label: "Verifications", path: "/verifications" },
-  { icon: FiSettings, label: "Permissions", path: "/role-and-permissions" },
+  // { icon: FiSettings, label: "Permissions", path: "/role-and-permissions" },
   {
     icon: FiSettings,
     label: "Settings",
     children: [
       { label: "Config Vault Aduit", path: "/settings/config-vault-audit" },
-      { label: "Default", path: "/settings/default" },
+      { label: "Logs", path: "/settings/activity-log" },
     ],
   },
-  { icon: FiRefreshCw, label: "Activity Log", path: "/activity-log" },
+  // { icon: FiRefreshCw, label: "Activity Log", path: "/activity-log" },
 ];
 
 export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDrawerOpen, sidebarWidthClass, setIsMinimized }) {

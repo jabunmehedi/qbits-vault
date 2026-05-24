@@ -8,8 +8,6 @@ import User from "../pages/users/User";
 import CashIn from "../pages/cashin/CashIn";
 import Vault from "../pages/vault/Vault";
 import Profile from "../pages/profile/Profile";
-import RolePermissionManager from "../pages/roleAndPermissions/RolePermissionManager";
-import Verifications from "../pages/verifications/Verifications";
 import CashOut from "../pages/cashout/CashOut";
 import Reconcile from "../pages/reconcile/Reconcile";
 import ActivityLog from "../pages/activityLog/ActivityLog";
@@ -85,16 +83,9 @@ const AppRoutes = () => {
           path: "/profile",
           element: <Profile />,
         },
+  
         {
-          path: "/verifications",
-          element: <Verifications />,
-        },
-        {
-          path: "/role-and-permissions",
-          element: <RolePermissionManager />,
-        },
-        {
-          path: "/activity-log",
+          path: "/settings/activity-log",
           element: <ActivityLog />,
         },
         {
