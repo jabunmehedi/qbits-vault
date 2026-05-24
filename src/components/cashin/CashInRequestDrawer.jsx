@@ -303,7 +303,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     {
       title: "Select",
       key: "selection",
-      className: "w-20 text-center",
+      className: "!w-10  text-center",
       render: (row) => {
         const isSelected = selectedRows.some((s) => s.id === row.id);
         return (
@@ -364,6 +364,11 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
       render: (row) => <span>{row?.customer_name}</span>,
     },
     {
+      title: "Status",
+      key: "status",
+      render: (row) => <span className="bg-cyan-50 px-2 py-1 rounded text-xs text-cyan-500">Received By AT</span>,
+    },
+    {
       title: "Received Date",
       key: "received_date",
       render: (row) => <span>{dayjs(row.created_at).format("DD MMM, YYYY hh:mm A")}</span>,
@@ -375,6 +380,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
       <Drawer
         isOpen={isOpen}
         onClose={handleClose}
+        className="max-w-4xl"
         title={
           <div className="flex items-center gap-3 mb-1">
             <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import DataTable from "../../components/global/dataTable/DataTable";
-import { CreateVault, GetVault, GetVaults, UpdateVault } from "../../services/Vault";
+import { CreateVault, DeleteVault, GetVault, GetVaults, UpdateVault } from "../../services/Vault";
 import dayjs from "dayjs";
 import CustomModal from "../../components/global/modal/CustomModal";
 import { AiOutlinePlus } from "react-icons/ai";
@@ -241,6 +241,9 @@ const Vault = () => {
   const [editingVaultDisplayId, setEditingVaultDisplayId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const [deletingVaultId, setDeletingVaultId] = useState(null);
+  const [isApiDeleting, setIsApiDeleting] = useState(false);
+
   // const toast = useToast();
 
   const {
@@ -359,12 +362,10 @@ const Vault = () => {
   useEffect(() => {
     const editId = searchParams.get("vault_edit_id");
 
-
     // Only proceed if we have an ID to search for and vaults have loaded
     if (editId && vaults.length > 0) {
       // Find the vault matching the vault_code (display ID)
       const vaultToEdit = vaults.find((v) => v.vault_id === editId);
-
 
       openEditModal(editId);
 
@@ -485,7 +486,6 @@ const Vault = () => {
 
   // ── Submit ────────────────────────────────────────────────────────────────────
   const onSubmit = async (data) => {
-
     const limit = data.bag_limit ? parseInt(data.bag_limit, 10) : null;
 
     if (limit !== null) {
@@ -665,49 +665,111 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
     {
       title: "Action",
       key: "actions",
-      className: "w-28 text-start",
-      render: (row) => (
-        <div className="flex items-center justify-center gap-3 py-2">
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={(e) => {
-              e.stopPropagation();
-              openEditModal(row);
-            }}
-            className="p-2 rounded-lg bg-blue-500/10 cursor-pointer hover:bg-blue-500/20 text-blue-600 border border-blue-400/20 transition-all"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-              />
-            </svg>
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (window.confirm(`Delete vault "${row.name}"?`)) {
-                /* DeleteVault */
-              }
-            }}
-            className="p-2 rounded-lg bg-red-500/10 cursor-pointer hover:bg-red-500/20 text-red-600 border border-red-400/20 transition-all"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              />
-            </svg>
-          </motion.button>
-        </div>
-      ),
+      className: "w-36 text-start relative",
+      render: (row) => {
+        const isConfirming = deletingVaultId === row.id;
+
+        const handleDeleteClick = async (e) => {
+          e.stopPropagation();
+          setIsApiDeleting(true);
+          try {
+            const res = await DeleteVault(row.id);
+            if (!res?.success) {
+              addToast({ type: "error", message: res?.message});
+              return;
+            }
+            addToast({ type: "success", message: "Vault deleted successfully" });
+            setDeletingVaultId(null);
+            await fetchVaultData(); // Refresh the table list
+          } catch (error) {
+            console.error("Failed to delete vault:", error);
+            toast.error(error?.response?.data?.message || "Failed to delete vault.");
+          } finally {
+            setIsApiDeleting(false);
+            setDeletingVaultId(null);
+          }
+        };
+
+        return (
+          <div className="flex items-center justify-center gap-3 py-2 relative">
+            {/* Edit Button */}
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                openEditModal(row);
+              }}
+              disabled={isConfirming || isApiDeleting}
+              className="p-2 rounded-lg bg-blue-500/10 cursor-pointer hover:bg-blue-500/20 text-blue-600 border border-blue-400/20 transition-all disabled:opacity-40"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                />
+              </svg>
+            </motion.button>
+
+            {/* Trash Button or Animated Confirm Tooltip */}
+            <div className="relative">
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeletingVaultId(isConfirming ? null : row.id);
+                }}
+                disabled={isApiDeleting}
+                className={`p-2 rounded-lg cursor-pointer border transition-all ${
+                  isConfirming ? "bg-gray-100 text-gray-500 border-gray-300" : "bg-red-500/10 hover:bg-red-500/20 text-red-600 border-red-400/20"
+                }`}
+              >
+                <Trash2 className="w-4 h-4" />
+              </motion.button>
+
+              {/* Confirm Tooltip Container */}
+              <AnimatePresence>
+                {isConfirming && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 bottom-full mb-2 z-50 bg-white border border-gray-200 shadow-xl rounded-xl p-3 flex flex-col gap-2 min-w-[180px]"
+                    onClick={(e) => e.stopPropagation()} // Stop closing on tooltip click
+                  >
+                    <p className="text-xs font-medium text-gray-700 text-center">Delete "{row.name}"?</p>
+                    <div className="flex gap-2 justify-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeletingVaultId(null);
+                        }}
+                        disabled={isApiDeleting}
+                        className="px-2 py-1 text-[11px] font-semibold rounded-md border border-gray-200 hover:bg-gray-50 text-gray-600 cursor-pointer transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleDeleteClick}
+                        disabled={isApiDeleting}
+                        className="px-2 py-1 text-[11px] font-semibold rounded-md bg-red-600 hover:bg-red-700 text-white flex items-center gap-1 cursor-pointer transition shadow-sm"
+                      >
+                        {isApiDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : "Confirm"}
+                      </button>
+                    </div>
+                    {/* Tooltip Arrow */}
+                    <div className="absolute top-full right-3 w-2 h-2 bg-white border-r border-b border-gray-200 transform rotate-45 -mt-[5px]" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        );
+      },
     },
   ];
 

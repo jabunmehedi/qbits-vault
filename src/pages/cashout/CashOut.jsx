@@ -392,8 +392,6 @@ const CashOut = () => {
             // 1. Call the API to get up-to-date details for this specific cashout
             const res = await GetCashOut(row.id);
 
-            console.log({ res });
-
             // if (res?.success || res?.data) {
               // 2. Extract the data object based on your API structure (e.g., res.data or res.data.data)
               const freshCashOutData = res.data?.data || res.data || res;

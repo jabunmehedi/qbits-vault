@@ -263,7 +263,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
       addToast({ message: "Reconciliation completed successfully", type: "success" });
       onClose();
     } catch (error) {
-      console.log(error);
+      console.error(error);
     }
   };
 
@@ -271,7 +271,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     setCurrentStep("counting");
     StartReconciliation(reconcileId).then((res) => {
       refetch();
-      console.log("Session initialization details:", res);
     });
   };
 

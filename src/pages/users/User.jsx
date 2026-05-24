@@ -11,9 +11,11 @@ import Avatar from "../../components/helpers/Avatar";
 import UserViewDrawer from "../../components/user/UserViewDrawer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePermissions } from "../../hooks/usePermissions";
+import { useSelector } from "react-redux";
+import { selectIsAdmin, selectIsSuperAdmin } from "../../store/authSlice";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const SUPERADMIN_NAMES = ["Superadmin", "Super Admin", "superadmin", "super_admin"];
+const SUPERADMIN_NAMES = ["Superadmin", "Super Admin", "superadmin", "super_admin", "super-admin"];
 
 // ─── Main component ────────────────────────────────────────────────────────────
 const User = () => {
@@ -25,12 +27,15 @@ const User = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [roleSearch, setRoleSearch] = useState("");
 
+  const isSuperAdmin = useSelector(selectIsSuperAdmin);
+  const isAdmin = useSelector(selectIsAdmin);
+
   const { hasPermission } = usePermissions();
   const queryClient = useQueryClient();
 
   // ── Filter Users (Superadmin Logic) ──
   const loggedUser = localStorage.getItem("auth") ? JSON.parse(localStorage.getItem("auth")).user : null;
-  const isSuperAdmin = loggedUser?.roles?.some((role) => SUPERADMIN_NAMES.includes(role.name));
+  const canViewUserDetail = isSuperAdmin || (isAdmin && hasPermission("user.details"));
 
   // ── React Query for Users ──
   const { data: users = [], isLoading: isUsersLoading } = useQuery({
@@ -90,10 +95,11 @@ const User = () => {
             <div className="flex flex-col">
               <div
                 onClick={() => {
+                  if (!canViewUserDetail) return;
                   setOpenUserViewDrawer(true);
                   setSelectedUserId(row.id);
                 }}
-                className="flex items-center gap-1 group cursor-pointer"
+                className={`flex items-center gap-1 group ${canViewUserDetail ? "cursor-pointer" : "cursor-default pointer-events-none select-none"}`}
               >
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2">
@@ -106,14 +112,16 @@ const User = () => {
                   </div>
                 </div>
               </div>
-              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded mt-1 self-start tracking-wider uppercase">Main HQ Vault</span>
+              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded mt-1 self-start tracking-wider uppercase">
+                {row?.default_vault?.name || "No Default Vault"}
+              </span>
             </div>
           </div>
         ),
       },
     ];
 
-    if (hasPermission("permission.view")) {
+    if ((isAdmin && hasPermission("permission.view")) || isSuperAdmin) {
       baseColumns.push({
         title: "MANAGE",
         key: "manage",
@@ -158,7 +166,6 @@ const User = () => {
     return [...baseColumns, ...roleColumns];
   }, [roles, hasPermission]);
 
-  // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="font-sans">
       {/* Top Header Section */}
@@ -171,18 +178,24 @@ const User = () => {
           </div>
         </div>
         <div className="flex gap-4">
-          <button
-            onClick={() => setRoleDrawerOpen(true)}
-            className="flex items-center gap-2 px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 font-bold text-xs lg:text-sm shadow-sm hover:shadow-md transition-all"
-          >
-            <Shield className="w-4 h-4" /> Create Role
-          </button>
-          <button
-            onClick={() => setOpenModel(true)}
-            className="flex items-center gap-2 px-6 py-2.5 bg-[#1a73e8] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-200 hover:bg-blue-600 transition-all"
-          >
-            <Plus className="w-5 h-5" /> New User
-          </button>
+          {(isAdmin && hasPermission("role.create")) ||
+            (isSuperAdmin && (
+              <button
+                onClick={() => setRoleDrawerOpen(true)}
+                className="flex items-center gap-2 px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 font-bold text-xs lg:text-sm shadow-sm hover:shadow-md transition-all"
+              >
+                <Shield className="w-4 h-4" /> Create Role
+              </button>
+            ))}
+          {(isAdmin && hasPermission("user.create")) ||
+            (isSuperAdmin && (
+              <button
+                onClick={() => setOpenModel(true)}
+                className="flex items-center gap-2 px-6 py-2.5 bg-[#1a73e8] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-200 hover:bg-blue-600 transition-all"
+              >
+                <Plus className="w-5 h-5" /> New User
+              </button>
+            ))}
         </div>
       </div>
 

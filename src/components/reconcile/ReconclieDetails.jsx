@@ -1,7 +1,7 @@
-import React from "react";
+
 
 const ReconcileDetails = ({ reconcile }) => {
-  console.log({ reconcile });
+
 
   if (!reconcile) {
     return (

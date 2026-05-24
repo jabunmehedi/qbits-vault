@@ -8,8 +8,8 @@ import { GetVaults, ToggleVaultAccess, UpdateVaultRoles } from "../../services/V
 import { FaCheckCircle } from "react-icons/fa";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import axiosConfig from "../../utils/axiosConfig";
-
-// const baseStorageUrl = import.meta.env.VITE_REACT_APP_STORAGE_URL;
+import { selectIsAdmin, selectIsSuperAdmin } from "../../store/authSlice";
+import { useSelector } from "react-redux";
 
 const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
   const queryClient = useQueryClient();
@@ -23,14 +23,17 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
   const [actionLoading, setActionLoading] = useState(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
+  const isSuperAdmin = useSelector(selectIsSuperAdmin);
+  const isAdmin = useSelector(selectIsAdmin);
+
   const handleDownloadId = async () => {
     setIsDownloading(true);
     try {
       const response = await axiosConfig.get(`/users/${userId}/download-id`, {
-        responseType: "blob", // ✅ tells axios to return binary data
+        responseType: "blob",
       });
 
-      const url = window.URL.createObjectURL(response.data); // ✅ response.data, not response.blob()
+      const url = window.URL.createObjectURL(response.data);
       const a = document.createElement("a");
       a.href = url;
       a.download = `${user?.name}_Identity_Report.pdf`;
@@ -45,7 +48,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
     }
   };
 
-  const isSuperAdmin = user?.roles?.some((role) => role.name == "super-admin");
+  // const isSuperAdmin = user?.roles?.some((role) => role.name == "super-admin");
 
   // ── 2. Optimized Mutation for Role Toggling ──
   const roleMutation = useMutation({
@@ -155,7 +158,8 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
 
   const activeAssignment = userAssignments.find((a) => a.vault_id === activeVaultId);
 
-  const toggleVaultAccess = async (vaultId) => {
+  const toggleVaultSetAccess = async (vaultId) => {
+    if (!isSuperAdmin && !isAdmin) return;
     try {
       await ToggleVaultAccess(userId, vaultId);
       const res = await GetUser(userId);
@@ -187,7 +191,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
   //   }
   // };
   const toggleRole = (role) => {
-    if (!activeVaultId) return;
+    if (!activeVaultId || (!isSuperAdmin && !isAdmin)) return;
     const isCurrentlyEnabled = activeRoles.includes(Number(role.id));
     const newRoles = isCurrentlyEnabled ? activeRoles.filter((id) => id !== Number(role.id)) : [...activeRoles, role.id];
 
@@ -203,7 +207,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
   //   setActionLoading("disable");
   //   try {
   //     await DisableUser(userId);
-  //     setUser((prev) => ({
+  //     setUser((prev) => ({ 
   //       ...prev,
   //       status: prev.status === "inactive" ? "active" : "inactive",
   //     }));
@@ -312,7 +316,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                     <div className="flex justify-end items-center gap-2">
                       <button
                         onClick={handleDownloadId}
-                        disabled={isDownloading}
+                        disabled={isDownloading || (!isSuperAdmin && !isAdmin)}
                         className="flex items-center justify-center gap-2 text-black bg-white border border-gray-300 hover:border-gray-400 py-1.5 px-4 rounded-lg text-sm font-semibold transition disabled:opacity-70"
                       >
                         {isDownloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
@@ -321,7 +325,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
 
                       <button
                         onClick={handleResetPassword}
-                        disabled={actionLoading === "reset"}
+                        disabled={actionLoading === "reset" || (!isSuperAdmin && !isAdmin)}
                         className="flex items-center justify-center gap-2 bg-indigo-500 text-white border border-gray-300 hover:border-gray-400 py-2 px-3 rounded-lg text-xs font-semibold transition disabled:opacity-50"
                       >
                         {actionLoading === "reset" ? "Sending..." : "Reset Pass"}
@@ -365,7 +369,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                     <div className="flex items-center w-full text-xs gap-3">
                       <button
                         onClick={handleDisableUser}
-                        disabled={actionLoading === "disable" || isSuperAdmin}
+                        disabled={actionLoading === "disable" || (!isSuperAdmin && !isAdmin)}
                         className={` text-white px-3 py-2 rounded-lg font-bold transition disabled:opacity-20 disabled:bg-gray-500 ${
                           user?.status === "inactive" ? "bg-green-600 hover:bg-green-700" : "bg-[#AE2448] hover:bg-red-800"
                         }`}
@@ -374,7 +378,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                       </button>
                       <button
                         onClick={handleArchiveUser}
-                        disabled={actionLoading === "archive" || user?.status === "archived" || isSuperAdmin}
+                        disabled={actionLoading === "archive" || user?.status === "archived" || (!isSuperAdmin && !isAdmin)}
                         className={` text-white px-3 py-2 rounded-lg font-bold transition disabled:opacity-20 disabled:bg-gray-500 ${
                           user?.status === "archived" ? "bg-gray-400" : "bg-[#AE2448] hover:bg-red-800"
                         }`}
@@ -404,7 +408,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                                 <p className="font-semibold">{vault.name}</p>
                               </div>
                               <label className="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" checked={isActive} onChange={() => toggleVaultAccess(vault.id)} className="sr-only peer" />
+                                <input type="checkbox" checked={isActive} onChange={() => toggleVaultSetAccess(vault.id)} className="sr-only peer" />
                                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                               </label>
                             </div>

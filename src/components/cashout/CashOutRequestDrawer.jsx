@@ -30,6 +30,7 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
   const [custodians, setCustodians] = useState([]);
   const [error, setError] = useState(null);
 
+
   // ── Step 1 & Step 2 Fields ──
   const [requestedAmount, setRequestedAmount] = useState("");
   const [requestedAmountTouched, setRequestedAmountTouched] = useState(false); // Tracks if next was clicked without input
@@ -181,7 +182,6 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
       };
 
       const res = await CreateCashOut(payload);
-      // console.log({ res });
 
       if (res?.success === true) {
         refetch();

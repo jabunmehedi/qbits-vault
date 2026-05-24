@@ -24,6 +24,15 @@ export const UpdateVault = async (vaultId, data) => {
     console.error(error?.response?.data?.message);
   }
 };
+export const DeleteVault = async (vaultId) => {
+  try {
+    const response = await axiosConfig.delete(`/vault/${vaultId}`);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response?.data;
+  }
+};
 export const GetVaultBagById = async (vaultId) => {
   try {
     const response = await axiosConfig.get(`/vault/bag/${vaultId}`);

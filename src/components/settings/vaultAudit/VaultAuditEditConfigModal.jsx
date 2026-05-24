@@ -17,17 +17,11 @@ const VaultAuditEditConfigModal = ({ auditConfig, setIsModalOpen, refetchData })
 
   const currentInterval = watch("interval");
 
-  console.log({ interval: currentInterval });
-  console.log({ auditConfig });
-
   const handleSubmitForm = async (data) => {
     setIsLoading(true);
     const configId = auditConfig?.id;
-    console.log({ configId });
 
     const payload = { ...data, status: "configured" };
-
-    console.log({ payload });
 
     try {
       if (configId) {
@@ -38,7 +32,7 @@ const VaultAuditEditConfigModal = ({ auditConfig, setIsModalOpen, refetchData })
         }
       }
     } catch (error) {
-      console.log(error);
+      console.error(error);
     } finally {
       setIsLoading(false);
     }

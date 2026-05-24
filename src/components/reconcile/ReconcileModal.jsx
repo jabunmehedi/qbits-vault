@@ -36,7 +36,6 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
       setModalLoading(true);
       ViewReconcile(reconcileId)
         .then((res) => {
-          console.log({ res });
           const targetData = res?.data || res;
           if (targetData) {
             setSelectedVaultId(targetData.vault_id);

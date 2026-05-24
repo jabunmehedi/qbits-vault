@@ -3,8 +3,6 @@ import { HiOutlineHashtag, HiOutlineUser, HiOutlineInboxIn } from "react-icons/h
 const CashOutDetails = ({ cashOut }) => {
   if (!cashOut) return null;
 
-  console.log({ cashOut });
-
   const totalAmount = parseFloat(cashOut.cash_out_amount).toLocaleString();
   const bagBarcode = cashOut?.cash_out_bags?.map((bag) => bag?.bag?.barcode).join(", ") || "N/A";
   const tranId = cashOut.tran_id;

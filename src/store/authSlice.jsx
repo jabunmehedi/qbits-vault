@@ -137,5 +137,6 @@ export const selectIsFullyVerified = (state) => {
 };
 export const selectIsSuperAdmin = (state) =>
   state.auth.roles.some((name) => ["Superadmin", "Super Admin", "superadmin", "super_admin", "super-admin"].includes(name));
+export const selectIsAdmin = (state) => state.auth.roles.some((name) => ["admin", "Admin"].includes(name));
 
 export const selectHasPermission = (permission) => (state) => state.auth.permissions.includes(permission);
