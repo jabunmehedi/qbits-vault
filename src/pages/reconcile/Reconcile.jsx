@@ -13,10 +13,12 @@ import { useToast } from "../../hooks/useToast";
 import ReconclieDetails from "../../components/reconcile/ReconclieDetails";
 import { selectAuthUser } from "../../store/authSlice";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import ReconcileModal from "../../components/reconcile/ReconcileModal";
 
 dayjs.extend(customParseFormat);
+dayjs.extend(utc);
 
 const Reconcile = () => {
   const [reconcileData, setReconcileData] = useState([]);
@@ -141,7 +143,7 @@ const Reconcile = () => {
       title: "Audit Date",
       key: "from_date",
       className: "w-34",
-      render: (row) => <span className="">{dayjs(row.from_date).format("DD MMM, YYYY")}</span>,
+      render: (row) => <span className="">{dayjs.utc(row.from_date).format("DD MMM, YYYY")}</span>,
     },
     {
       title: "Audit Time",
