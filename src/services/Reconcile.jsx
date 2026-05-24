@@ -8,6 +8,14 @@ export const GetReconciles = async () => {
     console.error(error?.response?.data?.message);
   }
 };
+export const UpdateReconcile = async (reconclieId, data) => {
+  try {
+    const response = await axiosConfig.put(`/reconciles/${reconclieId}`, data);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+  }
+};
 export const GetLatestReconcile = async () => {
   try {
     const response = await axiosConfig.get(`/reconcile/latest`);

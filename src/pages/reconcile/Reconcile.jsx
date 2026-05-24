@@ -2,7 +2,6 @@ import { useSearchParams } from "react-router-dom";
 import DataTable from "../../components/global/dataTable/DataTable";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import ReconcileModel from "../../components/reconcile/ReconcileModel";
 import { GetReconciles, VerifyReconcile } from "../../services/Reconcile";
 import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
 import { ChevronRight } from "lucide-react";
@@ -15,6 +14,7 @@ import ReconclieDetails from "../../components/reconcile/ReconclieDetails";
 import { selectAuthUser } from "../../store/authSlice";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import ReconcileModal from "../../components/reconcile/ReconcileModal";
 
 dayjs.extend(customParseFormat);
 
@@ -29,12 +29,11 @@ const Reconcile = () => {
   const [openReconcileViewDrawer, setOpenReconcileViewDrawer] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(null);
   const [activeVerifyId, setActiveVerifyId] = useState(null);
+  const [editReconcileId, setEditReconcileId] = useState(null);
   const step = parseInt(searchParams.get("step") || "0");
   const { addToast } = useToast();
 
   const user = useSelector(selectAuthUser);
-
-  console.log({ user });
 
   const fetchReconcileData = () => {
     GetReconciles().then((res) => {
@@ -52,41 +51,21 @@ const Reconcile = () => {
     setLoadingBags(true);
     setExpandedBag(null);
 
-    // First, check if bags are already loaded with the vault
     if (vault.variance_bags && vault.variance_bags.length > 0) {
       setLoadingBags(false);
       return;
     }
-
-    try {
-      // const res = await GetVaultBagDetails(vault.vault_id);
-      // Adjust this based on your actual API response structure
-      // Common patterns: res.data, res.data.bags, res.bags, etc.
-      // const bags = res?.data?.bags || res?.bags || [];
-      // setVaultBagsDetails(bags);
-    } catch (err) {
-      console.error("Failed to fetch bag details:", err);
-    } finally {
-      setLoadingBags(false);
-    }
+    setLoadingBags(false);
   };
 
   const refetch = () => {
     fetchReconcileData();
   };
 
-  useEffect(() => {}, []);
-
-  const handleOpenViewDrawer = () => {
-    setSelectedReconcile();
-    setOpenReconcileModel(true);
-  };
-
   const handleVerifyClick = async (id) => {
     setVerifyLoading(id);
     try {
-      const res = await VerifyReconcile(id);
-
+      await VerifyReconcile(id);
       fetchReconcileData();
       addToast({ message: "Cash-in verified successfully", type: "success" });
     } catch (err) {
@@ -94,6 +73,16 @@ const Reconcile = () => {
     } finally {
       setVerifyLoading(null);
     }
+  };
+
+  const handleOpenCreateModal = () => {
+    setEditReconcileId(null);
+    setOpenReconcileModel(true);
+  };
+
+  const handleOpenRescheduleModal = (id) => {
+    setEditReconcileId(id);
+    setOpenReconcileModel(true);
   };
 
   const columns = [
@@ -133,13 +122,12 @@ const Reconcile = () => {
       className: "w-26",
       render: (row) => {
         const bagCount = row.variance_bags?.filter((bag) => bag?.pivot?.difference < 0).length;
-
         return (
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => openVaultDrawer(row)}
-            className={`px-3 py-2 ${bagCount > 0 ? "bg-red-50 border border-red-200 text-red-400" : ""} bg-cyan-50 border border-cyan-200 cursor-pointer   text-cyan-500 text-xs rounded-full flex items-center gap-2`}
+            className={`px-3 py-2 ${bagCount > 0 ? "bg-red-50 border border-red-200 text-red-400" : ""} bg-cyan-50 border border-cyan-200 cursor-pointer text-cyan-500 text-xs rounded-full flex items-center gap-2`}
           >
             <span>
               {bagCount} Bag{bagCount !== 1 ? "s" : ""}
@@ -168,8 +156,7 @@ const Reconcile = () => {
     {
       title: "Verifiers",
       key: "created_at",
-      className: "w-20",
-
+      className: "w-20 text-center",
       render: (row) => {
         const isVerifierShowButton = row?.required_verifiers?.some((verifier) => verifier?.user_id === user?.id && !verifier?.verified);
         const isAuditCountingDone = row?.started_by && row?.status === "counted";
@@ -211,8 +198,10 @@ const Reconcile = () => {
                 ? "bg-green-50 border border-green-200 text-green-500"
                 : row?.status === "counted"
                   ? "bg-indigo-50 border border-indigo-200 text-indigo-500"
-                  : "bg-orange-50 border border-orange-200 text-orange-500"
-          } px-2.5 py-1  rounded-full`}
+                  : row?.status === "expired"
+                    ? "bg-red-50 border border-red-200 text-red-500"
+                    : "bg-orange-50 border border-orange-200 text-orange-500"
+          } px-2.5 py-1 rounded-full`}
         >
           {row?.status}
         </span>
@@ -221,11 +210,31 @@ const Reconcile = () => {
     {
       title: "Action",
       key: "actions",
-      className: "w-24 ",
+      className: "w-24",
       render: (row) => {
+        // ─── Calculate Leftover Time Window ─────────────────
+        const cleanDateStr = row?.from_date ? row.from_date.split("T")[0] : null;
+        const cleanTimeStr = row?.audit_time || "00:00:00";
+
+        let showReschedule = false;
+
+        if (row?.status === "pending" && cleanDateStr) {
+          // Combine Date and Time into a single comprehensive target timestamp
+          const targetSchedule = dayjs(`${cleanDateStr} ${cleanTimeStr}`, "YYYY-MM-DD HH:mm:ss");
+          const now = dayjs();
+
+          // Calculate the exact hours remaining between right now and the audit schedule target
+          const hoursRemaining = targetSchedule.diff(now, "hour", true);
+
+          // Show only if the schedule is still ahead in the future AND there are more than 6 hours left
+          if (hoursRemaining >= 6) {
+            showReschedule = true;
+          }
+        }
+
         return (
           <div className="flex gap-2 py-2">
-            {/* view Button */}
+            {/* View Button */}
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
@@ -233,20 +242,18 @@ const Reconcile = () => {
                 setSelectedReconcile(row);
                 setOpenReconcileViewDrawer(true);
               }}
-              className="p-2 rounded-lg cursor-pointer text-blue-600 transition-all "
-              aria-label="Edit vault"
+              className="p-2 rounded-lg cursor-pointer text-blue-600 transition-all"
             >
               <span>View</span>
             </motion.button>
 
-            {/* reschedule Button */}
-            {row?.status === "pending" && (
+            {/* Conditional Reschedule Button */}
+            {showReschedule && (
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
-                // onClick={handleDelete}
-                className="p-2 rounded-lg cursor-pointer text-orange-600 transition-all "
-                aria-label="Delete vault"
+                onClick={() => handleOpenRescheduleModal(row.id)}
+                className="p-2 rounded-lg cursor-pointer text-orange-600 transition-all"
               >
                 <span>Reschedule</span>
               </motion.button>
@@ -259,34 +266,22 @@ const Reconcile = () => {
 
   return (
     <>
-      <div className="flex items-center  justify-between p-2">
+      <div className="flex items-center justify-between p-2">
         <div>
           <h1 className="text-lg font-semibold text-gray-600 uppercase">Reconcile List</h1>
           <p className="text-xs text-gray-400">Manage Your All Reconcile</p>
         </div>
         <div className="flex items-center gap-4">
-          <div onClick={() => setOpenReconcileModel(true)} className="cursor-pointer transition-all px-4 py-2 hover:bg-black rounded text-white bg-[#424242]">
+          <div onClick={handleOpenCreateModal} className="cursor-pointer transition-all px-4 py-2 hover:bg-black rounded text-white bg-[#424242]">
             <p>Request Reconcile</p>
           </div>
         </div>
       </div>
-      {step === 0 && (
-        <DataTable
-          columns={columns}
-          data={reconcileData}
-          //   changePage={handlePageChange}
-          //   onSearch={handleSearch}
-          //   paginationData={paginationData}
-          //   selectedRows={selectedRows}
-          //   loading={loading}
-          //   setSelectedRows={setSelectedRows}
-          className="h-[calc(100vh-120px)]"
-        />
-      )}
+      {step === 0 && <DataTable columns={columns} data={reconcileData} className="h-[calc(100vh-120px)]" />}
 
       {drawerOpen && <VaultBagsDrawer selectedReconcile={selectedReconcile} setDrawerOpen={setDrawerOpen} />}
 
-      {openReconcileModel && <ReconcileModel isClose={() => setOpenReconcileModel(false)} refetch={refetch} />}
+      {openReconcileModel && <ReconcileModal reconcileId={editReconcileId} isClose={() => setOpenReconcileModel(false)} refetch={refetch} />}
       {openReconcileViewDrawer && (
         <ReconcileViewDrawer
           reconcileId={selectedReconcile?.id}

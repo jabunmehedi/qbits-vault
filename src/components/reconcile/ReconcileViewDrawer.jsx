@@ -4,6 +4,7 @@ import { CompleteReconciliation, EndReconciliation, StartReconciliation, ViewRec
 import { useToast } from "../../hooks/useToast";
 import { useSelector } from "react-redux";
 import { selectAuthUser } from "../../store/authSlice";
+import dayjs from "dayjs";
 
 const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, refetch }) => {
   const [currentStep, setCurrentStep] = useState("intro"); // "intro" or "counting"
@@ -14,6 +15,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const [reconcileVerified, setReconcileVerified] = useState();
   const [reconclieStatus, setReconcileStatus] = useState();
   const [targetVaultId, setTargetVaultId] = useState(null);
+  const [scheduledTimestamp, setScheduledTimestamp] = useState(null); // Stores combined YYYY-MM-DD HH:mm:ss string
 
   // Track racks that have temporary local notes filled out
   const [rackNotes, setRackNotes] = useState({});
@@ -34,11 +36,25 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     if (isSuperAdmin) return true;
     if (!targetVaultId || !user?.vault_assignments) return false;
 
-    // Find assignment for current vault
     const activeAssignment = user.vault_assignments.find((assign) => Number(assign.vault_id) === Number(targetVaultId) && assign.status === "active");
-
-    // Check if roles array inside assignment contains Audit Initiator (ID: 8)
     return activeAssignment?.roles?.some((roleId) => Number(roleId) === 8) || false;
+  };
+
+  // Determine the live scheduling status window of the audit task
+  const getScheduleStatus = () => {
+    if (!scheduledTimestamp) return "pending";
+    
+    const now = dayjs();
+    const targetSchedule = dayjs(scheduledTimestamp);
+    const hoursDifference = now.diff(targetSchedule, "hour", true); // Positive means target is in the past
+
+    if (hoursDifference > 6) {
+      return "expired"; // 6 hours or more past the scheduled timeline
+    } else if (hoursDifference >= 0) {
+      return "active";  // Current time is past schedule, but within the 6-hour window
+    } else {
+      return "pending"; // Future schedule time not reached yet
+    }
   };
 
   // 2. Auditor Check (Step 2: Bag Data Inputs and Save Submission Capabilities)
@@ -47,8 +63,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     if (!targetVaultId || !user?.vault_assignments) return false;
 
     const activeAssignment = user.vault_assignments.find((assign) => Number(assign.vault_id) === Number(targetVaultId) && assign.status === "active");
-
-    // Check if roles array contains Auditor / Cash In permissions (ID: 2)
     return activeAssignment?.roles?.some((roleId) => Number(roleId) === 2) || false;
   };
 
@@ -121,7 +135,14 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
           }
           setReconcileVerified(res?.data?.verifier_status);
           setReconcileStatus(res?.data?.status);
-          setTargetVaultId(res?.data?.vault_id); // Save current vault context to state for validation checks
+          setTargetVaultId(res?.data?.vault_id);
+
+          // Extract and combine schedule dates and times
+          const datePart = res?.data?.from_date ? res.data.from_date.split("T")[0] : null;
+          const timePart = res?.data?.audit_time || "00:00:00";
+          if (datePart) {
+            setScheduledTimestamp(`${datePart} ${timePart}`);
+          }
 
           const bagsArray = res?.data?.vault?.bags || [];
           const varianceBagsArray = res?.data?.variance_bags || [];
@@ -238,8 +259,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
 
   const handleFinalSubmit = async () => {
     try {
-      const res = await EndReconciliation(reconcileId);
-
+      await EndReconciliation(reconcileId);
       addToast({ message: "Reconciliation completed successfully", type: "success" });
       onClose();
     } catch (error) {
@@ -254,6 +274,8 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
       console.log("Session initialization details:", res);
     });
   };
+
+  const scheduleStatus = getScheduleStatus();
 
   return (
     <Drawer
@@ -281,15 +303,42 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                 <div>
                   <h2 className="text-xl font-bold text-gray-800">Ready to start audit?</h2>
                   <p className="text-sm text-gray-400 mt-1">Vault reconciliation expects specific totals for verification.</p>
+                  
+                  {scheduledTimestamp && (
+                    <div className="mt-3">
+                      {scheduleStatus === "pending" && (
+                        <p className="text-xs text-orange-500 font-semibold bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100 inline-block">
+                          🕒 Scheduled for: {dayjs(scheduledTimestamp).format("DD MMM YYYY [at] hh:mm A")}
+                        </p>
+                      )}
+                      {scheduleStatus === "active" && (
+                        <p className="text-xs text-green-600 font-semibold bg-green-50 px-3 py-1.5 rounded-full border border-green-100 inline-block">
+                          🟢 Window open until: {dayjs(scheduledTimestamp).add(6, "hour").format("hh:mm A")}
+                        </p>
+                      )}
+                      {scheduleStatus === "expired" && (
+                        <p className="text-xs text-red-500 font-semibold bg-red-50 px-3 py-1.5 rounded-full border border-red-100 inline-block">
+                          🛑 Expired: Scheduled session window closed (+6hrs passed)
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {/* Dynamically hidden or visible based on specific vault role parameters */}
+                {/* Controls enabled/disabled based on time execution check values */}
                 {canStartAudit() ? (
                   <button
+                    disabled={scheduleStatus !== "active"}
                     onClick={handleStartAuditSession}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors cursor-pointer"
+                    className={`font-medium py-2.5 px-6 rounded-lg transition-all ${
+                      scheduleStatus === "active"
+                        ? "bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer shadow-md"
+                        : "bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300"
+                    }`}
                   >
-                    Start Audit Session
+                    {scheduleStatus === "active" && "Start Audit Session"}
+                    {scheduleStatus === "pending" && "Locking Until Scheduled Time"}
+                    {scheduleStatus === "expired" && "Audit Window Expired"}
                   </button>
                 ) : (
                   <div className="text-xs font-semibold bg-red-50 text-red-500 px-4 py-2.5 rounded-lg border border-red-100">
@@ -308,14 +357,12 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                     <span className="text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-600 uppercase rounded tracking-wider">Active Counting</span>
                   </div>
 
-                  {/* Unauthorized Warning Alert Bar */}
                   {!canPerformCounting() && (
                     <div className="bg-amber-50 border border-amber-200 text-amber-700 text-xs rounded-xl p-3.5 font-medium">
                       🔒 Read-Only Mode: You don't have Auditor permissions assigned to this specific vault location.
                     </div>
                   )}
 
-                  {/* Validation Type Selection Panel */}
                   <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 flex items-center space-x-6">
                     <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Validate By:</span>
                     <label className="flex items-center space-x-2 text-sm text-gray-600 font-medium cursor-pointer">
@@ -340,7 +387,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                     </label>
                   </div>
 
-                  {/* Racks List Generation */}
                   {racks.map((rack, rackIndex) => {
                     const allBagsTyped = isAllBagsTypedInRack(rack);
                     const hasMismatch = checkIfRackHasMismatch(rack);
@@ -376,7 +422,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                               </div>
                             )}
 
-                            {/* Only show confirmation workflow controls if user possesses active Auditor rights */}
                             {!isCurrentlyLoading && !isRackSubmitted && allBagsTyped && canPerformCounting() && (
                               <>
                                 {hasMismatch && !hasNoteSaved && (
@@ -410,7 +455,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                           </div>
                         </div>
 
-                        {/* Bags Input Fields Row Blocks */}
                         <div className="p-4 space-y-4">
                           {rack.bags.map((bag, bagIndex) => {
                             const amountError = allBagsTyped && validateBy.amount && bag.amount !== bag.expectedAmount;
@@ -479,7 +523,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                   })}
                 </div>
 
-                {/* Absolute Bottom Navigation Sticky Footer */}
                 {reconclieStatus === "completed" ? (
                   <div className="absolute bottom-0 left-0 justify-center right-0 bg-green-50 border-t border-green-100 p-4 flex space-x-3 z-10">
                     <p className="text-green-600 font-semibold text-center text-sm">Reconciliation completed successfully</p>
@@ -511,7 +554,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
         )}
       </div>
 
-      {/* --- INLINE NOTE SPECIFICATION MODAL --- */}
       {noteModal.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 mx-4">
