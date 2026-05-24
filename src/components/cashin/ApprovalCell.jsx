@@ -6,14 +6,6 @@ import CashInDetails from "./CashInDetails";
 import { useEffect } from "react";
 
 const ApprovalCell = ({ row, user, activeApproveId, setActiveApproveId, verifyLoading, handleApprovedClick }) => {
-  // 1. Structural Guard: If vault_id is missing/loading, render a placeholder and exit early
-  // if (!row?.vault_id) {
-  //   return (
-  //     <div className="flex flex-col items-center justify-center py-2">
-  //       <span className="text-xs text-gray-400 animate-pulse">Loading...</span>
-  //     </div>
-  //   );
-  // }
   const dispatch = useDispatch();
 
   useEffect(() => {
@@ -42,7 +34,7 @@ const ApprovalCell = ({ row, user, activeApproveId, setActiveApproveId, verifyLo
     <div className="flex flex-col items-center gap-2">
       <VerifierAvatars requiredVerifiers={row.required_approvers || []} />
 
-      {isApproverShowButton && isVerified && !isLocked ? (
+      {isApproverShowButton && isVerified ? (
         <VerifyButton
           handleSubmit={() => handleApprovedClick(row.id)}
           isOpen={activeApproveId === row.id}

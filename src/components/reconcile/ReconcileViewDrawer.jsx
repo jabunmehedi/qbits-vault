@@ -43,7 +43,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   // Determine the live scheduling status window of the audit task
   const getScheduleStatus = () => {
     if (!scheduledTimestamp) return "pending";
-    
+
     const now = dayjs();
     const targetSchedule = dayjs(scheduledTimestamp);
     const hoursDifference = now.diff(targetSchedule, "hour", true); // Positive means target is in the past
@@ -51,7 +51,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     if (hoursDifference > 6) {
       return "expired"; // 6 hours or more past the scheduled timeline
     } else if (hoursDifference >= 0) {
-      return "active";  // Current time is past schedule, but within the 6-hour window
+      return "active"; // Current time is past schedule, but within the 6-hour window
     } else {
       return "pending"; // Future schedule time not reached yet
     }
@@ -303,7 +303,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                 <div>
                   <h2 className="text-xl font-bold text-gray-800">Ready to start audit?</h2>
                   <p className="text-sm text-gray-400 mt-1">Vault reconciliation expects specific totals for verification.</p>
-                  
+
                   {scheduledTimestamp && (
                     <div className="mt-3">
                       {scheduleStatus === "pending" && (
