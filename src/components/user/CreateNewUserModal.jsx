@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CreateUser } from "../../services/User";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const SUPERADMIN_NAMES = ["Superadmin", "Super Admin", "superadmin", "super_admin"];
+const SUPERADMIN_NAMES = ["Superadmin", "Super Admin", "superadmin", "super-admin"];
 
 const INITIAL_FORM = { name: "", email: "", password: "", role: [] };
 

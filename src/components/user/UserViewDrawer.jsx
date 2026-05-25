@@ -207,7 +207,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
   //   setActionLoading("disable");
   //   try {
   //     await DisableUser(userId);
-  //     setUser((prev) => ({ 
+  //     setUser((prev) => ({
   //       ...prev,
   //       status: prev.status === "inactive" ? "active" : "inactive",
   //     }));
@@ -393,7 +393,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                 <div className="grid grid-cols-3 p-6 bg-[#F6F7F9] rounded-lg gap-6">
                   <div>
                     <div className="mb-6">
-                      <h4 className="text-blue-600 font-bold uppercase text-xs mb-4">NETWORK ACCESS CONTROL</h4>
+                      <h4 className="text-blue-600 font-bold uppercase text-xs mb-4">VAULT ACCESS CONTROL</h4>
                       <div className="bg-white border border-gray-200 py-3 rounded-2xl">
                         {vaultList.map((vault) => {
                           const assignment = userAssignments.find((a) => a.vault_id === vault.id);
