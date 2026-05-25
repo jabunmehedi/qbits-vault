@@ -46,7 +46,6 @@ const CashIn = () => {
   const [activeApproveId, setActiveApproveId] = useState(null);
   const [verifyLoading, setVerifyLoading] = useState(null);
 
-
   const { hasPermission } = usePermissions();
   const user = useSelector(selectAuthUser);
   const { addToast } = useToast();
@@ -574,6 +573,7 @@ const CashIn = () => {
                 isLoading={verifyLoading}
                 setOpen={(isOpen) => setActiveVerifyId(isOpen ? row.id : null)}
                 className="max-w-xl"
+                title="Verify"
               >
                 <CashInDetails cashIn={row} />
               </VerifyButton>

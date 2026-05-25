@@ -8,7 +8,6 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 // Initialize plugin outside render cycles
 dayjs.extend(customParseFormat);
 
-
 const isEditLocked = (interval, dayName, timeStr, lastAuditDate) => {
   if (!timeStr) return false;
 

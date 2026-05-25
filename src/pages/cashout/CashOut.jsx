@@ -18,6 +18,7 @@ import CashOutDetails from "../../components/cashout/CashOutDetails";
 import CashOutCustodianModal from "../../components/cashout/CashOutCustodianModal";
 import { HiDotsHorizontal } from "react-icons/hi";
 import BagDetailsDrawer from "../../components/cashout/bagDetailsDrawer.jsx/BagDetailsDrawer";
+import CustodianAvatar from "../../components/cashout/CustodianAvatar";
 
 const ExpandableBagIds = ({ bags, isExpanded, onToggle, onIdClick }) => {
   if (!bags || bags.length === 0) return <span className="text-gray-400">—</span>;
@@ -257,48 +258,6 @@ const CashOut = () => {
       className: "w-20",
       render: (row) => <span className="">{row?.cash_out_amount}</span>,
     },
-    {
-      title: "Diff",
-      key: "current_amount",
-      className: "w-54",
-      render: (row) => {
-        const isVerifierShowButton = row?.custodian?.custodian_id === user?.id && row?.custodian?.status === "pending";
-        const amount = parseFloat(row?.cash_out_amount) - parseFloat(row?.request_amount);
-        return (
-          <>
-            <div className="flex flex-col py-2">
-              <span className="font-semibold">
-                {amount > 0 ? <span className="text-orange-400">+{amount}</span> : <span className="text-gray-400">{amount}</span>}
-              </span>
-              {row?.custodian && (
-                <div className="flex items-center gap-1">
-                  <span>Custodian :</span>{" "}
-                  <span className="text-gray-500 flex items-center gap-1 font-semibold">
-                    {row?.custodian?.custodian?.name}{" "}
-                    <span
-                      className={` border font-medium capitalize rounded-full ${row?.custodian?.status === "verified" ? "bg-green-50 border-green-200 text-green-600" : "bg-yellow-50 text-yellow-600 border-yellow-300"}  px-2 text-[10px] py-1`}
-                    >
-                      {row?.custodian?.status}
-                    </span>
-                  </span>
-                </div>
-              )}
-            </div>
-            {isVerifierShowButton && (
-              <VerifyButton
-                handleSubmit={() => handleCustodianVerify(row.id)}
-                isOpen={activeCustodianId === row.id}
-                isLoading={verifyLoading}
-                setOpen={(isOpen) => setActiveCustodianId(isOpen ? row.id : null)}
-                className="max-w-xl"
-              >
-                <CashOutCustodianModal cashOut={row} />
-              </VerifyButton>
-            )}
-          </>
-        );
-      },
-    },
 
     {
       title: "Req at",
@@ -322,6 +281,7 @@ const CashOut = () => {
                 isLoading={verifyLoading}
                 setOpen={(isOpen) => setActiveVerifyId(isOpen ? row.id : null)}
                 className="max-w-xl"
+                title="Verify"
               >
                 <CashOutDetails cashOut={row} />
               </VerifyButton>
@@ -332,6 +292,39 @@ const CashOut = () => {
               }`}
             >
               {row?.verifier_status}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      title: "Custodian",
+      key: "current_amount",
+      className: "w-20 text-center",
+      render: (row) => {
+        const isVerifierShowButton = row?.custodian?.custodian_id === user?.id && row?.custodian?.status === "pending";
+        return (
+          <div className="flex flex-col items-center gap-2">
+            <CustodianAvatar custodian={row?.custodian || []} />
+
+            {isVerifierShowButton && (
+              <VerifyButton
+                handleSubmit={() => handleCustodianVerify(row.id)}
+                isOpen={activeCustodianId === row.id}
+                isLoading={verifyLoading}
+                setOpen={(isOpen) => setActiveCustodianId(isOpen ? row.id : null)}
+                className="max-w-xl"
+                title="Receive"
+              >
+                <CashOutCustodianModal cashOut={row} />
+              </VerifyButton>
+            )}
+            <span
+              className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
+                row?.custodian?.status === "pending" ? "bg-yellow-50 border-yellow-200 text-yellow-600" : "bg-green-50 border-green-200 text-green-500"
+              }`}
+            >
+              {row?.custodian?.status}
             </span>
           </div>
         );
@@ -355,6 +348,7 @@ const CashOut = () => {
                 isLoading={verifyLoading}
                 setOpen={(isOpen) => setActiveApproveId(isOpen ? row.id : null)}
                 className="max-w-xl"
+                title="Approve"
               >
                 <CashOutDetails cashOut={row} />
               </VerifyButton>
@@ -393,14 +387,14 @@ const CashOut = () => {
             const res = await GetCashOut(row.id);
 
             // if (res?.success || res?.data) {
-              // 2. Extract the data object based on your API structure (e.g., res.data or res.data.data)
-              const freshCashOutData = res.data?.data || res.data || res;
+            // 2. Extract the data object based on your API structure (e.g., res.data or res.data.data)
+            const freshCashOutData = res.data?.data || res.data || res;
 
-              // 3. Set the specific data into your edit state
-              setEditCashOutData(freshCashOutData);
+            // 3. Set the specific data into your edit state
+            setEditCashOutData(freshCashOutData);
 
-              // 4. Open the Cash Out Request Drawer
-              setOpenCashOutReqDrawer(true);
+            // 4. Open the Cash Out Request Drawer
+            setOpenCashOutReqDrawer(true);
             // } else {
             //   addToast({ message: res?.message || "Failed to fetch cashout details.", type: "error" });
             // }

@@ -41,6 +41,7 @@ const ApprovalCell = ({ row, user, activeApproveId, setActiveApproveId, verifyLo
           isLoading={verifyLoading}
           setOpen={(isOpen) => setActiveApproveId(isOpen ? row.id : null)}
           className="max-w-xl"
+          title="Approve"
         >
           <CashInDetails cashIn={row} />
         </VerifyButton>

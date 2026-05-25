@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { Loader2 } from "lucide-react";
 
-const VerifyButton = ({ children, isOpen, setOpen, className, handleSubmit, isLoading }) => {
+const VerifyButton = ({ children, isOpen, setOpen, className, handleSubmit, isLoading, title = "Verify" }) => {
   const handleToggle = (e) => {
     e.stopPropagation();
     setOpen(!isOpen);
@@ -31,7 +31,7 @@ const VerifyButton = ({ children, isOpen, setOpen, className, handleSubmit, isLo
           isOpen && "ring-4 ring-indigo-200",
         )}
       >
-        Verify
+        {title}
       </motion.button>
 
       {isOpen &&
