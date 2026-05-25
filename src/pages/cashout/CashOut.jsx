@@ -304,29 +304,35 @@ const CashOut = () => {
       render: (row) => {
         const isVerifierShowButton = row?.custodian?.custodian_id === user?.id && row?.custodian?.status === "pending";
         return (
-          <div className="flex flex-col items-center gap-2">
-            <CustodianAvatar custodian={row?.custodian || []} />
+          <>
+            {row?.custodian ? (
+              <div className="flex flex-col items-center gap-2">
+                <CustodianAvatar custodian={row?.custodian || []} />
 
-            {isVerifierShowButton && (
-              <VerifyButton
-                handleSubmit={() => handleCustodianVerify(row.id)}
-                isOpen={activeCustodianId === row.id}
-                isLoading={verifyLoading}
-                setOpen={(isOpen) => setActiveCustodianId(isOpen ? row.id : null)}
-                className="max-w-xl"
-                title="Receive"
-              >
-                <CashOutCustodianModal cashOut={row} />
-              </VerifyButton>
+                {isVerifierShowButton && (
+                  <VerifyButton
+                    handleSubmit={() => handleCustodianVerify(row.id)}
+                    isOpen={activeCustodianId === row.id}
+                    isLoading={verifyLoading}
+                    setOpen={(isOpen) => setActiveCustodianId(isOpen ? row.id : null)}
+                    className="max-w-xl"
+                    title="Receive"
+                  >
+                    <CashOutCustodianModal cashOut={row} />
+                  </VerifyButton>
+                )}
+                <span
+                  className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
+                    row?.custodian?.status === "pending" ? "bg-yellow-50 border-yellow-200 text-yellow-600" : "bg-green-50 border-green-200 text-green-500"
+                  }`}
+                >
+                  {row?.custodian?.status}
+                </span>
+              </div>
+            ) : (
+              ""
             )}
-            <span
-              className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
-                row?.custodian?.status === "pending" ? "bg-yellow-50 border-yellow-200 text-yellow-600" : "bg-green-50 border-green-200 text-green-500"
-              }`}
-            >
-              {row?.custodian?.status}
-            </span>
-          </div>
+          </>
         );
       },
     },
@@ -337,11 +343,18 @@ const CashOut = () => {
       render: (row) => {
         const isApproverShowButton = row?.required_approvers?.some((approver) => approver?.user_id === user?.id && !approver?.approved);
         const isVerified = row?.verifier_status === "verified";
-        const isCustodianRequired = row?.custodian && row?.custodian?.status === "verified";
+
+        // Condition met if: there is NO custodian OR (there IS a custodian AND they are verified)
+        // const isCustodianConditionMet = row?.custodian;
+
+   
+
         return (
           <div className="flex flex-col items-center gap-2">
             <VerifierAvatars requiredVerifiers={row.required_approvers || []} />
-            {isApproverShowButton && isVerified && isCustodianRequired && (
+
+            {/* Updated condition here */}
+            {isApproverShowButton && isVerified  && (
               <VerifyButton
                 handleSubmit={() => handleApprove(row.id)}
                 isOpen={activeApproveId === row.id}
@@ -353,6 +366,7 @@ const CashOut = () => {
                 <CashOutDetails cashOut={row} />
               </VerifyButton>
             )}
+
             <span
               className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
                 row?.approver_status === "pending" ? "bg-yellow-50 border-yellow-200 text-yellow-600" : "bg-green-50 border-green-200 text-green-500"
