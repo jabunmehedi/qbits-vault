@@ -474,6 +474,7 @@ const Vault = () => {
   };
 
   const handleCloseModal = () => {
+    setSelectedVault(null);
     setIsOpenModal(false);
     setIsEditMode(false);
     setEditingVaultId(null);
@@ -675,7 +676,7 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
           try {
             const res = await DeleteVault(row.id);
             if (!res?.success) {
-              addToast({ type: "error", message: res?.message});
+              addToast({ type: "error", message: res?.message });
               return;
             }
             addToast({ type: "success", message: "Vault deleted successfully" });
@@ -785,6 +786,17 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
           onClick={() => {
             setIsEditMode(false);
             setIsOpenModal(true);
+            setBags([]); // Clear bags state
+            setRackErrors([]); // Clear rack errors
+            setDeleteErrors([]); // Clear delete errors
+            reset({
+              // Reset react-hook-form fields to blank
+              name: "",
+              vault_code: "",
+              bag_limit: "",
+              address: "",
+              total_racks: "",
+            });
           }}
           className="flex items-center gap-2 px-4 py-2 bg-[#1a73e8] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-200 hover:bg-blue-600 transition-all"
         >
