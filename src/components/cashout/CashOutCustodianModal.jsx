@@ -3,9 +3,11 @@ import { HiOutlineHashtag, HiOutlineUser, HiOutlineInboxIn, HiOutlineLibrary, Hi
 const CashOutCustodianModal = ({ cashOut }) => {
   if (!cashOut) return null;
 
+  console.log({cashOut})
+
   // Fallbacks & Parsing
   const rawCashOutAmount = parseFloat(cashOut.cash_out_amount) || 0;
-  const rawRequestMoney = parseFloat(cashOut.request_money) || 0; // Adjust property name if different in API
+  const rawRequestMoney = parseFloat(cashOut.request_amount) || 0; // Adjust property name if different in API
   const rawCustodianReceived = rawCashOutAmount - rawRequestMoney;
 
   const totalAmount = rawCashOutAmount.toLocaleString();
@@ -14,6 +16,8 @@ const CashOutCustodianModal = ({ cashOut }) => {
 
   const bagBarcode = cashOut?.cash_out_bags?.map((bag) => bag?.bag?.barcode).join(", ") || "N/A";
   const tranId = cashOut.tran_id;
+
+  console.log({rawRequestMoney})
 
   return (
     <div className="w-full space-y-6 text-left">
@@ -96,7 +100,7 @@ const CashOutCustodianModal = ({ cashOut }) => {
       {/* 4. Side-by-Side Section (Linked Orders & Denominations) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
         {/* Left Column: Linked Orders */}
-        <div className="space-y-3">
+        {/* <div className="space-y-3">
           <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1">Linked Orders</h4>
           <div className="space-y-1 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
             {cashOut.orders?.map((order) => (
@@ -111,17 +115,17 @@ const CashOutCustodianModal = ({ cashOut }) => {
               </div>
             ))}
           </div>
-        </div>
+        </div> */}
 
         {/* Right Column: Denominations Table */}
         <div className="space-y-3">
-          <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1">Denominations</h4>
+          <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1">Total Withdraw</h4>
           <div className="overflow-hidden border border-slate-100 rounded-2xl bg-white">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50">
-                  <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase">Note</th>
-                  <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase text-center">Qty</th>
+                  <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase">Requested</th>
+                  <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase text-center"></th>
                   <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase text-right">Total</th>
                 </tr>
               </thead>
@@ -144,7 +148,7 @@ const CashOutCustodianModal = ({ cashOut }) => {
                   <td colSpan="2" className="px-3 py-2 text-[9px] font-bold text-indigo-400 uppercase">
                     Sub Total
                   </td>
-                  <td className="px-3 py-2 text-xs font-black text-indigo-600 text-right">৳{totalAmount}</td>
+                  <td className="px-3 py-2 text-xs font-black text-indigo-600 text-right">৳{requestMoneyFormatted}</td>
                 </tr>
               </tfoot>
             </table>

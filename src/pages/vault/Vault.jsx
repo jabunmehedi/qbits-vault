@@ -6,35 +6,15 @@ import CustomModal from "../../components/global/modal/CustomModal";
 import { AiOutlinePlus } from "react-icons/ai";
 import { AnimatePresence, motion } from "framer-motion";
 import { useForm } from "react-hook-form";
-import {
-  ArrowDownCircle,
-  ArrowUpCircle,
-  ChevronDown,
-  ChevronRight,
-  History,
-  Package,
-  X,
-  AlertTriangle,
-  Clock,
-  Edit3,
-  Trash2,
-  Plus,
-  Download,
-  Loader2,
-} from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronRight, History, Package, X, AlertTriangle, Trash2, Plus, Download, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
-import axiosConfig from "../../utils/axiosConfig";
 import { GoDatabase } from "react-icons/go";
 import { FiBox } from "react-icons/fi";
 import Drawer from "../../components/global/drawer/Drawer";
 import { useToast } from "../../hooks/useToast";
 import { useSearchParams } from "react-router-dom";
+import Tooltip from "../../components/global/tooltip/Tooltip";
 
-// ─── Barcode Download Utility ─────────────────────────────────────────────────
-/**
- * Downloads a single bag's barcode as a PNG image using an off-screen canvas.
- * Requires JsBarcode to be available via CDN or bundled.
- */
 const downloadBagBarcode = (bag) => {
   // Dynamically load JsBarcode if not already present
   const run = () => {
@@ -102,120 +82,120 @@ const downloadBagBarcode = (bag) => {
 };
 
 // ─── Bag History Drawer ───────────────────────────────────────────────────────
-const BagHistoryDrawer = ({ bag, onClose }) => {
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
+// const BagHistoryDrawer = ({ bag, onClose }) => {
+//   const [history, setHistory] = useState([]);
+//   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!bag) return;
-    setLoading(true);
-    axiosConfig
-      .get(`/activity-logs/bag/${bag.id}`)
-      .then((res) => setHistory(res.data?.history || []))
-      .catch(() => setHistory(bag.history || []))
-      .finally(() => setLoading(false));
-  }, [bag]);
+//   useEffect(() => {
+//     if (!bag) return;
+//     setLoading(true);
+//     axiosConfig
+//       .get(`/activity-logs/bag/${bag.id}`)
+//       .then((res) => setHistory(res.data?.history || []))
+//       .catch(() => setHistory(bag.history || []))
+//       .finally(() => setLoading(false));
+//   }, [bag]);
 
-  const eventMeta = {
-    created: { color: "text-emerald-600 bg-emerald-50 border-emerald-200", icon: <Plus className="w-3 h-3" /> },
-    updated: { color: "text-blue-600 bg-blue-50 border-blue-200", icon: <Edit3 className="w-3 h-3" /> },
-    deleted: { color: "text-red-600 bg-red-50 border-red-200", icon: <Trash2 className="w-3 h-3" /> },
-    cash_in: { color: "text-green-600 bg-green-50 border-green-200", icon: <ArrowDownCircle className="w-3 h-3" /> },
-    cash_out: { color: "text-orange-600 bg-orange-50 border-orange-200", icon: <ArrowUpCircle className="w-3 h-3" /> },
-    rack_changed: { color: "text-purple-600 bg-purple-50 border-purple-200", icon: <Edit3 className="w-3 h-3" /> },
-  };
+//   const eventMeta = {
+//     created: { color: "text-emerald-600 bg-emerald-50 border-emerald-200", icon: <Plus className="w-3 h-3" /> },
+//     updated: { color: "text-blue-600 bg-blue-50 border-blue-200", icon: <Edit3 className="w-3 h-3" /> },
+//     deleted: { color: "text-red-600 bg-red-50 border-red-200", icon: <Trash2 className="w-3 h-3" /> },
+//     cash_in: { color: "text-green-600 bg-green-50 border-green-200", icon: <ArrowDownCircle className="w-3 h-3" /> },
+//     cash_out: { color: "text-orange-600 bg-orange-50 border-orange-200", icon: <ArrowUpCircle className="w-3 h-3" /> },
+//     rack_changed: { color: "text-purple-600 bg-purple-50 border-purple-200", icon: <Edit3 className="w-3 h-3" /> },
+//   };
 
-  const getMeta = (event) => eventMeta[event] || { color: "text-gray-600 bg-gray-50 border-gray-200", icon: <Clock className="w-3 h-3" /> };
+//   const getMeta = (event) => eventMeta[event] || { color: "text-gray-600 bg-gray-50 border-gray-200", icon: <Clock className="w-3 h-3" /> };
 
-  return (
-    <motion.div
-      initial={{ x: "100%" }}
-      animate={{ x: 0 }}
-      exit={{ x: "100%" }}
-      transition={{ type: "spring", damping: 30, stiffness: 300 }}
-      className="fixed right-0 top-0 h-full w-full max-w-xl bg-white shadow-2xl z-[60] flex flex-col"
-    >
-      <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg">
-            <History className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <p className="font-bold text-gray-900">{bag?.barcode} — History</p>
-            <p className="text-xs text-gray-400">{bag?.bag_identifier_barcode}</p>
-          </div>
-        </div>
-        <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition">
-          <X className="w-4 h-4 text-gray-600" />
-        </button>
-      </div>
+//   return (
+//     <motion.div
+//       initial={{ x: "100%" }}
+//       animate={{ x: 0 }}
+//       exit={{ x: "100%" }}
+//       transition={{ type: "spring", damping: 30, stiffness: 300 }}
+//       className="fixed right-0 top-0 h-full w-full max-w-xl bg-white shadow-2xl z-[60] flex flex-col"
+//     >
+//       <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-5 flex items-center justify-between">
+//         <div className="flex items-center gap-3">
+//           <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg">
+//             <History className="w-5 h-5 text-white" />
+//           </div>
+//           <div>
+//             <p className="font-bold text-gray-900">{bag?.barcode} — History</p>
+//             <p className="text-xs text-gray-400">{bag?.bag_identifier_barcode}</p>
+//           </div>
+//         </div>
+//         <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition">
+//           <X className="w-4 h-4 text-gray-600" />
+//         </button>
+//       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-4">
-        {loading ? (
-          <div className="flex justify-center py-20">
-            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-cyan-500" />
-          </div>
-        ) : history.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">
-            <History className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>No history recorded yet.</p>
-          </div>
-        ) : (
-          <div className="relative">
-            {/* Timeline line */}
-            <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-100" />
+//       <div className="flex-1 overflow-y-auto px-6 py-4">
+//         {loading ? (
+//           <div className="flex justify-center py-20">
+//             <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-cyan-500" />
+//           </div>
+//         ) : history.length === 0 ? (
+//           <div className="text-center py-20 text-gray-400">
+//             <History className="w-12 h-12 mx-auto mb-3 opacity-30" />
+//             <p>No history recorded yet.</p>
+//           </div>
+//         ) : (
+//           <div className="relative">
+//             {/* Timeline line */}
+//             <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-100" />
 
-            <div className="space-y-4 pl-10">
-              {history.map((entry, i) => {
-                const meta = getMeta(entry.event);
-                const changes = entry.data?.changes || null;
+//             <div className="space-y-4 pl-10">
+//               {history.map((entry, i) => {
+//                 const meta = getMeta(entry.event);
+//                 const changes = entry.data?.changes || null;
 
-                return (
-                  <motion.div key={i} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }} className="relative">
-                    {/* Dot */}
-                    <div className={`absolute -left-7 top-1 w-5 h-5 rounded-full border flex items-center justify-center ${meta.color}`}>{meta.icon}</div>
+//                 return (
+//                   <motion.div key={i} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }} className="relative">
+//                     {/* Dot */}
+//                     <div className={`absolute -left-7 top-1 w-5 h-5 rounded-full border flex items-center justify-center ${meta.color}`}>{meta.icon}</div>
 
-                    <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${meta.color}`}>
-                          {entry.event?.replace("_", " ").toUpperCase()}
-                        </span>
-                        <span className="text-xs text-gray-400 whitespace-nowrap">{dayjs(entry.timestamp).format("DD MMM YYYY, h:mm A")}</span>
-                      </div>
+//                     <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition">
+//                       <div className="flex items-start justify-between gap-2 mb-1">
+//                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${meta.color}`}>
+//                           {entry.event?.replace("_", " ").toUpperCase()}
+//                         </span>
+//                         <span className="text-xs text-gray-400 whitespace-nowrap">{dayjs(entry.timestamp).format("DD MMM YYYY, h:mm A")}</span>
+//                       </div>
 
-                      <p className="text-sm text-gray-700 mt-1">{entry.description}</p>
+//                       <p className="text-sm text-gray-700 mt-1">{entry.description}</p>
 
-                      {changes && Object.keys(changes).length > 0 && (
-                        <div className="mt-2 space-y-1">
-                          {Object.entries(changes).map(([field, { from, to }]) => (
-                            <div key={field} className="text-xs flex items-center gap-1 text-gray-500">
-                              <span className="font-medium text-gray-600">{field}:</span>
-                              <span className="line-through text-red-400">{String(from)}</span>
-                              <span>→</span>
-                              <span className="text-green-600">{String(to)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+//                       {changes && Object.keys(changes).length > 0 && (
+//                         <div className="mt-2 space-y-1">
+//                           {Object.entries(changes).map(([field, { from, to }]) => (
+//                             <div key={field} className="text-xs flex items-center gap-1 text-gray-500">
+//                               <span className="font-medium text-gray-600">{field}:</span>
+//                               <span className="line-through text-red-400">{String(from)}</span>
+//                               <span>→</span>
+//                               <span className="text-green-600">{String(to)}</span>
+//                             </div>
+//                           ))}
+//                         </div>
+//                       )}
 
-                      {(entry.data?.amount || entry.data?.cash_in_amount || entry.data?.cash_out_amount) && (
-                        <div className="mt-2 text-sm font-bold text-green-600">
-                          ৳{(entry.data?.amount || entry.data?.cash_in_amount || entry.data?.cash_out_amount).toLocaleString()}
-                        </div>
-                      )}
+//                       {(entry.data?.amount || entry.data?.cash_in_amount || entry.data?.cash_out_amount) && (
+//                         <div className="mt-2 text-sm font-bold text-green-600">
+//                           ৳{(entry.data?.amount || entry.data?.cash_in_amount || entry.data?.cash_out_amount).toLocaleString()}
+//                         </div>
+//                       )}
 
-                      {entry.user_name && <p className="text-xs text-gray-400 mt-2">by {entry.user_name}</p>}
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-    </motion.div>
-  );
-};
+//                       {entry.user_name && <p className="text-xs text-gray-400 mt-2">by {entry.user_name}</p>}
+//                     </div>
+//                   </motion.div>
+//                 );
+//               })}
+//             </div>
+//           </div>
+//         )}
+//       </div>
+//     </motion.div>
+//   );
+// };
 
 // ─── Main Vault Component ─────────────────────────────────────────────────────
 const Vault = () => {
@@ -237,14 +217,11 @@ const Vault = () => {
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingVaultId, setEditingVaultId] = useState(null);
-  // ── FIX: preserve the display vault_id (e.g. "VLT-001") separately ──────────
   const [editingVaultDisplayId, setEditingVaultDisplayId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const [deletingVaultId, setDeletingVaultId] = useState(null);
   const [isApiDeleting, setIsApiDeleting] = useState(false);
-
-  // const toast = useToast();
 
   const {
     register,
@@ -261,7 +238,7 @@ const Vault = () => {
 
   useEffect(() => {
     if (isOpenModal && !isEditMode) {
-      const code = Math.floor(100 + Math.random() * 900); // 100-999
+      const code = Math.floor(100 + Math.random() * 900);
       setGeneratedVaultCode(code);
     }
   }, [isOpenModal, isEditMode]);
@@ -666,12 +643,12 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
     {
       title: "Action",
       key: "actions",
-      className: "w-36 text-start relative",
+      className: "w-36 text-start relative overflow-visible ",
       render: (row) => {
         const isConfirming = deletingVaultId === row.id;
+        const isCurrentlyDeleting = deletingVaultId === row.id && isApiDeleting;
 
-        const handleDeleteClick = async (e) => {
-          e.stopPropagation();
+        const handleDeleteClick = async () => {
           setIsApiDeleting(true);
           try {
             const res = await DeleteVault(row.id);
@@ -692,7 +669,7 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
         };
 
         return (
-          <div className="flex items-center justify-center gap-3 py-2 relative">
+          <div className="flex items-center justify-center gap-3 py-2 relative overflow-visible z-50">
             {/* Edit Button */}
             <motion.button
               whileHover={{ scale: 1.1 }}
@@ -715,8 +692,8 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
             </motion.button>
 
             {/* Trash Button or Animated Confirm Tooltip */}
-            <div className="relative">
-              <motion.button
+            <div className="relative overflow-visible">
+              {/* <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={(e) => {
@@ -729,44 +706,20 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                 }`}
               >
                 <Trash2 className="w-4 h-4" />
-              </motion.button>
+              </motion.button> */}
 
               {/* Confirm Tooltip Container */}
-              <AnimatePresence>
-                {isConfirming && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute right-0 bottom-full mb-2 z-50 bg-white border border-gray-200 shadow-xl rounded-xl p-3 flex flex-col gap-2 min-w-[180px]"
-                    onClick={(e) => e.stopPropagation()} // Stop closing on tooltip click
-                  >
-                    <p className="text-xs font-medium text-gray-700 text-center">Delete "{row.name}"?</p>
-                    <div className="flex gap-2 justify-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeletingVaultId(null);
-                        }}
-                        disabled={isApiDeleting}
-                        className="px-2 py-1 text-[11px] font-semibold rounded-md border border-gray-200 hover:bg-gray-50 text-gray-600 cursor-pointer transition"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleDeleteClick}
-                        disabled={isApiDeleting}
-                        className="px-2 py-1 text-[11px] font-semibold rounded-md bg-red-600 hover:bg-red-700 text-white flex items-center gap-1 cursor-pointer transition shadow-sm"
-                      >
-                        {isApiDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : "Confirm"}
-                      </button>
-                    </div>
-                    {/* Tooltip Arrow */}
-                    <div className="absolute top-full right-3 w-2 h-2 bg-white border-r border-b border-gray-200 transform rotate-45 -mt-[5px]" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {/* Confirm Tooltip Container */}
+              <Tooltip title={`Delete "${row.name}"?`} onConfirm={handleDeleteClick} isLoading={isCurrentlyDeleting} confirmText="Delete">
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  disabled={isApiDeleting}
+                  className="p-2 rounded-lg cursor-pointer border bg-red-500/10 hover:bg-red-500/20 text-red-600 border-red-400/20 transition-all"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </motion.button>
+              </Tooltip>
             </div>
           </div>
         );
