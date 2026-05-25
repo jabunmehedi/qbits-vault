@@ -8,10 +8,7 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 // Initialize plugin outside render cycles
 dayjs.extend(customParseFormat);
 
-/**
- * Calculates if the current time falls inside the 6-hour lockout window
- * before the next scheduled audit execution date.
- */
+
 const isEditLocked = (interval, dayName, timeStr, lastAuditDate) => {
   if (!timeStr) return false;
 
@@ -26,32 +23,41 @@ const isEditLocked = (interval, dayName, timeStr, lastAuditDate) => {
 
   switch (type) {
     case "daily":
-      // Target is today at execution time
       targetDateTime = now.hour(parsedTime.hour()).minute(parsedTime.minute()).second(0).millisecond(0);
-      // If it already ran today, look at tomorrow's execution
-      if (now.isAfter(targetDateTime)) {
+
+      // If we are closer to tomorrow's execution point than yesterday's trailing window, roll forward
+      if (now.diff(targetDateTime, "hours") > 6) {
         targetDateTime = targetDateTime.add(1, "day");
+      } else if (targetDateTime.diff(now, "hours") > 18) {
+        // If "now" is early morning and target hasn't hit yet but yesterday's trailing window applies
+        targetDateTime = targetDateTime.subtract(1, "day");
       }
       break;
 
     case "weekly":
       if (targetDayNumber === null) return false;
       targetDateTime = now.day(targetDayNumber).hour(parsedTime.hour()).minute(parsedTime.minute()).second(0).millisecond(0);
-      if (now.isAfter(targetDateTime)) {
+
+      // Roll forward or backward dynamically depending on which week boundary is closest
+      if (now.diff(targetDateTime, "hours") > 6) {
         targetDateTime = targetDateTime.add(1, "week");
+      } else if (targetDateTime.diff(now, "hours") > 162) {
+        targetDateTime = targetDateTime.subtract(1, "week");
       }
       break;
 
     case "bi-weekly":
     case "biweekly":
       if (targetDayNumber === null) return false;
-      // Use last audit date as structural baseline anchor, fallback to now if empty
       const baseDate = lastAuditDate ? dayjs(lastAuditDate) : now;
       targetDateTime = baseDate.add(2, "weeks").day(targetDayNumber).hour(parsedTime.hour()).minute(parsedTime.minute()).second(0).millisecond(0);
 
-      // Roll forward by 2-week intervals if calculation is stuck in the past
-      while (now.isAfter(targetDateTime)) {
+      // Find the nearest execution window block
+      while (now.diff(targetDateTime, "hours") > 6) {
         targetDateTime = targetDateTime.add(2, "weeks");
+      }
+      while (targetDateTime.diff(now, "hours") > 2 * 168 - 6) {
+        targetDateTime = targetDateTime.subtract(2, "weeks");
       }
       break;
 
@@ -62,7 +68,6 @@ const isEditLocked = (interval, dayName, timeStr, lastAuditDate) => {
 
       const getSubsequentLastDay = (referenceDate) => {
         let lastDay = referenceDate.endOf("month");
-        // Backpedal calendar day-by-day until hitting the target day pattern
         while (lastDay.day() !== targetDayNumber) {
           lastDay = lastDay.subtract(1, "day");
         }
@@ -70,11 +75,12 @@ const isEditLocked = (interval, dayName, timeStr, lastAuditDate) => {
       };
 
       targetDateTime = getSubsequentLastDay(now);
+      const monthsStep = type === "monthly" ? 1 : 3;
 
-      // If the last specific day of this current month has passed, jump forward
-      if (now.isAfter(targetDateTime)) {
-        const monthsToAdd = type === "monthly" ? 1 : 3;
-        targetDateTime = getSubsequentLastDay(now.add(monthsToAdd, "month"));
+      if (now.diff(targetDateTime, "hours") > 6) {
+        targetDateTime = getSubsequentLastDay(now.add(monthsStep, "month"));
+      } else if (targetDateTime.diff(now, "hours") > monthsStep * 30 * 24 - 6) {
+        targetDateTime = getSubsequentLastDay(now.subtract(monthsStep, "month"));
       }
       break;
 
@@ -82,9 +88,11 @@ const isEditLocked = (interval, dayName, timeStr, lastAuditDate) => {
       return false;
   }
 
-  // Lockout begins exactly 6 hours before target execution
+  // Define full locking limits: 6 hours before up to 6 hours after target runtime
   const bufferStart = targetDateTime.subtract(6, "hours");
-  return now.isAfter(bufferStart) && now.isBefore(targetDateTime);
+  const bufferEnd = targetDateTime.add(6, "hours");
+
+  return now.isAfter(bufferStart) && now.isBefore(bufferEnd);
 };
 
 const VaultAudit = () => {
