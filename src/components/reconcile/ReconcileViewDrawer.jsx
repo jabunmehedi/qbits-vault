@@ -28,6 +28,8 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const user = useSelector(selectAuthUser);
   const { addToast } = useToast();
 
+
+
   // --- DYNAMIC SECURITY ROLE BALANCING ENGINE ---
   const isSuperAdmin = user?.roles?.some((role) => role.id === 1 || role.name === "super-admin");
 
@@ -37,7 +39,9 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     if (!targetVaultId || !user?.vault_assignments) return false;
 
     const activeAssignment = user.vault_assignments.find((assign) => Number(assign.vault_id) === Number(targetVaultId) && assign.status === "active");
-    return activeAssignment?.roles?.some((roleId) => Number(roleId) === 8) || false;
+
+    const auditInitiatorRoleId = user?.roles?.find((role) => role?.name?.toLowerCase() == "audit initiator")?.id;
+    return activeAssignment?.roles?.some((roleId) => Number(roleId) === auditInitiatorRoleId) || false;
   };
 
   // Determine the live scheduling status window of the audit task
@@ -128,6 +132,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
       setLoading(true);
       ViewReconcile(reconcileId)
         .then((res) => {
+          console.log({ res });
           if (res?.data?.status === "pending") {
             setCurrentStep("intro");
           } else {
@@ -296,6 +301,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
         ) : (
           <>
             {/* --- STEP 1: INITIAL INTRODUCTION VIEW --- */}
+            {/* --- STEP 1: INITIAL INTRODUCTION VIEW --- */}
             {currentStep === "intro" && (
               <div className="flex flex-col items-center justify-center text-center space-y-6 py-2 flex-1">
                 <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-2xl font-bold">📋</div>
@@ -324,8 +330,12 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                   )}
                 </div>
 
-                {/* Controls enabled/disabled based on time execution check values */}
-                {canStartAudit() ? (
+                {/* ── CHANGED: Added loading check condition for targetVaultId ── */}
+                {targetVaultId === null ? (
+                  <div className="text-xs font-medium text-gray-400 animate-pulse bg-gray-50 px-4 py-2.5 rounded-lg border border-gray-100">
+                    Authenticating vault security metrics...
+                  </div>
+                ) : canStartAudit() ? (
                   <button
                     disabled={scheduleStatus !== "active"}
                     onClick={handleStartAuditSession}
