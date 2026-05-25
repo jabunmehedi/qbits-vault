@@ -28,8 +28,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const user = useSelector(selectAuthUser);
   const { addToast } = useToast();
 
-
-
   // --- DYNAMIC SECURITY ROLE BALANCING ENGINE ---
   const isSuperAdmin = user?.roles?.some((role) => role.id === 1 || role.name === "super-admin");
 
@@ -67,7 +65,8 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     if (!targetVaultId || !user?.vault_assignments) return false;
 
     const activeAssignment = user.vault_assignments.find((assign) => Number(assign.vault_id) === Number(targetVaultId) && assign.status === "active");
-    return activeAssignment?.roles?.some((roleId) => Number(roleId) === 2) || false;
+    const auditorRoleId = user?.roles?.find((role) => role?.name?.toLowerCase() == "auditor")?.id;
+    return activeAssignment?.roles?.some((roleId) => Number(roleId) === auditorRoleId) || false;
   };
 
   // Helper function to process backend bags array into state format
