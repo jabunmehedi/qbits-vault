@@ -171,7 +171,9 @@ const CashOut = () => {
     try {
       const res = await ApproveCashOut(id);
 
-      if (res?.success === true) {
+      console.log({res})
+
+      if (res?.success === true || res?.verifier_status == "verified") {
         fetchCashOutLits();
         addToast({ message: "Cashout approved successfully", type: "success" });
       } else {
@@ -347,14 +349,12 @@ const CashOut = () => {
         // Condition met if: there is NO custodian OR (there IS a custodian AND they are verified)
         // const isCustodianConditionMet = row?.custodian;
 
-   
-
         return (
           <div className="flex flex-col items-center gap-2">
             <VerifierAvatars requiredVerifiers={row.required_approvers || []} />
 
             {/* Updated condition here */}
-            {isApproverShowButton && isVerified  && (
+            {isApproverShowButton && isVerified && (
               <VerifyButton
                 handleSubmit={() => handleApprove(row.id)}
                 isOpen={activeApproveId === row.id}
