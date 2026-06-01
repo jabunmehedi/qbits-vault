@@ -2,7 +2,6 @@ import { LuBox } from "react-icons/lu";
 import Drawer from "../../global/drawer/Drawer";
 
 const BagDetailsDrawer = ({ bag, isOpen, onClose }) => {
-//   console.log({ bag });
   return (
     <Drawer
       isOpen={isOpen}

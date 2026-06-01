@@ -53,7 +53,6 @@ const OrderDetailsDrawer = ({ orderId, isOpen, onClose, payment_type, onEdit }) 
   const [activeIndex, setActiveIndex] = useState(null);
   const [histories, setHistories] = useState([]);
 
-  // console.log({isOpen})
 
   useEffect(() => {
     // --- COMMENTED OUT API CALL ---

@@ -497,8 +497,6 @@ const CashIn = () => {
     try {
       const res = await ApproveCashIn(id);
 
-      // console.log({ res });
-
       fetchCashInsData();
       addToast({ message: "Cash-in verified successfully", type: "success" });
     } catch (err) {
