@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import CustomModal from "../global/modal/CustomModal";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 import { GetVaults } from "../../services/Vault";
 import { GetLatestReconcile, StartReconcile, UpdateReconcile, ViewReconcile } from "../../services/Reconcile";
 import dayjs from "dayjs";
@@ -170,9 +170,9 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
           <button
             onClick={handleSubmitRequest}
             disabled={!selectedVaultId || modalLoading}
-            className="min-w-[160px] px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg font-semibold shadow-md hover:shadow-lg hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            className="min-w-[160px] flex justify-center px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg font-semibold shadow-md hover:shadow-lg hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
-            {reconcileId ? "Update Changes" : "Save"}
+            {modalLoading ? <Loader2 className="animate-spin" /> : reconcileId ? "Update Changes" : "Save"}
           </button>
         </div>
       </div>

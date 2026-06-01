@@ -131,7 +131,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
       setLoading(true);
       ViewReconcile(reconcileId)
         .then((res) => {
-          console.log({ res });
           if (res?.data?.status === "pending") {
             setCurrentStep("intro");
           } else {

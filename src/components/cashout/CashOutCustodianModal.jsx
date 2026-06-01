@@ -3,7 +3,6 @@ import { HiOutlineHashtag, HiOutlineUser, HiOutlineInboxIn, HiOutlineLibrary, Hi
 const CashOutCustodianModal = ({ cashOut }) => {
   if (!cashOut) return null;
 
-  console.log({ cashOut });
 
   // Fallbacks & Parsing
   const rawCashOutAmount = parseFloat(cashOut.cash_out_amount) || 0;
@@ -17,7 +16,6 @@ const CashOutCustodianModal = ({ cashOut }) => {
   const bagBarcode = cashOut?.cash_out_bags?.map((bag) => bag?.bag?.barcode).join(", ") || "N/A";
   const tranId = cashOut.tran_id;
 
-  console.log({ rawRequestMoney });
 
   return (
     <div className="w-full space-y-6 text-left">

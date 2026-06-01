@@ -70,9 +70,9 @@ const Layout = () => {
   const contentMargin = isMobile ? "ml-0" : isMinimized ? "ml-16" : "";
 
   // ── Verification gate ────────────────────────────────────────────────────────
-  // if (!isSuperAdmin && !isFullyVerified) {
-  //   return <InitialVerification onSuccess={() => dispatch(fetchAuthUser())} />;
-  // }
+  if (!isSuperAdmin && !isFullyVerified) {
+    return <InitialVerification onSuccess={() => dispatch(fetchAuthUser())} />;
+  }
 
   return (
     <AppShell

@@ -8,7 +8,7 @@ const CustodianAvatar = ({ custodian = [] }) => {
   const [coords, setCoords] = useState({ top: 0, left: 0 });
   const triggerRef = useRef(null);
 
-  console.log({ custodian });
+
 
   const handleToggle = useCallback(
     (e) => {
