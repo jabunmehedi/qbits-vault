@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { MdCheck, MdOutlineAccountBalanceWallet } from "react-icons/md";
 
 const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, setError }) => {
@@ -15,12 +15,27 @@ const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, set
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+
+  const sortedVaults = useMemo(() => {
+    if (!vaults) return [];
+    
+    return [...vaults].sort((a, b) => {
+      const isADefault = a.vault?.id == defaultVault;
+      const isBDefault = b.vault?.id == defaultVault;
+
+      if (isADefault && !isBDefault) return -1;
+      if (!isADefault && isBDefault) return 1;
+
+      return (b.vault?.id || 0) - (a.vault?.id || 0);
+    });
+  }, [vaults, defaultVault]);
+
   return (
     <div className="relative min-w-64 " ref={containerRef}>
       <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase mb-1 ml-1">Select Vault</p>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center  justify-between px-4 py-2.5 bg-[#F8FAFC] border ${error ? "border-red-300" : "border-slate-200"} rounded-xl hover:border-cyan-500 transition-all  group`}
+        className={`w-full flex items-center justify-between px-4 py-2.5 bg-[#F8FAFC] border ${error ? "border-red-300" : "border-slate-200"} rounded-xl hover:border-cyan-500 transition-all group`}
       >
         <div className="flex items-center gap-2 overflow-hidden">
           <MdOutlineAccountBalanceWallet className="text-slate-400 group-hover:text-cyan-500 transition-colors" size={18} />
@@ -40,7 +55,8 @@ const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, set
             className="absolute z-[100] w-full bg-white border border-slate-100 rounded-xl shadow-2xl overflow-hidden py-1"
           >
             <div className="max-h-60 overflow-y-auto">
-              {vaults?.map((vault) => (
+              {/* Mapped over sortedVaults instead of vaults */}
+              {sortedVaults.map((vault) => (
                 <button
                   key={vault.id}
                   onClick={() => {

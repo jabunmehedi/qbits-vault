@@ -71,7 +71,6 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     onClose();
   }, [onClose]);
 
-
   // ── Seed vault + denominations from editData (runs once when editData arrives) ──
   useEffect(() => {
     if (!isEditMode || !editData) return;
