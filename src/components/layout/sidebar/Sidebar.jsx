@@ -1,29 +1,27 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation, Link } from "react-router-dom";
-import { FiHome, FiSettings, FiLogOut, FiSend, FiRefreshCw, FiX, FiMenu, FiChevronDown } from "react-icons/fi";
+import { FiHome, FiSettings, FiLogOut, FiSend, FiX, FiChevronDown } from "react-icons/fi";
 import { AiOutlineAudit, AiOutlineUser } from "react-icons/ai";
-import { CiInboxOut, CiVault } from "react-icons/ci";
+import { CiInboxOut, CiVault as VaultIcon } from "react-icons/ci";
 import { Logout } from "../../../services/Auth";
 import { usePermissions } from "../../../hooks/usePermissions";
 
 const menuItems = [
   { icon: FiHome, label: "Overview", path: "/" },
   { icon: AiOutlineUser, label: "Users", path: "/users" },
-  { icon: CiVault, label: "Vaults", path: "/vault" },
+  { icon: VaultIcon, label: "Vaults", path: "/vault" },
   { icon: FiSend, label: "Cash In", path: "/cashin" },
   { icon: CiInboxOut, label: "Cash Out", path: "/cashout" },
   { icon: AiOutlineAudit, label: "Reconcile", path: "/reconcile" },
-  // { icon: FiSettings, label: "Permissions", path: "/role-and-permissions" },
   {
     icon: FiSettings,
     label: "Settings",
     children: [
-      { label: "Config Vault Aduit", path: "/settings/config-vault-audit" },
+      { label: "Config Vault Audit", path: "/settings/config-vault-audit" },
       { label: "Logs", path: "/settings/activity-log" },
     ],
   },
-  // { icon: FiRefreshCw, label: "Activity Log", path: "/activity-log" },
 ];
 
 export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDrawerOpen, sidebarWidthClass, setIsMinimized }) {
@@ -32,7 +30,6 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
   const showLabel = !isMinimized || isMobile;
   const { hasPermission } = usePermissions();
 
-  // State to handle Settings dropdown visibility
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const isActive = (path) => path && (pathname === path || pathname.startsWith(`${path}/`));
@@ -45,38 +42,45 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
   };
 
   const asideClasses = isMobile
-    ? `fixed inset-y-0 left-0 z-50 w-[280px] max-w-[85vw] transform transition-transform duration-300 lg:hidden
+    ? `fixed inset-y-0 left-0 z-50 w-[280px] max-w-[85vw] transform transition-transform duration-300 lg:hidden shadow-2xl bg-white/95 backdrop-blur-xl border-r border-slate-200
        ${isDrawerOpen ? "translate-x-0" : "-translate-x-full"}`
-    : `relative z-30 ${sidebarWidthClass}`;
+    : `relative z-30 bg-white/70 backdrop-blur-xl border-r border-slate-200/80  ${sidebarWidthClass}`;
 
   return (
     <motion.aside
-      className={`h-full backdrop-blur-3xl border-r border-gray-200 flex flex-col overflow-y-auto ${asideClasses}`}
-      animate={isMobile ? undefined : { width: isMinimized ? 64 : 220 }}
+      className={`h-full flex flex-col overflow-y-auto ${asideClasses}`}
+      animate={isMobile ? undefined : { width: isMinimized ? 72 : 240 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
     >
       <div className="flex flex-col h-full p-4 py-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-10 px-2">
-          <h1 className={`text-xl font-semibold text-gray-400 ${showLabel ? "block" : "hidden"}`}>{isMinimized && !isMobile ? "QBV" : "QBits Vault"}</h1>
+        {/* Brand Header Section */}
+        <div className="flex items-center justify-between mb-8 px-2 min-h-[40px]">
+          <AnimatePresence mode="wait">
+            {showLabel ? (
+              <motion.h1
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-lg font-extrabold text-center w-full tracking-tight bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent truncate"
+              >
+                QBits Vault
+              </motion.h1>
+            ) : (
+              <motion.h1 initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-lg font-black text-center w-full text-cyan-600">
+                QBV
+              </motion.h1>
+            )}
+          </AnimatePresence>
 
-          {isMobile ? (
-            <button onClick={() => setIsDrawerOpen(false)} className="p-2 -mr-2 rounded-lg hover:bg-white/10">
-              <FiX size={24} className="text-gray-300" />
-            </button>
-          ) : (
-            <button
-              onClick={() => setIsMinimized((v) => !v)}
-              className="p-2 rounded-lg hover:bg-white/10 text-gray-400"
-              aria-label={isMinimized ? "Expand" : "Minimize"}
-            >
-              {isMinimized && <FiMenu size={20} />}
+          {isMobile && (
+            <button onClick={() => setIsDrawerOpen(false)} className="p-2 -mr-2 rounded-xl hover:bg-slate-100 text-slate-500 transition-colors">
+              <FiX size={20} />
             </button>
           )}
         </div>
 
-        {/* Menu */}
-        <nav className="flex-1 space-y-1">
+        {/* Dynamic Nav links Area */}
+        <nav className="flex-1 space-y-1.5">
           {menuItems
             .filter((item) => {
               if (item.path === "/users" && !hasPermission("user.view")) return false;
@@ -89,32 +93,34 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
               return true;
             })
             .map((item) => {
-              // Check if item has children submenus
               const hasChildren = !!item.children;
               const active = isActive(item.path);
 
-              // If it has children, we render a button that toggles the dropdown
               if (hasChildren) {
                 return (
                   <div key={item.label} className="w-full">
                     <button
                       onClick={() => {
                         if (isMinimized && !isMobile) {
-                          // Expand sidebar first if user clicks setting while sidebar is minimized
                           setIsMinimized(false);
                         }
                         setIsSettingsOpen(!isSettingsOpen);
                       }}
                       className={`
-                        w-full group text-[14px] flex items-center justify-between px-4 py-2 rounded-lg transition-all duration-200 cursor-pointer
-                        text-gray-500 hover:bg-gray-50 hover:text-indigo-500
+                        w-full group text-[13px] font-semibold flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all duration-150 cursor-pointer
+                        text-slate-500 hover:bg-slate-50 hover:text-slate-900
                       `}
                     >
-                      <div className="flex items-center gap-4">
-                        <item.icon size={16} className="text-gray-500 group-hover:text-indigo-500 transition-colors" />
-                        {showLabel && <span className="text-sm">{item.label}</span>}
+                      <div className="flex items-center gap-3.5">
+                        <item.icon size={18} className="text-slate-400 group-hover:text-slate-700 transition-colors" />
+                        {showLabel && <span>{item.label}</span>}
                       </div>
-                      {showLabel && <FiChevronDown size={16} className={`transform transition-transform duration-200 ${isSettingsOpen ? "rotate-180" : ""}`} />}
+                      {showLabel && (
+                        <FiChevronDown
+                          size={14}
+                          className={`transform transition-transform duration-200 text-slate-400 ${isSettingsOpen ? "rotate-180" : ""}`}
+                        />
+                      )}
                     </button>
 
                     {/* Smooth Animate Submenu Dropdown */}
@@ -124,8 +130,8 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: "auto" }}
                           exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="pl-8 mt-1 space-y-1 overflow-hidden"
+                          transition={{ duration: 0.15 }}
+                          className="pl-6 mt-1 space-y-1 border-l border-slate-100 ml-5 overflow-hidden"
                         >
                           {item.children.map((subItem) => {
                             const subActive = isActive(subItem.path);
@@ -133,8 +139,8 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
                               <Link key={subItem.label} to={subItem.path} onClick={isMobile ? () => setIsDrawerOpen(false) : undefined} className="block">
                                 <div
                                   className={`
-                                    text-[13px] px-4 py-1.5 rounded-md transition-all duration-200
-                                    ${subActive ? "bg-[#e8f3ff93] text-indigo-500 font-medium" : "text-gray-400 hover:bg-gray-50 hover:text-indigo-500"}
+                                    text-[12.5px] px-3.5 py-2 rounded-lg transition-all duration-150
+                                    ${subActive ? "bg-indigo-50/60 text-indigo-600 font-bold" : "text-slate-400 hover:bg-slate-50/80 hover:text-slate-800"}
                                   `}
                                 >
                                   {subItem.label}
@@ -149,48 +155,52 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
                 );
               }
 
-              // Normal single-link rendering
               return (
                 <Link key={item.label} to={item.path ?? "#"} onClick={isMobile ? () => setIsDrawerOpen(false) : undefined} className="block">
                   <div
                     className={`
-                      group text-[14px] flex items-center gap-4 px-4 py-2 rounded-lg transition-all duration-200
-                      ${active ? "bg-[#e8f3ff93] text-indigo-500 " : "text-gray-500 hover:bg-gray-50 hover:text-indigo-500"}
+                      group text-[13px] font-medium flex items-center gap-3.5 px-3.5 py-2.5 rounded-md transition-all duration-150
+                      ${active ? "bg-indigo-50/60 text-indigo-600 font-bold" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"}
                     `}
                   >
                     <item.icon
-                      size={16}
+                      size={18}
                       className={`
-                        transition-colors duration-200
-                        ${active ? "text-indigo-500" : "text-gray-500 group-hover:text-indigo-500"}
+                        transition-colors duration-150
+                        ${active ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-700"}
                       `}
                     />
-                    {showLabel && <span className="text-sm">{item.label}</span>}
+                    {showLabel && <span>{item.label}</span>}
                   </div>
                 </Link>
               );
             })}
         </nav>
 
-        {/* Footer */}
-        <div className="mt-auto pt-6 border-t border-gray-100/20">
+        {/* Footer Actions / Profiles Panel */}
+        <div className="mt-auto pt-4 border-t border-slate-200/60 space-y-1">
           <Link
             to="/profile"
             onClick={isMobile ? () => setIsDrawerOpen(false) : undefined}
             className={`
-              flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
-              text-gray-500  hover:text-indigo-200 mb-2
-              ${!showLabel && "justify-center px-2"}
+              flex items-center gap-3 px-3 py-2 rounded-xl transition-all
+              text-slate-600 hover:bg-slate-50/80 mb-1
+              ${!showLabel && "justify-center px-1"}
             `}
           >
-            <div className="w-10 h-10 rounded-full border-2 border-gray-600/40 overflow-hidden flex-shrink-0">
+            <div className="w-8 h-8 rounded-full border border-slate-200 shadow-sm overflow-hidden flex-shrink-0">
               <img
                 src="https://images.unsplash.com/photo-1633332755192-727a05c4013d?auto=format&fit=crop&w=880&q=80"
                 alt="Avatar"
                 className="w-full h-full object-cover"
               />
             </div>
-            {showLabel && <span className="text-sm hover:text-indigo-500 truncate">{user.name || "User"}</span>}
+            {showLabel && (
+              <div className="truncate flex flex-col">
+                <span className="text-[13px] font-bold text-slate-800 truncate">{user.name || "User Admin"}</span>
+                <span className="text-[11px] text-slate-400 truncate">View Profile</span>
+              </div>
+            )}
           </Link>
 
           <button
@@ -199,13 +209,13 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
               isMobile && setIsDrawerOpen(false);
             }}
             className={`
-              w-full flex items-center cursor-pointer gap-3 px-4 py-3 rounded-lg transition-colors
-              text-gray-500  hover:text-red-400
-              ${!showLabel && "justify-center px-2"}
+              w-full flex items-center cursor-pointer gap-3.5 px-3.5 py-2.5 rounded-xl transition-colors
+              text-slate-400 hover:text-rose-600 hover:bg-rose-50/40 text-[13px] font-semibold
+              ${!showLabel && "justify-center px-1"}
             `}
           >
-            <FiLogOut size={20} />
-            {showLabel && <span className="text-sm">Logout</span>}
+            <FiLogOut size={16} className="flex-shrink-0" />
+            {showLabel && <span>Sign Out</span>}
           </button>
         </div>
       </div>

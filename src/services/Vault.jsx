@@ -82,3 +82,11 @@ export const UpdateVaultRoles = async (userId, vaultId, roles) => {
     console.error(error?.response?.data?.message);
   }
 };
+export const MakeDefaultVault = async (id, data) => {
+  try {
+    const response = await axiosConfig.put(`/users/${id}`, data);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+  }
+};

@@ -31,7 +31,7 @@ export const UpdateUser = async (id, data) => {
   try {
     const response = await axios.put(`/users/${id}`, data, {
       headers: {
-        "Content-Type": "multipart/form-data", // ← MUST be set
+        "Content-Type": "multipart/form-data",
       },
     });
     return response?.data;
