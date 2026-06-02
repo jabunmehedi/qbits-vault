@@ -5,6 +5,7 @@ import { ChevronDown, Loader2 } from "lucide-react";
 import { GetVaults } from "../../services/Vault";
 import { GetLatestReconcile, StartReconcile, UpdateReconcile, ViewReconcile } from "../../services/Reconcile";
 import dayjs from "dayjs";
+import { useToast } from "../../hooks/useToast";
 
 const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
   const [selectedVaultId, setSelectedVaultId] = useState(null);
@@ -13,6 +14,7 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { addToast } = useToast();
 
   const getCurrentTime = () => {
     const now = new Date();
@@ -71,14 +73,20 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
       };
 
       if (reconcileId) {
-        // Edit Mode Route Update
         await UpdateReconcile(reconcileId, payload);
       } else {
-        // Standard Setup Request Mode Create
-        await StartReconcile({
+        const res = await StartReconcile({
           ...payload,
           from_date: latestReconcileData?.to_date || auditDate,
         });
+
+        if (!res?.success) {
+          addToast({
+            type: "error",
+            message: res?.message || "Failed to start reconciliation. Please try again.",
+          });
+          return;
+        }
       }
 
       await refetch();
@@ -155,7 +163,7 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
                         className="px-4 py-2.5 text-gray-500 gap-2 hover:bg-cyan-50 cursor-pointer transition-colors flex items-center"
                       >
                         <span>{vault.name}</span>
-                        <span className="text-cyan-500 text-sm">({vault.vault_id})</span>
+                        <span className="text-cyan-500 text-sm">({vault.vault_code})</span>
                       </li>
                     ))}
                   </motion.ul>

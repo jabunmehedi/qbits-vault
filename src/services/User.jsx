@@ -9,9 +9,9 @@ export const CreateUser = async (data) => {
     return error?.response;
   }
 };
-export const GetUsers = async () => {
+export const GetUsers = async (params = {}) => {
   try {
-    const response = await axios.get(`/users`);
+    const response = await axios.get(`/users`, { params });
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);

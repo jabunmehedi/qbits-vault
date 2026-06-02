@@ -1,8 +1,8 @@
 import axiosConfig from "../utils/axiosConfig";
 
-export const GetReconciles = async () => {
+export const GetReconciles = async (params = {}) => {
   try {
-    const response = await axiosConfig.get(`/reconciles`);
+    const response = await axiosConfig.get(`/reconciles`, { params });
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);
@@ -29,7 +29,7 @@ export const StartReconcile = async (data) => {
     const response = await axiosConfig.post(`/reconcile`, data);
     return response?.data;
   } catch (error) {
-    console.error(error?.response?.data?.message);
+    return error?.response?.data;
   }
 };
 

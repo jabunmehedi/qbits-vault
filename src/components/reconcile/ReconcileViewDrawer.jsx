@@ -15,7 +15,8 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const [reconcileVerified, setReconcileVerified] = useState();
   const [reconclieStatus, setReconcileStatus] = useState();
   const [targetVaultId, setTargetVaultId] = useState(null);
-  const [scheduledTimestamp, setScheduledTimestamp] = useState(null); // Stores combined YYYY-MM-DD HH:mm:ss string
+  const [scheduledTimestamp, setScheduledTimestamp] = useState(null);
+  const [isAllowedToEnd, setIsAllowedToEnd] = useState(false);
 
   // Track racks that have temporary local notes filled out
   const [rackNotes, setRackNotes] = useState({});
@@ -139,6 +140,10 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
           setReconcileVerified(res?.data?.verifier_status);
           setReconcileStatus(res?.data?.status);
           setTargetVaultId(res?.data?.vault_id);
+
+          if (res?.data?.started_by === user?.id) {
+            setIsAllowedToEnd(true);
+          }
 
           // Extract and combine schedule dates and times
           const datePart = res?.data?.from_date ? res.data.from_date.split("T")[0] : null;
@@ -543,7 +548,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                       Cancel
                     </button>
                     <button
-                      disabled={!isAuditReadyForFinalSubmit() || !canPerformCounting()}
+                      disabled={!isAuditReadyForFinalSubmit() || !canPerformCounting() || !isAllowedToEnd}
                       onClick={handleFinalSubmit}
                       className={`flex-1 font-medium py-2.5 px-4 rounded-lg transition-all ${
                         isAuditReadyForFinalSubmit() && canPerformCounting()

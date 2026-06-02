@@ -32,20 +32,25 @@ const Reconcile = () => {
   const [verifyLoading, setVerifyLoading] = useState(null);
   const [activeVerifyId, setActiveVerifyId] = useState(null);
   const [editReconcileId, setEditReconcileId] = useState(null);
+  const [paginationData, setPaginationData] = useState({});
+  const currentPage = parseInt(searchParams.get("page") || "1");
   const step = parseInt(searchParams.get("step") || "0");
   const { addToast } = useToast();
 
   const user = useSelector(selectAuthUser);
 
   const fetchReconcileData = () => {
-    GetReconciles().then((res) => {
-      setReconcileData(res?.data?.data || []);
+    GetReconciles({ page: currentPage }).then((res) => {
+      const { data: items, ...pagination } = res?.data ?? {};
+      setReconcileData(items ?? []);
+      setPaginationData(pagination);
     });
   };
 
+
   useEffect(() => {
     fetchReconcileData();
-  }, []);
+  }, [currentPage]);
 
   const openVaultDrawer = async (vault) => {
     setSelectedReconcile(vault);
@@ -85,6 +90,14 @@ const Reconcile = () => {
   const handleOpenRescheduleModal = (id) => {
     setEditReconcileId(id);
     setOpenReconcileModel(true);
+  };
+
+  const handlePageChange = (page) => {
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      p.set("page", page.toString());
+      return p;
+    });
   };
 
   const columns = [
@@ -279,7 +292,9 @@ const Reconcile = () => {
           </div>
         </div>
       </div>
-      {step === 0 && <DataTable columns={columns} data={reconcileData} className="h-[calc(100vh-120px)]" />}
+      {step === 0 && (
+        <DataTable columns={columns} data={reconcileData} paginationData={paginationData} changePage={handlePageChange} className="h-[calc(100vh-120px)]" />
+      )}
 
       {drawerOpen && <VaultBagsDrawer selectedReconcile={selectedReconcile} setDrawerOpen={setDrawerOpen} />}
 

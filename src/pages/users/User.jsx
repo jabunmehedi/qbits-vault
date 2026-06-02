@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import DataTable from "../../components/global/dataTable/DataTable";
 import axiosConfig from "../../utils/axiosConfig";
 import { GetRoles, GetUsers } from "../../services/User";
@@ -15,13 +15,7 @@ import { useSelector } from "react-redux";
 import { selectIsAdmin, selectIsSuperAdmin } from "../../store/authSlice";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const SUPERADMIN_NAMES = new Set([
-  "Superadmin",
-  "Super Admin",
-  "superadmin",
-  "super_admin",
-  "super-admin",
-]);
+const SUPERADMIN_NAMES = new Set(["Superadmin", "Super Admin", "superadmin", "super_admin", "super-admin"]);
 
 // ─── Status color map ─────────────────────────────────────────────────────────
 const STATUS_COLOR = {
@@ -39,6 +33,9 @@ const User = () => {
   const [openUserViewDrawer, setOpenUserViewDrawer] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [paginationData, setPaginationData] = useState({});
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const isAdmin = useSelector(selectIsAdmin);
@@ -56,31 +53,25 @@ const User = () => {
   }, []); // computed once on mount
 
   // ── Derived permission flag ──
-  const canViewUserDetail = useMemo(
-    () => isSuperAdmin || (isAdmin && hasPermission("user.details")),
-    [isSuperAdmin, isAdmin, hasPermission]
-  );
+  const canViewUserDetail = useMemo(() => isSuperAdmin || (isAdmin && hasPermission("user.details")), [isSuperAdmin, isAdmin, hasPermission]);
 
-  const canManagePermissions = useMemo(
-    () => isSuperAdmin || (isAdmin && hasPermission("permission.view")),
-    [isSuperAdmin, isAdmin, hasPermission]
-  );
+  const canManagePermissions = useMemo(() => isSuperAdmin || (isAdmin && hasPermission("permission.view")), [isSuperAdmin, isAdmin, hasPermission]);
 
-  const canCreateRole = useMemo(
-    () => isSuperAdmin || (isAdmin && hasPermission("role.create")),
-    [isSuperAdmin, isAdmin, hasPermission]
-  );
+  const canCreateRole = useMemo(() => isSuperAdmin || (isAdmin && hasPermission("role.create")), [isSuperAdmin, isAdmin, hasPermission]);
 
-  const canCreateUser = useMemo(
-    () => isSuperAdmin || (isAdmin && hasPermission("user.create")),
-    [isSuperAdmin, isAdmin, hasPermission]
-  );
+  const canCreateUser = useMemo(() => isSuperAdmin || (isAdmin && hasPermission("user.create")), [isSuperAdmin, isAdmin, hasPermission]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // ── React Query: Users ──
   const { data: users = [], isLoading: isUsersLoading } = useQuery({
-    queryKey: ["users"],
+    queryKey: ["users", debouncedSearch],
     queryFn: async () => {
-      const res = await GetUsers();
+      const res = await GetUsers({ search: debouncedSearch, page: 1 });
+      setPaginationData(res?.data ?? {});
       return res?.data?.data ?? [];
     },
   });
@@ -106,16 +97,11 @@ const User = () => {
   // ── Filtered users — hide superadmins from non-superadmin viewers ──
   const filteredUsers = useMemo(() => {
     if (isSuperAdmin) return users;
-    return users.filter(
-      (user) => !user.roles?.some((role) => SUPERADMIN_NAMES.has(role.name))
-    );
+    return users.filter((user) => !user.roles?.some((role) => SUPERADMIN_NAMES.has(role.name)));
   }, [users, isSuperAdmin]);
 
   // ── Stable non-superadmin roles list ──
-  const visibleRoles = useMemo(
-    () => roles.filter((role) => !SUPERADMIN_NAMES.has(role.name)),
-    [roles]
-  );
+  const visibleRoles = useMemo(() => roles.filter((role) => !SUPERADMIN_NAMES.has(role.name)), [roles]);
 
   // ── Handlers ──
   const handleOpenUserView = useCallback(
@@ -124,7 +110,7 @@ const User = () => {
       setSelectedUserId(row.id);
       setOpenUserViewDrawer(true);
     },
-    [canViewUserDetail]
+    [canViewUserDetail],
   );
 
   const handleOpenPermissions = useCallback((row) => {
@@ -150,26 +136,16 @@ const User = () => {
         <div className="flex items-center gap-4 py-2">
           <div className="relative">
             <Avatar src={row.img} name={row.name} size="lg" className="w-6 h-6" />
-            <div
-              className={`absolute -bottom-1 -right-1 w-3 h-3 ${
-                STATUS_COLOR[row.status] ?? DEFAULT_STATUS_COLOR
-              } border-2 border-white rounded-full`}
-            />
+            <div className={`absolute -bottom-1 -right-1 w-3 h-3 ${STATUS_COLOR[row.status] ?? DEFAULT_STATUS_COLOR} border-2 border-white rounded-full`} />
           </div>
           <div className="flex flex-col">
             <div
               onClick={() => handleOpenUserView(row)}
-              className={`flex items-center gap-1 group ${
-                canViewUserDetail
-                  ? "cursor-pointer"
-                  : "cursor-default pointer-events-none select-none"
-              }`}
+              className={`flex items-center gap-1 group ${canViewUserDetail ? "cursor-pointer" : "cursor-default pointer-events-none select-none"}`}
             >
               <div className="flex flex-col">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-[#1a2b4b] text-sm tracking-tight">
-                    {row.name}
-                  </span>
+                  <span className="font-bold text-[#1a2b4b] text-sm tracking-tight">{row.name}</span>
                   <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-colors" />
                 </div>
                 <div className="flex items-center gap-2">
@@ -217,16 +193,10 @@ const User = () => {
           <div className="flex justify-center">
             <div
               className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-                isSelected
-                  ? "bg-blue-100 text-blue-600"
-                  : "bg-gray-50 text-gray-400 border border-gray-100"
+                isSelected ? "bg-blue-100 text-blue-600" : "bg-gray-50 text-gray-400 border border-gray-100"
               }`}
             >
-              {isSelected ? (
-                <Check className="w-5 h-5 stroke-[3px]" />
-              ) : (
-                <X className="w-4 h-4 opacity-20" />
-              )}
+              {isSelected ? <Check className="w-5 h-5 stroke-[3px]" /> : <X className="w-4 h-4 opacity-20" />}
             </div>
           </div>
         );
@@ -234,15 +204,7 @@ const User = () => {
     }));
 
     return [identityColumn, ...(manageColumn ? [manageColumn] : []), ...roleColumns];
-  }, [
-    visibleRoles,
-    canManagePermissions,
-    canViewUserDetail,
-    isSuperAdmin,
-    loggedUser,
-    handleOpenUserView,
-    handleOpenPermissions,
-  ]);
+  }, [visibleRoles, canManagePermissions, canViewUserDetail, isSuperAdmin, loggedUser, handleOpenUserView, handleOpenPermissions]);
 
   return (
     <div className="font-sans">
@@ -252,9 +214,7 @@ const User = () => {
           <div className="w-1.5 h-10 bg-[#1a2b4b] rounded-full" />
           <div>
             <h1 className="xl:text-2xl font-black text-[#1a2b4b] uppercase">User List</h1>
-            <p className="text-[8px] xl:text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase">
-              User Management
-            </p>
+            <p className="text-[8px] xl:text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase">User Management</p>
           </div>
         </div>
 
@@ -287,6 +247,7 @@ const User = () => {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
             type="text"
+            onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search identity..."
             className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-2xl focus:ring-2 ring-blue-100 outline-none text-gray-700 font-medium"
           />
@@ -297,41 +258,15 @@ const User = () => {
       </div>
 
       {/* Data Table */}
-      <DataTable
-        columns={columns}
-        data={filteredUsers}
-        isLoading={isUsersLoading}
-        className="h-[calc(100vh-200px)]"
-      />
+      <DataTable columns={columns} data={filteredUsers} paginationData={paginationData} isLoading={isUsersLoading} className="h-[calc(100vh-200px)]" />
 
-      <UserViewDrawer
-        isOpen={openUserViewDrawer}
-        onClose={() => setOpenUserViewDrawer(false)}
-        userId={selectedUserId}
-      />
+      <UserViewDrawer isOpen={openUserViewDrawer} onClose={() => setOpenUserViewDrawer(false)} userId={selectedUserId} />
 
-      {openModel && (
-        <CreateNewUserModal
-          setOpenModal={handleCloseModal}
-          roles={roles}
-          onUserCreated={handleUserCreated}
-        />
-      )}
+      {openModel && <CreateNewUserModal setOpenModal={handleCloseModal} roles={roles} onUserCreated={handleUserCreated} />}
 
-      {roleDrawerOpen && (
-        <RoleDrawer
-          isOpen={roleDrawerOpen}
-          onClose={() => setRoleDrawerOpen(false)}
-          rolesList={roles}
-        />
-      )}
+      {roleDrawerOpen && <RoleDrawer isOpen={roleDrawerOpen} onClose={() => setRoleDrawerOpen(false)} rolesList={roles} />}
 
-      <PermissionViewer
-        isOpen={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        user={selectedUser}
-        permissions={permissions}
-      />
+      <PermissionViewer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} user={selectedUser} permissions={permissions} />
     </div>
   );
 };

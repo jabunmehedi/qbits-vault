@@ -156,7 +156,6 @@ const CashOut = () => {
     try {
       const res = await VerifyCashOut(id);
 
-
       fetchCashOutLits();
       addToast({ message: "Cashout verified successfully", type: "success" });
     } catch (err) {
@@ -343,15 +342,13 @@ const CashOut = () => {
         const isApproverShowButton = row?.required_approvers?.some((approver) => approver?.user_id === user?.id && !approver?.approved);
         const isVerified = row?.verifier_status === "verified";
 
-        // Condition met if: there is NO custodian OR (there IS a custodian AND they are verified)
-        // const isCustodianConditionMet = row?.custodian;
+        const isCustodianConditionMet = !row?.custodian || row?.custodian?.status === "verified";
 
         return (
           <div className="flex flex-col items-center gap-2">
             <VerifierAvatars requiredVerifiers={row.required_approvers || []} />
-
-            {/* Updated condition here */}
-            {isApproverShowButton && isVerified && (
+            
+            {isApproverShowButton && isVerified && isCustodianConditionMet && (
               <VerifyButton
                 handleSubmit={() => handleApprove(row.id)}
                 isOpen={activeApproveId === row.id}
@@ -443,7 +440,7 @@ const CashOut = () => {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -5 }}
                 transition={{ duration: 0.15 }}
-                className={`absolute right-0 mt-1 bg-white border border-gray-200 divide-y divide-gray-100 rounded-lg shadow-xl z-50 overflow-hidden transition-all ${
+                className={`absolute right-0 mt-1 ${row?.verifier_status === "verified" ? "hidden": ""} bg-white border border-gray-200 divide-y divide-gray-100 rounded-lg shadow-xl z-50 overflow-hidden transition-all ${
                   isConfirmingDelete ? "w-44" : "w-28"
                 }`}
               >

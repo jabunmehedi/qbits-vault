@@ -8,11 +8,8 @@ const CustodianAvatar = ({ custodian = [] }) => {
   const [coords, setCoords] = useState({ top: 0, left: 0 });
   const triggerRef = useRef(null);
 
-
-
   const handleToggle = useCallback(
     (e) => {
-      // Stop ALL other actions in the table
       e.preventDefault();
       e.stopPropagation();
       e.nativeEvent.stopImmediatePropagation();
@@ -39,7 +36,7 @@ const CustodianAvatar = ({ custodian = [] }) => {
       >
         <div
           className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white shadow-sm group-hover:scale-105 transition-transform ${
-            custodian?.verified || custodian?.approved ? "bg-cyan-500 text-white" : "bg-gray-300 text-gray-600"
+            custodian?.status === "verified" ? "bg-cyan-500 text-white" : "bg-gray-300 text-gray-600"
           }`}
         >
           {(custodian?.custodian?.name || "V").charAt(0).toUpperCase()}
@@ -85,7 +82,7 @@ const CustodianAvatar = ({ custodian = [] }) => {
               <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar">
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center border  text-xs font-bold ${custodian?.verified || custodian?.approved ? "text-white bg-indigo-400 border-indigo-700 " : "text-slate-500 bg-slate-800 border-slate-700 "}`}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center border  text-xs font-bold ${custodian?.status === "verified" ? "text-white bg-indigo-400 border-indigo-700 " : "text-slate-500 bg-slate-800 border-slate-700 "}`}
                   >
                     {(custodian?.custodian?.name || "V").charAt(0).toUpperCase()}
                   </div>

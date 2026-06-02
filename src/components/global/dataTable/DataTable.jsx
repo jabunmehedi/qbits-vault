@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 const DataTable = ({ columns, data, paginationData, changePage, onSearch, className, isLoading }) => {
   const [search, setSearch] = useState("");
 
+
   useEffect(() => {
     const timer = setTimeout(() => {
       if (onSearch) onSearch(search.trim());
@@ -34,16 +35,20 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
     return [...new Set(result)];
   };
 
+  // const handlePageClick = (page) => {
+  //   if (typeof page !== "number") return;
+  //   const link = paginationData.links?.find((l) => l.page === page);
+  //   if (link?.url) {
+  //     const url = new URL(link.url);
+  //     const params = Object.fromEntries(url.searchParams);
+  //     changePage(params.page ? Number(params.page) : page);
+  //   } else {
+  //     changePage(page);
+  //   }
+  // };
   const handlePageClick = (page) => {
     if (typeof page !== "number") return;
-    const link = paginationData.links?.find((l) => l.page === page);
-    if (link?.url) {
-      const url = new URL(link.url);
-      const params = Object.fromEntries(url.searchParams);
-      changePage(params.page ? Number(params.page) : page);
-    } else {
-      changePage(page);
-    }
+    changePage(page); 
   };
 
   return (
