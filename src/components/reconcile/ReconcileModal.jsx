@@ -12,6 +12,7 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
   const [vaults, setVaults] = useState([]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const getCurrentTime = () => {
     const now = new Date();
@@ -60,6 +61,7 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
 
   const handleSubmitRequest = async () => {
     try {
+      setIsSubmitting(true);
       const combinedToDateTime = `${selectedTime}:00`;
 
       const payload = {
@@ -83,6 +85,8 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
       isClose();
     } catch (error) {
       console.error("Failed to save or update reconciliation form processing parameters:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -169,10 +173,10 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
 
           <button
             onClick={handleSubmitRequest}
-            disabled={!selectedVaultId || modalLoading}
+            disabled={!selectedVaultId || modalLoading || isSubmitting}
             className="min-w-[160px] flex justify-center px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg font-semibold shadow-md hover:shadow-lg hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
-            {modalLoading ? <Loader2 className="animate-spin" /> : reconcileId ? "Update Changes" : "Save"}
+            {modalLoading || isSubmitting ? <Loader2 className="animate-spin" /> : reconcileId ? "Update Changes" : "Save"}
           </button>
         </div>
       </div>
