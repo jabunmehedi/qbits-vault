@@ -14,72 +14,7 @@ import Drawer from "../../components/global/drawer/Drawer";
 import { useToast } from "../../hooks/useToast";
 import { useSearchParams } from "react-router-dom";
 import Tooltip from "../../components/global/tooltip/Tooltip";
-
-const downloadBagBarcode = (bag) => {
-  // Dynamically load JsBarcode if not already present
-  const run = () => {
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-
-    try {
-      // JsBarcode must be available globally; it's loaded in printBagBarcodes via CDN
-      if (typeof window.JsBarcode === "undefined") {
-        // Inject script tag once then retry
-        if (!document.querySelector("script[data-jsbarcode]")) {
-          const s = document.createElement("script");
-          s.src = "https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js";
-          s.setAttribute("data-jsbarcode", "true");
-          s.onload = () => downloadBagBarcode(bag); // retry after load
-          document.head.appendChild(s);
-        } else {
-          toast.error("Barcode library loading… please try again in a moment.");
-        }
-        return;
-      }
-
-      window.JsBarcode(svg, bag.bag_identifier_barcode, {
-        format: "CODE128",
-        width: 3,
-        height: 110,
-        displayValue: true,
-        fontSize: 24,
-        textMargin: 12,
-        margin: 10,
-      });
-
-      // Convert SVG → Canvas → PNG download
-      const svgData = new XMLSerializer().serializeToString(svg);
-      const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-      const url = URL.createObjectURL(svgBlob);
-
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width || 400;
-        canvas.height = img.height || 150;
-        const ctx = canvas.getContext("2d");
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(url);
-
-        canvas.toBlob((blob) => {
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
-          a.download = `${bag.barcode}_barcode.png`;
-          a.click();
-          setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-        }, "image/png");
-      };
-      img.src = url;
-    } catch (err) {
-      console.error("Barcode generation failed:", err);
-      toast.error("Failed to generate barcode.");
-    }
-  };
-
-  run();
-};
+import VaultBagDetailsDrawer from "../../components/vaults/VaultBagDetailsDrawer";
 
 // ─── Bag History Drawer ───────────────────────────────────────────────────────
 // const BagHistoryDrawer = ({ bag, onClose }) => {
@@ -976,7 +911,18 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
         )}
       </AnimatePresence> */}
 
-      <Drawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}>
+      <VaultBagDetailsDrawer
+        drawerOpen={drawerOpen}
+        setDrawerOpen={setDrawerOpen}
+        selectedVault={selectedVault}
+        vaultBagsDetails={vaultBagsDetails}
+        loadingBags={loadingBags}
+        toggleBagExpand={toggleBagExpand}
+        expandedBag={expandedBag}
+        setHistoryBag={setHistoryBag}
+      />
+
+      {/* <Drawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}>
         <div className="sticky top-0 bg-white border-b border-gray-200 p-8 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <div className="p-2 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl">
@@ -1068,7 +1014,7 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                       </div>
 
                       <div className="flex items-center gap-3">
-                        {/* ── Download barcode button ── */}
+                       
                         {bag.bag_identifier_barcode && (
                           <motion.button
                             whileHover={{ scale: 1.05 }}
@@ -1084,7 +1030,7 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                           </motion.button>
                         )}
 
-                        {/* History button */}
+                  
                         <motion.button
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
@@ -1175,8 +1121,7 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
             </div>
           )}
         </div>
-        {/* <AnimatePresence>{historyBag && <BagHistoryDrawer bag={historyBag} onClose={() => setHistoryBag(null)} />}</AnimatePresence> */}
-      </Drawer>
+      </Drawer> */}
     </div>
   );
 };

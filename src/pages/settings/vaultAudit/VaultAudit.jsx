@@ -4,6 +4,7 @@ import VaultAuditEditConfigModal from "../../../components/settings/vaultAudit/V
 import { GetVaultAuditConfig } from "../../../services/VaultAudit";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import { useSearchParams } from "react-router-dom";
 
 // Initialize plugin outside render cycles
 dayjs.extend(customParseFormat);
@@ -98,11 +99,16 @@ const VaultAudit = () => {
   const [vaultsConfig, setVaultsConfig] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVault, setSelectedVault] = useState(null);
+  const [paginationData, setPaginationData] = useState({});
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentPage = parseInt(searchParams.get("page") || "1");
 
   const fetchVaultsConfig = () => {
-    GetVaultAuditConfig()
+    GetVaultAuditConfig({ page: currentPage })
       .then((res) => {
-        setVaultsConfig(res?.data?.data || []);
+        const { data: items, ...pagination } = res?.data ?? {};
+        setVaultsConfig(items || []);
+        setPaginationData(pagination);
       })
       .catch((err) => {
         console.error("Error pulling standard vaults list data:", err);
@@ -111,11 +117,19 @@ const VaultAudit = () => {
 
   useEffect(() => {
     fetchVaultsConfig();
-  }, []);
+  }, [currentPage]);
 
   const openEditModal = (row) => {
     setSelectedVault(row);
     setIsModalOpen(true);
+  };
+
+  const handlePageChange = (page) => {
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      p.set("page", page.toString());
+      return p;
+    });
   };
 
   const columns = [
@@ -217,7 +231,7 @@ const VaultAudit = () => {
           </div>
         </div>
 
-        <DataTable columns={columns} data={vaultsConfig} className="h-[calc(100vh-100px)]" />
+        <DataTable columns={columns} data={vaultsConfig} paginationData={paginationData} changePage={handlePageChange} className="h-[calc(100vh-100px)]" />
       </div>
 
       {isModalOpen && <VaultAuditEditConfigModal auditConfig={selectedVault} setIsModalOpen={setIsModalOpen} refetchData={fetchVaultsConfig} />}
