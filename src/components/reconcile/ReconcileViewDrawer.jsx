@@ -67,7 +67,8 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
 
     const activeAssignment = user.vault_assignments.find((assign) => Number(assign.vault_id) === Number(targetVaultId) && assign.status === "active");
     const auditorRoleId = user?.roles?.find((role) => role?.name?.toLowerCase() == "auditor")?.id;
-    return activeAssignment?.roles?.some((roleId) => Number(roleId) === auditorRoleId) || false;
+
+    return activeAssignment?.roles?.some((roleId) => Number(roleId) === Number(auditorRoleId)) || false;
   };
 
   // Helper function to process backend bags array into state format
