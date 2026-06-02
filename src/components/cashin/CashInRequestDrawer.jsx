@@ -11,8 +11,8 @@ import { LuMinus, LuPlus } from "react-icons/lu";
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { RiCloseCircleLine } from "react-icons/ri";
 import ConfirmModal from "./ConfirmModal";
-import { useSelector } from "react-redux";
-import { selectAuthUser } from "../../store/authSlice";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchAuthUser, selectAuthUser } from "../../store/authSlice";
 import VaultSelect from "./VaultSelect";
 import { BagCreateRequest } from "../../services/Vault";
 import { useToast } from "../../hooks/useToast";
@@ -37,13 +37,23 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [selectedVault, setSelectedVault] = useState(null);
   const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const currentPage = parseInt(searchParams.get("page") || "1");
   const searchTerm = searchParams.get("search") || "";
   const perPage = parseInt(searchParams.get("per_page") || "10");
 
-  const user = useSelector(selectAuthUser);
+  const reduxUser = useSelector(selectAuthUser);
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    if (isOpen) {
+      dispatch(fetchAuthUser()).then(() => {
+        setUser(reduxUser);
+      });
+    }
+  }, [isOpen, reduxUser]);
 
   const { addToast } = useToast();
 
@@ -60,6 +70,8 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     setOrdersLoaded(false);
     onClose();
   }, [onClose]);
+
+  // console.log({ user });
 
   // ── Seed vault + denominations from editData (runs once when editData arrives) ──
   useEffect(() => {
@@ -171,40 +183,6 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const handleDoneClick = () => setIsConfirmModalOpen(true);
 
   // ── Submit ──
-  //   const handleConfirmSubmit = async () => {
-  //     setSubmitLoading(true);
-  //     try {
-  //       const payload = {
-  //         cash_in_amount: totalAmount,
-  //         denominations: denominations,
-  //         vault_id: selectedVault?.vault.id || user?.default_vault_id,
-  //         orders: selectedRows.map((row) => ({
-  //           id: row.id,
-  //           order_id: row.order_id,
-  //           customer_name: row.customer_name,
-  //           payable_amount: row.total,
-  //           total_cash_to_deposit: row.total_cash_to_deposit,
-  //           total_cash_in_amount: row.total_cash_to_deposit,
-  //         })),
-  //       };
-
-  //       const res = isEditMode ? await UpdateCashIn(editData.id, payload) : await CreateCashIn(payload);
-
-  //       if (res?.status === 500 || res?.status === 422) {
-  //         setDepositError(res?.response?.data || "An error occurred.");
-  //         setIsDepositError(true);
-  //       } else if (res?.status === 200 || res?.status === 201 || res?.success === true) {
-  //         refetch?.();
-  //         handleClose();
-  //       }
-  //     } catch (err) {
-  //       console.error("Submit error:", err);
-  //     } finally {
-  //       setSubmitLoading(false);
-  //       setIsConfirmModalOpen(false);
-  //     }
-  //   };
-
   const handleConfirmSubmit = async () => {
     setSubmitLoading(true);
     try {
