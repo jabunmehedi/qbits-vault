@@ -31,7 +31,7 @@ export default function CashDepositConfirmModal({ amounts, selectedRows, showCon
   const fetchVaultData = async () => {
     try {
       const res = await GetVaults();
-      setVaults(res?.data || []);
+      setVaults(res?.data?.data || []);
     } catch (error) {
       console.error(error);
     }
@@ -65,9 +65,8 @@ export default function CashDepositConfirmModal({ amounts, selectedRows, showCon
   }, [selectedVault]);
 
   // Filter vaults
-  const filteredVaults = vaults && vaults?.filter(
-    (v) => v.name.toLowerCase().includes(vaultSearch.toLowerCase()) || v.vault_id.toLowerCase().includes(vaultSearch.toLowerCase()),
-  );
+  const filteredVaults =
+    vaults && vaults?.filter((v) => v.name.toLowerCase().includes(vaultSearch.toLowerCase()) || v.vault_id.toLowerCase().includes(vaultSearch.toLowerCase()));
 
   // // Filter bags
   const filteredBags = availableBags?.filter((bag) => {

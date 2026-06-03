@@ -31,7 +31,7 @@ export default function CashOutConfirmationModal({ amounts, selectedRows, select
   const fetchVaultData = async () => {
     try {
       const res = await GetVaults();
-      setVaults(res?.data || []);
+      setVaults(res?.data?.data || []);
     } catch (error) {
       console.error(error);
     }
@@ -68,7 +68,6 @@ export default function CashOutConfirmationModal({ amounts, selectedRows, select
   // const filteredVaults = vaults.filter(
   //   (v) => v.name.toLowerCase().includes(vaultSearch.toLowerCase()) || v.vault_id.toLowerCase().includes(vaultSearch.toLowerCase()),
   // );
-
 
   // // Filter bags
   // const filteredBags = availableBags.filter((bag) => {
@@ -109,7 +108,6 @@ export default function CashOutConfirmationModal({ amounts, selectedRows, select
   };
 
   if (!showConfirmModal) return null;
-
 
   return (
     <>

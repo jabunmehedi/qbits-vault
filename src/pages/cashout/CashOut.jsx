@@ -122,7 +122,7 @@ const CashOut = () => {
 
   useEffect(() => {
     // Fetch vaults
-    GetVaults().then((res) => setVaults(res.data || []));
+    GetVaults().then((res) => setVaults(res.data?.data || []));
   }, []);
 
   const fetchCashOutLits = async () => {
