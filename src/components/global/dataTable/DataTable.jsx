@@ -129,7 +129,7 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
             <button
               onClick={() => changePage(paginationData?.current_page - 1)}
               disabled={!paginationData?.prev_page_url || isLoading}
-              className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1 shadow-2xs"
+              className="px-3 py-2 text-slate-600 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1"
             >
               <FiChevronLeft size={14} /> Previous
             </button>
@@ -141,9 +141,9 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
                   onClick={() => handlePageClick(page)}
                   disabled={page === "..." || isLoading}
                   className={`
-                    w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold transition-all
+                    w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all
                     ${page === paginationData?.current_page 
-                      ? "bg-cyan-50 text-cyan-600 border border-cyan-200/60" 
+                      ? "bg-indigo-500 text-white border-2 border-white shadow" 
                       : "text-slate-500 hover:bg-slate-100"
                     }
                     ${page === "..." ? "cursor-default" : "cursor-pointer"}
@@ -158,7 +158,7 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
             <button
               onClick={() => changePage(paginationData?.current_page + 1)}
               disabled={!paginationData?.next_page_url || isLoading}
-              className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1 shadow-2xs"
+              className="px-3 py-2 text-slate-600  disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1"
             >
               Next <FiChevronRight size={14} />
             </button>
