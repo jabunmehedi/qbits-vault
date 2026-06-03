@@ -1,8 +1,8 @@
 import axiosConfig from "../utils/axiosConfig";
 
-export const GetVaults = async () => {
+export const GetVaults = async (params = {}) => {
   try {
-    const response = await axiosConfig.get(`/vault`);
+    const response = await axiosConfig.get(`/vault`, { params });
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);

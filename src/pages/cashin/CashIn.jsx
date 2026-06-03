@@ -711,7 +711,7 @@ const CashIn = () => {
         setSelectedRows={setSelectedRows}
         className="h-[calc(100vh-80px)]"
       />
-
+      {/* 
       <CashDepositConfirmModal
         showConfirmModal={showConfirmModal}
         setShowConfirmModal={setShowConfirmModal}
@@ -720,7 +720,7 @@ const CashIn = () => {
         selectedRows={selectedRows}
         amounts={amounts}
         onConfirm={confirmAndComplete}
-      />
+      /> */}
 
       {openCashInReqDrawer && (
         <CashInRequestDrawer editData={editCashInData} isOpen={openCashInReqDrawer} onClose={() => setOpenCashInReqDrawer(false)} refetch={fetchCashInsData} />

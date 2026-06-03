@@ -65,12 +65,12 @@ export default function CashDepositConfirmModal({ amounts, selectedRows, showCon
   }, [selectedVault]);
 
   // Filter vaults
-  const filteredVaults = vaults.filter(
+  const filteredVaults = vaults && vaults?.filter(
     (v) => v.name.toLowerCase().includes(vaultSearch.toLowerCase()) || v.vault_id.toLowerCase().includes(vaultSearch.toLowerCase()),
   );
 
   // // Filter bags
-  const filteredBags = availableBags.filter((bag) => {
+  const filteredBags = availableBags?.filter((bag) => {
     const search = bagSearch.toLowerCase();
     return bag.barcode?.toLowerCase().includes(search) || bag.rack_number?.toString().includes(search);
   });

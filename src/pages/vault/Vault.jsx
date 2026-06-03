@@ -157,6 +157,11 @@ const Vault = () => {
 
   const [deletingVaultId, setDeletingVaultId] = useState(null);
   const [isApiDeleting, setIsApiDeleting] = useState(false);
+  const [paginationData, setPaginationData] = useState();
+  const currentPage = parseInt(searchParams.get("page") || "1");
+
+  const [activeActionMenuId, setActiveActionMenuId] = useState(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
   const {
     register,
@@ -315,13 +320,18 @@ const Vault = () => {
 
   // ── Data fetching ─────────────────────────────────────────────────────────────
   const fetchVaultData = async () => {
-    const res = await GetVaults();
-    setVaults(res?.data);
+    const res = await GetVaults({ page: currentPage });
+    const { data: items, ...pagination } = res?.data ?? {};
+    console.log(res?.data);
+    setVaults(items ?? []);
+    setPaginationData(pagination);
   };
 
   useEffect(() => {
     fetchVaultData();
-  }, []);
+  }, [currentPage]);
+
+  console.log({ vaults });
 
   const openEditModal = async (vault) => {
     try {
@@ -507,6 +517,47 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
     printWindow.document.close();
   };
 
+  const handlePageChange = (page) => {
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      p.set("page", page.toString());
+      return p;
+    });
+  };
+
+  useEffect(() => {
+    const handleOutsideClick = () => {
+      setActiveActionMenuId(null);
+      setDeleteConfirmId(null);
+    };
+    if (activeActionMenuId !== null) {
+      window.addEventListener("click", handleOutsideClick);
+    }
+    return () => {
+      window.removeEventListener("click", handleOutsideClick);
+    };
+  }, [activeActionMenuId]);
+
+  const handleDeleteSubmit = async (id) => {
+    setIsApiDeleting(true);
+    try {
+      const res = await DeleteVault(id);
+      if (!res?.success) {
+        addToast({ type: "error", message: res?.message });
+        return;
+      }
+      addToast({ type: "success", message: "Vault deleted successfully" });
+      setDeletingVaultId(null);
+      await fetchVaultData(); // Refresh the table list
+    } catch (error) {
+      console.error("Failed to delete vault:", error);
+      toast.error(error?.response?.data?.message || "Failed to delete vault.");
+    } finally {
+      setIsApiDeleting(false);
+      setDeletingVaultId(null);
+    }
+  };
+
   // ── Table columns ─────────────────────────────────────────────────────────────
   const columns = [
     {
@@ -578,84 +629,137 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
     {
       title: "Action",
       key: "actions",
-      className: "w-36 text-start relative overflow-visible ",
+      className: "w-14 relative",
       render: (row) => {
-        const isConfirming = deletingVaultId === row.id;
-        const isCurrentlyDeleting = deletingVaultId === row.id && isApiDeleting;
+        const isMenuOpen = activeActionMenuId === row.id;
+        const isConfirmingDelete = deleteConfirmId === row.id;
 
-        const handleDeleteClick = async () => {
-          setIsApiDeleting(true);
-          try {
-            const res = await DeleteVault(row.id);
-            if (!res?.success) {
-              addToast({ type: "error", message: res?.message });
-              return;
-            }
-            addToast({ type: "success", message: "Vault deleted successfully" });
-            setDeletingVaultId(null);
-            await fetchVaultData(); // Refresh the table list
-          } catch (error) {
-            console.error("Failed to delete vault:", error);
-            toast.error(error?.response?.data?.message || "Failed to delete vault.");
-          } finally {
-            setIsApiDeleting(false);
-            setDeletingVaultId(null);
-          }
+        const toggleMenu = (e) => {
+          e.stopPropagation();
+          setActiveActionMenuId(isMenuOpen ? null : row.id);
+          setDeleteConfirmId(null);
+        };
+
+        // const handleEdit = async (e) => {
+        //   e.stopPropagation();
+        //   setActiveActionMenuId(null);
+
+        //   try {
+        //     const res = await GetCashOut(row.id);
+
+        //     const freshCashOutData = res.data?.data || res.data || res;
+        //     setEditCashOutData(freshCashOutData);
+
+        //     // 4. Open the Cash Out Request Drawer
+        //     setOpenCashOutReqDrawer(true);
+        //     // } else {
+        //     //   addToast({ message: res?.message || "Failed to fetch cashout details.", type: "error" });
+        //     // }
+        //   } catch (err) {
+        //     console.error("Error fetching specific cashout item details:", err);
+        //     addToast({ message: "An error occurred while fetching details.", type: "error" });
+        //   }
+        // };
+
+        const handleDeleteClick = (e) => {
+          e.stopPropagation(); // Stop parent triggers
+          setDeleteConfirmId(row.id); // Shift dropdown view into inline verification mode
+        };
+
+        const handleCancelDelete = (e) => {
+          e.stopPropagation();
+          setDeleteConfirmId(null);
         };
 
         return (
-          <div className="flex items-center justify-center gap-3 py-2 relative overflow-visible z-50">
-            {/* Edit Button */}
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={(e) => {
-                e.stopPropagation();
-                openEditModal(row);
-              }}
-              disabled={isConfirming || isApiDeleting}
-              className="p-2 rounded-lg bg-blue-500/10 cursor-pointer hover:bg-blue-500/20 text-blue-600 border border-blue-400/20 transition-all disabled:opacity-40"
+          <div className="relative inline-block text-left">
+            <button
+              onClick={toggleMenu}
+              className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 focus:outline-none transition-colors duration-200 cursor-pointer"
+              aria-label="Actions"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 12c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
               </svg>
-            </motion.button>
+            </button>
 
-            {/* Trash Button or Animated Confirm Tooltip */}
-            <div className="relative overflow-visible">
-              {/* <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDeletingVaultId(isConfirming ? null : row.id);
-                }}
-                disabled={isApiDeleting}
-                className={`p-2 rounded-lg cursor-pointer border transition-all ${
-                  isConfirming ? "bg-gray-100 text-gray-500 border-gray-300" : "bg-red-500/10 hover:bg-red-500/20 text-red-600 border-red-400/20"
+            {isMenuOpen && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: -5 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -5 }}
+                transition={{ duration: 0.15 }}
+                className={`absolute right-0 mt-1 ${row?.verifier_status === "verified" ? "hidden" : ""} bg-white border border-gray-200 divide-y divide-gray-100 rounded-lg shadow-xl z-50 overflow-hidden transition-all ${
+                  isConfirmingDelete ? "w-44" : "w-28"
                 }`}
               >
-                <Trash2 className="w-4 h-4" />
-              </motion.button> */}
+                <AnimatePresence mode="wait">
+                  {!isConfirmingDelete ? (
+                    <motion.div key="options" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                      {/* Edit Option */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditModal(row);
+                        }}
+                        className="flex items-center w-full px-3 py-2 text-xs hover:text-blue-600 hover:bg-blue-50 transition-colors gap-2 cursor-pointer"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
+                        </svg>
+                        Edit
+                      </button>
 
-              {/* Confirm Tooltip Container */}
-              {/* Confirm Tooltip Container */}
-              <Tooltip title={`Delete "${row.name}"?`} onConfirm={handleDeleteClick} isLoading={isCurrentlyDeleting} confirmText="Delete">
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                  disabled={isApiDeleting}
-                  className="p-2 rounded-lg cursor-pointer border bg-red-500/10 hover:bg-red-500/20 text-red-600 border-red-400/20 transition-all"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </motion.button>
-              </Tooltip>
-            </div>
+                      {/* Delete Option Trigger */}
+                      <button
+                        onClick={handleDeleteClick}
+                        className="flex items-center w-full px-3 py-2 text-xs hover:text-red-600 hover:bg-red-50 transition-colors gap-2 cursor-pointer"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                        Delete
+                      </button>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="confirm"
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      className="py-4 text-center"
+                    >
+                      <p className="text-xs text-gray-500 font-medium mb-2">Are you sure you want to delete?</p>
+                      <div className="flex justify-center gap-2">
+                        <button
+                          onClick={handleCancelDelete}
+                          className="px-2 py-1 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSubmit(row.id);
+                          }}
+                          className="px-2 py-1 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded transition-colors cursor-pointer"
+                        >
+                          Confirm
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            )}
           </div>
         );
       },
@@ -692,7 +796,7 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
         </button>
       </div>
 
-      <DataTable columns={columns} data={vaults} paginationData={{}} className="h-[calc(100vh-120px)]" />
+      <DataTable columns={columns} data={vaults} paginationData={paginationData} changePage={handlePageChange} className="h-[calc(100vh-120px)]" />
 
       {/* ── Create / Edit Modal ── */}
       {isOpenModal && (

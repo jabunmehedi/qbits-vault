@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { FiChevronLeft, FiChevronRight, FiSearch } from "react-icons/fi";
+import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { AnimatePresence, motion } from "framer-motion";
 
 const DataTable = ({ columns, data, paginationData, changePage, onSearch, className, isLoading }) => {
   const [search, setSearch] = useState("");
-
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -35,42 +34,33 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
     return [...new Set(result)];
   };
 
-  // const handlePageClick = (page) => {
-  //   if (typeof page !== "number") return;
-  //   const link = paginationData.links?.find((l) => l.page === page);
-  //   if (link?.url) {
-  //     const url = new URL(link.url);
-  //     const params = Object.fromEntries(url.searchParams);
-  //     changePage(params.page ? Number(params.page) : page);
-  //   } else {
-  //     changePage(page);
-  //   }
-  // };
   const handlePageClick = (page) => {
     if (typeof page !== "number") return;
     changePage(page); 
   };
 
   return (
-    <div className={`relative ${className} flex flex-col rounded-2xl overflow-hidden isolate`}>
+    /* FIXED: Border and overflow configuration moved directly to the parent container */
+    <div className={`relative ${className} flex flex-col rounded-2xl border border-slate-200 bg-white overflow-hidden isolate shadow-xs`}>
       <div className="flex-1 overflow-hidden relative">
-        <div className="h-full bg-white overflow-y-auto scrollbar-custom relative border border-slate-200">
-          <table className="w-full  border-collapse">
+        {/* FIXED: Removed individual component border to eliminate conflicting background edge overlap */}
+        <div className="h-full overflow-y-auto scrollbar-custom relative">
+          <table className="w-full border-collapse">
             <thead>
-              <tr className="text-gray-800 border-b  border-slate-200">
+              <tr className="text-gray-800 border-b border-slate-200">
                 {columns.map((column, index) => (
                   <th
                     key={index}
-                    className={`px-6 py-3 text-[10px] font-bold uppercase sticky top-0 z-20 bg-[#F9FBFD] text-gray-500 ${
+                    className={`px-6 py-3.5 text-[10px] font-bold uppercase tracking-wider sticky top-0 z-20 bg-[#F9FBFD] text-slate-500 ${
                       column?.className?.includes("text-") ? column.className : `text-start ${column?.className ?? ""}`
                     }`}
                     onClick={() => column.iconClickAction?.()}
                   >
-                    <div>
+                    <div className="flex items-center gap-1.5">
                       <span>{column.title}</span>
                       {column.icon && (
-                        <span>
-                          <column.icon />
+                        <span className="text-slate-400">
+                          <column.icon size={12} />
                         </span>
                       )}
                     </div>
@@ -84,7 +74,7 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
                 <tr className="h-[50vh]">
                   <td colSpan={columns.length} className="h-64">
                     <div className="flex items-center justify-center h-full">
-                      <div className="w-12 h-12 rounded-full border-4 border-gray-50 border-t-cyan-500 animate-spin" />
+                      <div className="w-10 h-10 rounded-full border-4 border-slate-100 border-t-cyan-500 animate-spin" />
                     </div>
                   </td>
                 </tr>
@@ -98,14 +88,14 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={{
-                        duration: 0.5,
+                        duration: 0.2,
                         ease: "easeInOut",
                       }}
-                      className="border-b border-slate-100 bg-white hover:bg-slate-50/50 transition-colors"
+                      className="border-b border-slate-100 last:border-b-0 bg-white hover:bg-slate-50/40 transition-colors"
                     >
                       {columns.map((column, colIndex) => (
-                        <td key={colIndex} className={`px-6 py-3 text-gray-600 text-start text-xs transition-all duration-300 ${column?.className}`}>
-                          <motion.div>{column.render ? column.render(row, row, data.length) : row[column.key] || <span>-</span>}</motion.div>
+                        <td key={colIndex} className={`px-6 py-3 text-slate-600 text-start text-xs transition-all duration-300 ${column?.className ?? ""}`}>
+                          <motion.div>{column.render ? column.render(row, row, data.length) : row[column.key] || <span className="text-slate-300">-</span>}</motion.div>
                         </td>
                       ))}
                     </motion.tr>
@@ -116,7 +106,7 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
                 <tr className="h-[50vh]">
                   <td colSpan={columns.length} className="h-64">
                     <div className="flex items-center justify-center h-full">
-                      <span className="text-sm font-medium text-gray-400">No data found.</span>
+                      <span className="text-sm font-semibold text-slate-400">No data records found.</span>
                     </div>
                   </td>
                 </tr>
@@ -126,8 +116,10 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
         </div>
       </div>
 
-      <div className="px-6 py-2 bg-[#F9FBFD] border border-gray-200 shrink-0 rounded-b-2xl">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-400">
+      {/* Footer Controls Area */}
+      {/* FIXED: Removed overlapping inner borders to align with unified container boundaries */}
+      <div className="px-6 py-3 bg-[#F9FBFD] border-t border-slate-200 shrink-0">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-400">
           <div>
             Showing {(paginationData?.current_page - 1) * paginationData?.per_page + 1} to{" "}
             {Math.min(paginationData?.current_page * paginationData?.per_page, paginationData?.total)} of {paginationData?.total} entries
@@ -137,9 +129,9 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
             <button
               onClick={() => changePage(paginationData?.current_page - 1)}
               disabled={!paginationData?.prev_page_url || isLoading}
-              className="px-3 py-2 rounded-lg hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1"
+              className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1 shadow-2xs"
             >
-              <FiChevronLeft size={16} /> Previous
+              <FiChevronLeft size={14} /> Previous
             </button>
 
             <div className="flex items-center gap-1">
@@ -149,9 +141,12 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
                   onClick={() => handlePageClick(page)}
                   disabled={page === "..." || isLoading}
                   className={`
-                    w-8 h-8 rounded-lg flex items-center justify-center text-sm font-medium transition-all
-                    ${page === paginationData?.current_page ? "bg-cyan-50 text-cyan-500 border border-cyan-200" : "hover:bg-white/10 text-gray-500"}
-                    ${page === "..." ? "cursor-default text-gray-500" : "cursor-pointer"}
+                    w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold transition-all
+                    ${page === paginationData?.current_page 
+                      ? "bg-cyan-50 text-cyan-600 border border-cyan-200/60" 
+                      : "text-slate-500 hover:bg-slate-100"
+                    }
+                    ${page === "..." ? "cursor-default" : "cursor-pointer"}
                     ${isLoading ? "opacity-50 cursor-not-allowed" : ""}
                   `}
                 >
@@ -163,9 +158,9 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
             <button
               onClick={() => changePage(paginationData?.current_page + 1)}
               disabled={!paginationData?.next_page_url || isLoading}
-              className="px-3 py-2 rounded-lg hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1"
+              className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1 shadow-2xs"
             >
-              Next <FiChevronRight size={16} />
+              Next <FiChevronRight size={14} />
             </button>
           </div>
         </div>
