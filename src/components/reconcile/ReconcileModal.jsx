@@ -29,7 +29,7 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
 
   // 1. Initial configuration pulling
   useEffect(() => {
-    GetVaults().then((res) => setVaults(res.data || []));
+    GetVaults().then((res) => setVaults(res?.data?.data || []));
     GetLatestReconcile().then((res) => setLatestReconcileData(res?.data || []));
   }, []);
 

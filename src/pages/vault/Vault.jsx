@@ -735,13 +735,14 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
                           Cancel
                         </button>
                         <button
+                          disabled={isApiDeleting}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteSubmit(row.id);
                           }}
                           className="px-2 py-1 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded transition-colors cursor-pointer"
                         >
-                          Confirm
+                          {isApiDeleting ? <Loader2 className="w-4 h-4  mx-2 animate-spin" /> : "Confirm"}
                         </button>
                       </div>
                     </motion.div>

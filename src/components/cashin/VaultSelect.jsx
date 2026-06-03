@@ -15,10 +15,9 @@ const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, set
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-
   const sortedVaults = useMemo(() => {
     if (!vaults) return [];
-    
+
     return [...vaults].sort((a, b) => {
       const isADefault = a.vault?.id == defaultVault;
       const isBDefault = b.vault?.id == defaultVault;

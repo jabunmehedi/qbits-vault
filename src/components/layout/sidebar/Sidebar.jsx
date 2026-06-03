@@ -92,7 +92,7 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
               if (item.path === "/reconcile" && !hasPermission("reconciliation.view")) return false;
               if (item.path === "/role-and-permissions" && !hasPermission("permission.view")) return false;
               if (item.path === "/activity-log" && !hasPermission("setting.log")) return false;
-              if (item.path === "/reports" && !hasPermission("report.view")) return false;
+              // if (item.path === "/reports" && !hasPermission("report.view")) return false;
               if (item.path === "/settings/config-vault-audit" && !hasPermission("setting.config_audit_view")) return false;
               if (item.path === "/settings/system-preferences" && !hasPermission("setting.default_view")) return false;
               return true;
