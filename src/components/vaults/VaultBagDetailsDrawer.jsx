@@ -78,87 +78,94 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
       isOpen={drawerOpen}
       onClose={() => setDrawerOpen(false)}
       title={
-        <div>
-          <div className="flex items-center gap-6">
-            <div className="p-2 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl">
-              <Package className="w-8 h-8 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">{selectedVault?.name}</h2>
-              <p className="text-2xl text-cyan-600 font-mono mt-2">{selectedVault?.vault_id}</p>
-            </div>
+        <div className="flex items-center gap-4 border-b border-slate-100 pb-4 w-full">
+          <div className="p-2.5 bg-cyan-50 border border-cyan-100/50 rounded-xl text-cyan-600 flex-shrink-0">
+            <Package className="w-5 h-5" />
+          </div>
+          <div className="truncate">
+            <h2 className="text-base font-bold text-slate-800 truncate">{selectedVault?.name}</h2>
+            <p className="text-xs text-slate-400 font-mono mt-0.5 tracking-wider uppercase">{selectedVault?.vault_id}</p>
           </div>
         </div>
       }
     >
-      {/* ── FIX: Added explicit max-height calculation and overflow-y-auto ── */}
-      <div className="p-8 pt-0 max-h-[calc(100vh-140px)] overflow-y-auto custom-scrollbar">
-        <div className="mb-8 mt-6 flex items-center justify-between">
+      <div className="p-6 pt-0 max-h-[calc(100vh-120px)] overflow-y-auto scrollbar-thin">
+        
+        {/* Dynamic Context Header Stats Panel */}
+        <div className="mb-6 mt-4 p-4 bg-slate-50/60 border border-slate-200/50 rounded-2xl flex items-center justify-between shadow-2xs">
           <div>
-            <h3 className="text-xl font-bold text-gray-800">Cash Bags</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              {vaultBagsDetails.length} bag{vaultBagsDetails.length !== 1 ? "s" : ""}
+            <h3 className="text-xs font-bold tracking-wider text-slate-400 uppercase">Cash Bags</h3>
+            <p className="text-xl font-extrabold text-slate-800 mt-0.5">
+              {vaultBagsDetails.length} Total Node{vaultBagsDetails.length !== 1 ? "s" : ""}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-gray-500">Total Balance</p>
-            <p className="text-xl font-bold text-green-600">
+            <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">Aggregated Holdings</p>
+            <p className="text-xl font-black text-emerald-600 mt-0.5">
               ৳{vaultBagsDetails.reduce((s, b) => s + parseFloat(b.current_amount || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
             </p>
           </div>
         </div>
 
         {loadingBags ? (
-          <div className="flex items-center justify-center py-32">
-            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-cyan-500" />
+          <div className="flex items-center justify-center py-24">
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-slate-100 border-t-cyan-500" />
           </div>
         ) : vaultBagsDetails.length === 0 ? (
-          <div className="text-center py-32">
-            <Package className="w-24 h-24 mx-auto mb-6 text-gray-300" />
-            <p className="text-xl text-gray-500">No bags found in this vault.</p>
+          <div className="text-center py-24 border border-dashed border-slate-200 rounded-2xl bg-slate-50/30">
+            <Package className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+            <p className="text-sm font-semibold text-slate-400">No active bags mapped inside this vault scope.</p>
           </div>
         ) : (
-          <div className="space-y-6 pb-6"> {/* Added bottom padding so the last item doesn't cut off */}
+          <div className="space-y-4 pb-6">
             {vaultBagsDetails.map((bag) => {
               const denominations = bag.denominations ? JSON.parse(bag.denominations) : null;
               const totalNotes = denominations ? Object.values(denominations).reduce((a, b) => a + b, 0) : 0;
+              const isExpanded = expandedBag === bag.barcode;
 
               return (
                 <motion.div
                   key={bag.id}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white border border-gray-200 rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300"
+                  className={`bg-white border rounded-2xl overflow-hidden transition-all duration-150 ${
+                    isExpanded ? "border-slate-300/80 shadow-xs" : "border-slate-200/80 hover:border-slate-300"
+                  }`}
                 >
+                  {/* Item Container Accordion Bar Trigger */}
                   <button
                     onClick={() => toggleBagExpand(bag.barcode)}
-                    className="w-full px-8 py-7 flex items-center justify-between hover:bg-gray-50 transition"
+                    className="w-full p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left transition hover:bg-slate-50/50"
                   >
-                    <div className="flex items-center gap-6">
-                      <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl">
-                        <Package className="w-6 h-6 text-white" />
+                    <div className="flex items-start gap-3.5">
+                      <div className="p-2 bg-slate-50 border border-slate-100 rounded-xl text-slate-500 mt-0.5 flex-shrink-0">
+                        <Package className="w-4 h-4" />
                       </div>
-                      <div className="text-left">
-                        <div className="flex items-center gap-4">
-                          <h4 className="text-lg font-bold text-gray-800">{bag.barcode}</h4>
-                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-cyan-100 text-cyan-700">Rack #{bag.rack_number}</span>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="text-sm font-bold text-slate-800 tracking-wide font-mono">{bag.barcode}</h4>
+                          <span className="px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase rounded-md bg-slate-100 text-slate-600 border border-slate-200/40">
+                            Rack {bag.rack_number}
+                          </span>
+                          {bag.is_sealed && <span className="px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-purple-50 text-purple-600 border border-purple-100/50 rounded-md">Sealed</span>}
+                          {!bag.is_active && <span className="px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-rose-50 text-rose-600 border border-rose-100/50 rounded-md">Inactive</span>}
                         </div>
-                        <div className="flex items-center gap-8 mt-4">
-                          <span className="text-xl font-bold text-green-600">
+                        
+                        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 mt-2">
+                          <span className="text-base font-extrabold text-slate-800">
                             ৳{parseFloat(bag.current_amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                           </span>
-                          <div className="flex items-center gap-4">
-                            {bag.is_sealed && <span className="px-4 py-1.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">Sealed</span>}
-                            {!bag.is_active && <span className="px-4 py-1.5 text-xs font-medium bg-red-100 text-red-700 rounded-full">Inactive</span>}
+                          
+                          <div className="flex items-center gap-3 text-slate-400 text-xs font-medium">
                             {bag.last_cash_in_at && (
-                              <span className="text-sm text-gray-600 flex items-center gap-2">
-                                <ArrowDownCircle className="w-5 h-5 text-green-600" />
+                              <span className="flex items-center gap-1">
+                                <ArrowDownCircle className="w-3.5 h-3.5 text-emerald-500" />
                                 {dayjs(bag.last_cash_in_at).format("DD MMM, YYYY")}
                               </span>
                             )}
                             {bag.last_cash_out_at && (
-                              <span className="text-sm text-gray-600 flex items-center gap-2">
-                                <ArrowUpCircle className="w-5 h-5 text-red-600" />
+                              <span className="flex items-center gap-1">
+                                <ArrowUpCircle className="w-3.5 h-3.5 text-rose-500" />
                                 {dayjs(bag.last_cash_out_at).format("DD MMM, YYYY")}
                               </span>
                             )}
@@ -167,102 +174,108 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    {/* Action Triggers Grid Block */}
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
                       {bag.bag_identifier_barcode && (
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
+                        <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             downloadBagBarcode(bag);
                           }}
-                          title="Download barcode as PNG"
-                          className="flex items-center gap-1 px-3 py-1.5 text-xs bg-cyan-50 hover:bg-cyan-100 text-cyan-600 border border-cyan-200 rounded-full transition"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider bg-cyan-50/60 hover:bg-cyan-100/80 text-cyan-700 border border-cyan-100/60 rounded-lg transition"
                         >
-                          <Download className="w-3.5 h-3.5" /> Barcode
-                        </motion.button>
+                          <Download className="w-3 h-3" /> Barcode
+                        </button>
                       )}
 
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                      <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           setHistoryBag(bag);
                         }}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition"
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60 rounded-lg transition"
                       >
-                        <History className="w-3.5 h-3.5" /> History
-                      </motion.button>
+                        <History className="w-3 h-3" /> History
+                      </button>
 
-                      <motion.div animate={{ rotate: expandedBag === bag.barcode ? 180 : 0 }} transition={{ duration: 0.3 }}>
-                        <ChevronDown className="w-7 h-7 text-gray-500" />
+                      <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.15 }} className="text-slate-400 p-1">
+                        <ChevronDown className="w-4 h-4" />
                       </motion.div>
                     </div>
                   </button>
 
-                  <AnimatePresence>
-                    {expandedBag === bag.barcode && (
+                  {/* Expanded Meta-details Accordion Panel Area */}
+                  <AnimatePresence initial={false}>
+                    {isExpanded && (
                       <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.4, ease: "easeInOut" }}
-                        className="border-t border-gray-200 bg-gray-50/70"
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="border-t border-slate-100 bg-slate-50/40"
                       >
-                        <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                          <div className="lg:col-span-2">
-                            <h5 className="text-sm text-gray-600 mb-5">Denomination Breakdown</h5>
+                        <div className="p-5 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                          
+                          {/* Left Panel: Denominations breakdown context */}
+                          <div className="lg:col-span-2 space-y-2">
+                            <h5 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Denomination Matrix</h5>
                             {denominations ? (
-                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                                 {Object.entries(denominations)
                                   .filter(([_, c]) => c > 0)
                                   .map(([note, count]) => (
-                                    <div key={note} className="bg-white p-6 rounded-xl border border-gray-200 text-center shadow-md">
-                                      <p className="text-xl font-bold text-gray-800">৳{note}</p>
-                                      <p className="text-sm text-gray-600 mt-2">
-                                        {count} note{count !== 1 ? "s" : ""}
-                                      </p>
-                                      <p className="text-xl font-bold text-green-600 mt-3">৳{(parseInt(note) * count).toLocaleString()}</p>
+                                    <div key={note} className="bg-white p-3.5 rounded-xl border border-slate-200/60 shadow-2xs flex flex-col justify-between">
+                                      <div className="flex items-baseline justify-between">
+                                        <span className="text-xs font-bold text-slate-400 font-mono">Face</span>
+                                        <span className="text-sm font-black text-slate-800">৳{note}</span>
+                                      </div>
+                                      <div className="flex items-baseline justify-between mt-2 pt-1.5 border-t border-slate-100">
+                                        <span className="text-[10px] text-slate-400">Qty: <strong className="text-slate-700 font-semibold">{count}</strong></span>
+                                        <span className="text-xs font-extrabold text-emerald-600">৳{(parseInt(note) * count).toLocaleString()}</span>
+                                      </div>
                                     </div>
                                   ))}
-                                {totalNotes === 0 && <p className="col-span-full text-center text-gray-500 py-10">No notes recorded yet.</p>}
+                                {totalNotes === 0 && <p className="col-span-full text-slate-400 text-xs py-4">No denomination ledger mappings found.</p>}
                               </div>
                             ) : (
-                              <p className="text-gray-400 text-xs">No denomination data available.</p>
+                              <p className="text-slate-400 text-xs py-2">Denomination structures unavailable.</p>
                             )}
                           </div>
 
-                          <div>
-                            <h5 className="text-sm text-gray-600 mb-5 flex items-center gap-3">
-                              <History className="w-4 h-4 text-gray-600" /> Activity Summary
-                            </h5>
-                            <div className="bg-white p-7 rounded-xl border border-gray-200 shadow-md space-y-6">
-                              <div className="flex justify-between">
+                          {/* Right Panel: Activity Summary metrics */}
+                          <div className="space-y-2">
+                            <h5 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Activity Metrics</h5>
+                            <div className="bg-white p-4 rounded-xl border border-slate-200/60 shadow-2xs space-y-3.5 text-xs font-semibold">
+                              <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
                                 <div>
-                                  <p className="text-xs text-gray-600">Successful Deposits</p>
-                                  <p className="text-lg font-bold text-green-600">{bag.total_successful_deposits}</p>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Settled Sets</p>
+                                  <p className="text-sm font-extrabold text-emerald-600 mt-0.5">{bag.total_successful_deposits}</p>
                                 </div>
                                 <div>
-                                  <p className="text-xs text-gray-600">Total Attempts</p>
-                                  <p className="text-lg font-semibold text-gray-800">{bag.total_cash_in_attempts}</p>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Attempts</p>
+                                  <p className="text-sm font-bold text-slate-700 mt-0.5">{bag.total_cash_in_attempts}</p>
                                 </div>
                               </div>
+                              
                               {bag.last_cash_in_amount && (
-                                <div className="pt-5 border-t border-gray-200">
-                                  <p className="text-sm text-gray-600">Last Cash In (৳)</p>
-                                  <p className="text-2xl font-bold text-green-600">+ {parseFloat(bag.last_cash_in_amount).toLocaleString()}</p>
-                                  <p className="text-sm text-gray-500 mt-1">{dayjs(bag.last_cash_in_at).format("DD MMM YYYY, h:mm A")}</p>
+                                <div className="space-y-1">
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Latest Input Entry</p>
+                                  <p className="text-base font-black text-emerald-600">+ ৳{parseFloat(bag.last_cash_in_amount).toLocaleString()}</p>
+                                  <p className="text-[10px] text-slate-400 font-medium font-mono">{dayjs(bag.last_cash_in_at).format("DD MMM YYYY, h:mm A")}</p>
                                 </div>
                               )}
+                              
                               {bag.notes && (
-                                <div className="pt-5 border-t border-gray-200">
-                                  <p className="text-sm text-gray-600">Notes</p>
-                                  <p className="text-gray-700 mt-2">{bag.notes}</p>
+                                <div className="pt-2 border-t border-slate-100">
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Notes Ledger</p>
+                                  <p className="text-slate-600 font-medium mt-1 leading-relaxed text-[11px] bg-slate-50 p-2 border border-slate-100 rounded-lg">{bag.notes}</p>
                                 </div>
                               )}
                             </div>
                           </div>
+
                         </div>
                       </motion.div>
                     )}
