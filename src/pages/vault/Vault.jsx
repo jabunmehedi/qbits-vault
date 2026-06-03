@@ -6,14 +6,12 @@ import CustomModal from "../../components/global/modal/CustomModal";
 import { AiOutlinePlus } from "react-icons/ai";
 import { AnimatePresence, motion } from "framer-motion";
 import { useForm } from "react-hook-form";
-import { ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronRight, History, Package, X, AlertTriangle, Trash2, Plus, Download, Loader2 } from "lucide-react";
+import { ChevronRight, X, AlertTriangle, Plus, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { GoDatabase } from "react-icons/go";
 import { FiBox } from "react-icons/fi";
-import Drawer from "../../components/global/drawer/Drawer";
 import { useToast } from "../../hooks/useToast";
 import { useSearchParams } from "react-router-dom";
-import Tooltip from "../../components/global/tooltip/Tooltip";
 import VaultBagDetailsDrawer from "../../components/vaults/VaultBagDetailsDrawer";
 
 // ─── Bag History Drawer ───────────────────────────────────────────────────────
@@ -313,16 +311,11 @@ const Vault = () => {
   //   }
   // };
 
-  // const updateBagAmount = (id, value) => {
-  //   const cleaned = value.replace(/[^0-9.]/g, "");
-  //   setBags((prev) => prev.map((b) => (b.id === id ? { ...b, current_amount: cleaned } : b)));
-  // };
-
   // ── Data fetching ─────────────────────────────────────────────────────────────
   const fetchVaultData = async () => {
     const res = await GetVaults({ page: currentPage });
     const { data: items, ...pagination } = res?.data ?? {};
-    console.log(res?.data);
+
     setVaults(items ?? []);
     setPaginationData(pagination);
   };
@@ -330,8 +323,6 @@ const Vault = () => {
   useEffect(() => {
     fetchVaultData();
   }, [currentPage]);
-
-  console.log({ vaults });
 
   const openEditModal = async (vault) => {
     try {
