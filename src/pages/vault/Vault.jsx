@@ -576,11 +576,11 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
         <span>{row?.bags?.reduce((s, b) => s + parseFloat(b.current_amount || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
       ),
     },
-    { title: "Racks", key: "total_racks", className: "w-20 text-start", render: (row) => <span>{row.total_racks || "-"}</span> },
+    { title: "Racks", key: "total_racks", className: "w-18 text-start", render: (row) => <span>{row.total_racks || "-"}</span> },
     {
       title: "Bags",
       key: "total_bags",
-      className: "w-36 text-start",
+      className: "!w-16 text-start",
       render: (row) => {
         const count = row.bags?.length || 0;
         return (
@@ -604,8 +604,7 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
       className: "w-34 text-start",
       render: (row) => (
         <div className="flex flex-col">
-          <span className="font-mono">{row.last_cash_in?.amount}</span>
-          <span>{row.last_cash_in?.created_at ? dayjs(row.last_cash_in.created_at).format("DD MMM, YYYY") : "—"}</span>
+          <span>{row.last_cash_in ? dayjs(row.last_cash_in).format("DD MMM, YYYY HH:mm A") : "—"}</span>
         </div>
       ),
     },
@@ -615,8 +614,7 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
       className: "w-34 text-start",
       render: (row) => (
         <div className="flex flex-col">
-          <span className="font-mono">{row.last_cash_out?.amount}</span>
-          <span>{row.last_cash_out?.created_at ? dayjs(row.last_cash_out.created_at).format("DD MMM, YYYY") : "—"}</span>
+          <span>{row.last_cash_out ? dayjs(row.last_cash_out).format("DD MMM, YYYY") : "—"}</span>
         </div>
       ),
     },

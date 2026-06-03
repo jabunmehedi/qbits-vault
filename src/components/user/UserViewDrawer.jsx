@@ -107,7 +107,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
       setLoading(true);
       try {
         const [vRes, rRes, uRes] = await Promise.all([GetVaults(), GetRoles(), GetUser(userId)]);
-        setVaultList(vRes?.data || []);
+        setVaultList(vRes?.data?.data || []);
         setRolesList(rRes?.data || []);
 
         const userData = uRes?.data?.data || uRes?.data;

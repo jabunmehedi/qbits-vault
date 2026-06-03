@@ -14,11 +14,13 @@ const menuItems = [
   { icon: FiSend, label: "Cash In", path: "/cashin" },
   { icon: CiInboxOut, label: "Cash Out", path: "/cashout" },
   { icon: AiOutlineAudit, label: "Reconcile", path: "/reconcile" },
+  { icon: AiOutlineAudit, label: "Reports", path: "/reports" },
   {
     icon: FiSettings,
     label: "Settings",
     children: [
       { label: "Config Vault Audit", path: "/settings/config-vault-audit" },
+      { label: "System Preferences", path: "/settings/system-preferences" },
       { label: "Logs", path: "/settings/activity-log" },
     ],
   },
@@ -89,7 +91,10 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
               if (item.path === "/cashout" && !hasPermission("cash-out.view")) return false;
               if (item.path === "/reconcile" && !hasPermission("reconciliation.view")) return false;
               if (item.path === "/role-and-permissions" && !hasPermission("permission.view")) return false;
-              if (item.path === "/activity-log" && !hasPermission("activity_log.view")) return false;
+              if (item.path === "/activity-log" && !hasPermission("setting.log")) return false;
+              if (item.path === "/reports" && !hasPermission("report.view")) return false;
+              if (item.path === "/settings/config-vault-audit" && !hasPermission("setting.config_audit_view")) return false;
+              if (item.path === "/settings/system-preferences" && !hasPermission("setting.default_view")) return false;
               return true;
             })
             .map((item) => {
