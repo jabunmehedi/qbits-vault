@@ -112,3 +112,21 @@ export const ResetUserPassword = async (userId) => {
     return error?.response;
   }
 };
+export const ForgetPassword = async (email) => {
+  try {
+    const response = await axios.post(`/forget-password`, { email });
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response;
+  }
+};
+export const ConfirmResetPassword = async (payload) => {
+  try {
+    const response = await axios.post(`/reset-password/confirm`, payload);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response;
+  }
+};

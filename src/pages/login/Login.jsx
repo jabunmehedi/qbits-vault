@@ -129,8 +129,11 @@ const Login = () => {
             <div className="flex justify-between items-center text-sm">
               {/* Remember me (commented out) */}
               <div />
-              <div onClick={() => setOpenForgetPasswordModel(true)} className="text-cyan-500 cursor-pointer hover:text-cyan-300 transition font-medium">
-                {/* Forgot password? */}
+              <div
+                onClick={() => setOpenForgetPasswordModel(true)}
+                className="text-indigo-500 cursor-pointer hover:underline hover:text-indigo-800 transition font-medium"
+              >
+                Forgot password?
               </div>
             </div>
 
@@ -139,18 +142,17 @@ const Login = () => {
               whileTap={{ scale: loading ? 1 : 0.98 }}
               type="submit"
               disabled={loading}
-              // className={`w-full py-4 font-semibold text-lg rounded-xl transition-all duration-300
-              //   ${
-              //     loading
-              //       ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-              //       : "bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-lg hover:shadow-cyan-500/50 hover:translate-y-[-2px]"
-              //   }`}
               className="w-full py-2  hover:bg-gray-50 bg-indigo-500 hover:text-gray-800 text-white  text-md rounded-lg border border-gray-300 shadow-sm hover:shadow-md transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-3"
             >
               {loading ? (
                 <>
-                  <svg className="
-                   h-5 w-5 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg
+                    className="
+                   h-5 w-5 text-gray-600"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path
                       className="opacity-75"
@@ -172,7 +174,7 @@ const Login = () => {
         </div>
       </motion.div>
 
-      {openForgetPasswordModel && <ForgetPasswordModel isCloseModal={() => setOpenForgetPasswordModel(false)} />}
+      {openForgetPasswordModel && <ForgetPasswordModel isOpen={openForgetPasswordModel} onClose={() => setOpenForgetPasswordModel(false)} />}
     </div>
   );
 };
