@@ -1,4 +1,6 @@
 import axios from "axios";
+import { store } from "../store";
+import { logout } from "../store/authSlice";
 
 const axiosConfig = axios.create({
   baseURL: import.meta.env.VITE_REACT_APP_API_BASE_URL,
@@ -36,6 +38,9 @@ axiosConfig.interceptors.request.use(
 axiosConfig.interceptors.response.use(
   (response) => response,
   (error) => {
+    const status = error.response?.status;
+    const errorCode = error.response?.data?.error_code;
+
     if (error.response?.status === 401) {
       localStorage.removeItem("access_token");
       localStorage.removeItem("auth");
@@ -43,6 +48,16 @@ axiosConfig.interceptors.response.use(
         window.location.href = "/login";
       }
     }
+
+    if (status === 403 && errorCode === "ACCOUNT_INACTIVE") {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("auth");
+      store.dispatch(logout());
+      if (!window.location.pathname.includes("/login")) {
+        window.location.href = "/login?reason=inactive";
+      }
+    }
+
     return Promise.reject(error);
   },
 );
