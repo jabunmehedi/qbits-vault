@@ -49,6 +49,15 @@ export const ChangePassword = async (id, data) => {
     return error?.response;
   }
 };
+export const UserNewPassword = async (id, data) => {
+  try {
+    const response = await axios.post(`/users/new-password/${id}`, data);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response;
+  }
+};
 export const GetRoles = async () => {
   try {
     const response = await axios.get(`/roles?exclude=permissions`);
