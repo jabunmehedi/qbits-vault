@@ -16,6 +16,7 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import ReconcileModal from "../../components/reconcile/ReconcileModal";
+import { usePermissions } from "../../hooks/usePermissions";
 
 dayjs.extend(customParseFormat);
 dayjs.extend(utc);
@@ -38,6 +39,7 @@ const Reconcile = () => {
   const { addToast } = useToast();
 
   const user = useSelector(selectAuthUser);
+  const { hasPermission } = usePermissions();
 
   const fetchReconcileData = () => {
     GetReconciles({ page: currentPage }).then((res) => {
@@ -135,19 +137,15 @@ const Reconcile = () => {
       key: "total_bags",
       className: "w-26",
       render: (row) => {
-        const bagCount = row.variance_bags?.filter((bag) => bag?.pivot?.difference < 0).length;
         return (
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => openVaultDrawer(row)}
-            className={`px-3 py-2 ${bagCount > 0 ? "bg-red-50 border border-red-200 text-red-400" : ""} bg-cyan-50 border border-cyan-200 cursor-pointer text-cyan-500 text-xs rounded-full flex items-center gap-2`}
-          >
-            <span>
-              {bagCount} Bag{bagCount !== 1 ? "s" : ""}
-            </span>
-            <ChevronRight className="w-4 h-4" />
-          </motion.button>
+          <>
+            <p>
+              Total <span className="font-bold">{row?.total_bags || "-"}</span>
+            </p>
+            <p>
+              Counted <span className="font-bold">{row?.finished_bag_count || "-"}</span>
+            </p>
+          </>
         );
       },
     },
@@ -285,11 +283,13 @@ const Reconcile = () => {
           <h1 className="text-lg font-semibold text-gray-600 uppercase">Reconcile List</h1>
           <p className="text-xs text-gray-400">Manage Your All Reconcile</p>
         </div>
-        <div className="flex items-center gap-4">
-          <div onClick={handleOpenCreateModal} className="cursor-pointer transition-all px-4 py-2 hover:bg-black rounded text-white bg-[#424242]">
-            <p>Request Reconcile</p>
+        {hasPermission("reconciliation.create") && (
+          <div className="flex items-center gap-4">
+            <div onClick={handleOpenCreateModal} className="cursor-pointer transition-all px-4 py-2 hover:bg-black rounded text-white bg-[#424242]">
+              <p>Request Reconcile</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
       {step === 0 && (
         <DataTable columns={columns} data={reconcileData} paginationData={paginationData} changePage={handlePageChange} className="h-[calc(100vh-120px)]" />

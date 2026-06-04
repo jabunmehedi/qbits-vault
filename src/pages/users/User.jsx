@@ -42,7 +42,6 @@ const User = () => {
   const { hasPermission } = usePermissions();
   const queryClient = useQueryClient();
 
-  // ── Logged-in user (stable reference, no localStorage reads in memos) ──
   const loggedUser = useMemo(() => {
     try {
       const auth = localStorage.getItem("auth");
@@ -50,7 +49,7 @@ const User = () => {
     } catch {
       return null;
     }
-  }, []); // computed once on mount
+  }, []); 
 
   // ── Derived permission flag ──
   const canViewUserDetail = useMemo(() => isSuperAdmin || (isAdmin && hasPermission("user.details")), [isSuperAdmin, isAdmin, hasPermission]);
@@ -93,6 +92,15 @@ const User = () => {
       return res.data.data ?? res.data ?? [];
     },
   });
+
+  const handlePermissionsSaved = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["users"] });
+  }, [queryClient]);
+
+  const handlePermissionsClose = useCallback(() => {
+    setDrawerOpen(false);
+    queryClient.invalidateQueries({ queryKey: ["users"] });
+  }, [queryClient]);
 
   // ── Filtered users — hide superadmins from non-superadmin viewers ──
   const filteredUsers = useMemo(() => {
@@ -219,9 +227,6 @@ const User = () => {
         </div>
 
         <div className="flex gap-4">
-          {/* FIX: was `(isAdmin && cond) || (isSuperAdmin && ...)` — parentheses
-              made the isSuperAdmin branch always render regardless of canCreateRole.
-              Now using the pre-computed memos with correct semantics. */}
           {canCreateRole && (
             <button
               onClick={() => setRoleDrawerOpen(true)}
@@ -266,7 +271,7 @@ const User = () => {
 
       {roleDrawerOpen && <RoleDrawer isOpen={roleDrawerOpen} onClose={() => setRoleDrawerOpen(false)} rolesList={roles} />}
 
-      <PermissionViewer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} user={selectedUser} permissions={permissions} />
+      <PermissionViewer isOpen={drawerOpen} user={selectedUser} onSaved={handlePermissionsSaved} onClose={handlePermissionsClose} permissions={permissions} />
     </div>
   );
 };

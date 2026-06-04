@@ -3,11 +3,11 @@ import Drawer from "../global/drawer/Drawer";
 import { CompleteReconciliation, EndReconciliation, StartReconciliation, ViewReconcile } from "../../services/Reconcile";
 import { useToast } from "../../hooks/useToast";
 import { useSelector } from "react-redux";
-import { selectAuthUser } from "../../store/authSlice";
+import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
 import dayjs from "dayjs";
 
 const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, refetch }) => {
-  const [currentStep, setCurrentStep] = useState("intro"); // "intro" or "counting"
+  const [currentStep, setCurrentStep] = useState("intro");
   const [racks, setRacks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [submittingRackId, setSubmittingRackId] = useState(null);
@@ -17,20 +17,13 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const [targetVaultId, setTargetVaultId] = useState(null);
   const [scheduledTimestamp, setScheduledTimestamp] = useState(null);
   const [isAllowedToEnd, setIsAllowedToEnd] = useState(false);
-
-  // Track racks that have temporary local notes filled out
   const [rackNotes, setRackNotes] = useState({});
-  // Track racks that have been successfully saved/submitted to the API
   const [submittedRacks, setSubmittedRacks] = useState({});
-
-  // Modal State for Note
   const [noteModal, setNoteModal] = useState({ isOpen: false, rackIndex: null, noteText: "", isReadOnly: false });
 
+  const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const user = useSelector(selectAuthUser);
   const { addToast } = useToast();
-
-  // --- DYNAMIC SECURITY ROLE BALANCING ENGINE ---
-  const isSuperAdmin = user?.roles?.some((role) => role.id === 1 || role.name === "super-admin");
 
   // 1. Audit Initiator Check (Step 1: Start Audit Button Visibility)
   const canStartAudit = () => {
@@ -40,6 +33,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     const activeAssignment = user.vault_assignments.find((assign) => Number(assign.vault_id) === Number(targetVaultId) && assign.status === "active");
 
     const auditInitiatorRoleId = user?.roles?.find((role) => role?.name?.toLowerCase() == "audit initiator")?.id;
+
     return activeAssignment?.roles?.some((roleId) => Number(roleId) === auditInitiatorRoleId) || false;
   };
 
@@ -49,14 +43,14 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
 
     const now = dayjs();
     const targetSchedule = dayjs(scheduledTimestamp);
-    const hoursDifference = now.diff(targetSchedule, "hour", true); // Positive means target is in the past
+    const hoursDifference = now.diff(targetSchedule, "hour", true);
 
     if (hoursDifference > 6) {
-      return "expired"; // 6 hours or more past the scheduled timeline
+      return "expired";
     } else if (hoursDifference >= 0) {
-      return "active"; // Current time is past schedule, but within the 6-hour window
+      return "active";
     } else {
-      return "pending"; // Future schedule time not reached yet
+      return "pending";
     }
   };
 
@@ -304,7 +298,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
           </div>
         ) : (
           <>
-            {/* --- STEP 1: INITIAL INTRODUCTION VIEW --- */}
             {/* --- STEP 1: INITIAL INTRODUCTION VIEW --- */}
             {currentStep === "intro" && (
               <div className="flex flex-col items-center justify-center text-center space-y-6 py-2 flex-1">

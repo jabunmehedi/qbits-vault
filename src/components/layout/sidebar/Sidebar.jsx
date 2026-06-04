@@ -9,19 +9,25 @@ import { usePermissions } from "../../../hooks/usePermissions";
 
 const menuItems = [
   { icon: FiHome, label: "Overview", path: "/" },
-  { icon: AiOutlineUser, label: "Users", path: "/users" },
-  { icon: VaultIcon, label: "Vaults", path: "/vault" },
-  { icon: FiSend, label: "Cash In", path: "/cashin" },
-  { icon: CiInboxOut, label: "Cash Out", path: "/cashout" },
-  { icon: AiOutlineAudit, label: "Reconcile", path: "/reconcile" },
-  { icon: AiOutlineAudit, label: "Reports", path: "/reports" },
+  { icon: AiOutlineUser, label: "Users", permission: "user.view", path: "/users" },
+  { icon: VaultIcon, label: "Vaults", permission: "vault.view", path: "/vault" },
+  { icon: FiSend, label: "Cash In", permission: "cash-in.view", path: "/cashin" },
+  { icon: CiInboxOut, label: "Cash Out", permission: "cash-out.view", path: "/cashout" },
+  { icon: AiOutlineAudit, label: "Reconcile", permission: "reconciliation.view", path: "/reconcile" },
+  {
+    icon: AiOutlineAudit,
+    label: "Reports",
+    permission: "report.view",
+    path: "/reports",
+  },
   {
     icon: FiSettings,
     label: "Settings",
+    permission: "setting.view",
     children: [
-      { label: "Config Vault Audit", path: "/settings/config-vault-audit" },
-      { label: "System Preferences", path: "/settings/system-preferences" },
-      { label: "Logs", path: "/settings/activity-log" },
+      { label: "Config Vault Audit", permission: "setting.config_audit_view", path: "/settings/config-vault-audit" },
+      { label: "System Preferences", permission: "setting.default_view", path: "/settings/system-preferences" },
+      { label: "Logs", permission: "setting.log", path: "/settings/activity-log" },
     ],
   },
 ];
@@ -85,16 +91,8 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
         <nav className="flex-1 space-y-1.5">
           {menuItems
             .filter((item) => {
-              if (item.path === "/users" && !hasPermission("user.view")) return false;
-              if (item.path === "/vault" && !hasPermission("vault.view")) return false;
-              if (item.path === "/cashin" && !hasPermission("cash-in.view")) return false;
-              if (item.path === "/cashout" && !hasPermission("cash-out.view")) return false;
-              if (item.path === "/reconcile" && !hasPermission("reconciliation.view")) return false;
-              if (item.path === "/role-and-permissions" && !hasPermission("permission.view")) return false;
-              if (item.path === "/activity-log" && !hasPermission("setting.log")) return false;
-              // if (item.path === "/reports" && !hasPermission("report.view")) return false;
-              if (item.path === "/settings/config-vault-audit" && !hasPermission("setting.config_audit_view")) return false;
-              if (item.path === "/settings/system-preferences" && !hasPermission("setting.default_view")) return false;
+              if (item.permission && !hasPermission(item.permission)) return false;
+
               return true;
             })
             .map((item) => {
@@ -138,21 +136,23 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
                           transition={{ duration: 0.15 }}
                           className="pl-6 mt-1 space-y-1 border-l border-slate-100 ml-5 overflow-hidden"
                         >
-                          {item.children.map((subItem) => {
-                            const subActive = isActive(subItem.path);
-                            return (
-                              <Link key={subItem.label} to={subItem.path} onClick={isMobile ? () => setIsDrawerOpen(false) : undefined} className="block">
-                                <div
-                                  className={`
+                          {item?.children
+                            ?.filter((subItem) => !subItem.permission || hasPermission(subItem.permission))
+                            .map((subItem) => {
+                              const subActive = isActive(subItem.path);
+                              return (
+                                <Link key={subItem.label} to={subItem.path} onClick={isMobile ? () => setIsDrawerOpen(false) : undefined} className="block">
+                                  <div
+                                    className={`
                                     text-[12.5px] px-3.5 py-2 rounded-lg transition-all duration-150
                                     ${subActive ? "bg-indigo-50/60 text-indigo-600 font-bold" : "text-slate-400 hover:bg-slate-50/80 hover:text-slate-800"}
                                   `}
-                                >
-                                  {subItem.label}
-                                </div>
-                              </Link>
-                            );
-                          })}
+                                  >
+                                    {subItem.label}
+                                  </div>
+                                </Link>
+                              );
+                            })}
                         </motion.div>
                       )}
                     </AnimatePresence>

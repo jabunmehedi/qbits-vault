@@ -47,6 +47,8 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const reduxUser = useSelector(selectAuthUser);
   const dispatch = useDispatch();
 
+  // console.log({reduxUser})
+
   useEffect(() => {
     if (isOpen) {
       dispatch(fetchAuthUser()).then(() => {
@@ -81,16 +83,15 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     setSelectedVault(vault || null);
   }, [isEditMode, editData]); // eslint-disable-line
 
-  // ── Seed default vault for create mode ──
   useEffect(() => {
     if (isEditMode) return;
+
     if (user?.default_vault_id) {
       const defaultV = user.vault_assignments?.find((v) => v.vault.id == user.default_vault_id);
       setSelectedVault(defaultV || null);
     }
-  }, [isEditMode]); // eslint-disable-line
+  }, [isEditMode, user]);
 
-  // ── Seed selected rows — use orders directly, not ordersLoaded flag ──
   useEffect(() => {
     if (!isEditMode || !editData || orders.length === 0) {
       return;
@@ -102,7 +103,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     if (matched.length > 0) {
       setSelectedRows(matched);
     }
-  }, [orders]); // eslint-disable-line
+  }, [orders]);
 
   // ── Fetch orders ──
   const fetchOrders = useCallback(async () => {
@@ -163,7 +164,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const totalAmount = selectedRows.reduce((sum, o) => sum + (parseFloat(o.total_cash_to_deposit) || 0), 0);
   const grandTotal = Object.entries(denominations).reduce((sum, [val, cnt]) => sum + parseInt(val) * (parseInt(cnt) || 0), 0);
   const difference = grandTotal - totalAmount;
-  const isGenerateEnabled = selectedRows.length > 0 && totalAmount <= 200_000;
+  // const isGenerateEnabled = selectedRows.length > 0 && totalAmount > selectedRows?.vault?.bag_balance_limit;
 
   const updateDenom = (value, delta) => setDenominations((prev) => ({ ...prev, [value]: Math.max(0, (prev[value] || 0) + delta) }));
 
@@ -173,15 +174,42 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   };
 
   const handleGenerateDeposit = () => {
-    if (!selectedVault) return setError("Please select a vault.");
+    const { valid, msg } = vaultValidation();
+    if (!valid) return setError(msg);
     setDepositLoading(true);
     setStep(2);
   };
+
+  // ── Vault limit validations ──
+  const bagMin = parseFloat(selectedVault?.vault?.bag_min_bal_limit || 0);
+  const bagMax = parseFloat(selectedVault?.vault?.bag_balance_limit || 0);
+
+  const vaultValidation = () => {
+    if (!selectedVault) return { valid: false, msg: "Please select a vault." };
+    if (bagMin > 0 && totalAmount < bagMin) return { valid: false, msg: `Minimum cash-in amount is ৳${bagMin.toLocaleString("en-BD")}` };
+    if (bagMax > 0 && totalAmount > bagMax) return { valid: false, msg: `Maximum cash-in limit is ৳${bagMax.toLocaleString("en-BD")}` };
+    return { valid: true, msg: null };
+  };
+
+  const { valid: isVaultValid, msg: vaultMsg } = vaultValidation();
+  const isCashInVaultMinMaxAmountAllowed = selectedRows.length > 0 && isVaultValid;
+
+  // console.log({ isCashInVaultMinMaxAmountAllowed });
+
+  // console.log({isVaultValid})
 
   const handleDoneClick = () => setIsConfirmModalOpen(true);
 
   // ── Submit ──
   const handleConfirmSubmit = async () => {
+    const { valid, msg } = vaultValidation();
+    if (!valid) {
+      setIsConfirmModalOpen(false);
+      setError(msg);
+      setStep(1);
+      return;
+    }
+
     setSubmitLoading(true);
     try {
       let payload;
@@ -402,8 +430,15 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                       </div>
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Selected Amount</p>
-                      <h1 className="text-3xl font-bold text-end text-slate-900">৳{totalAmount.toLocaleString("en-BD", { minimumFractionDigits: 2 })}</h1>
+                      {selectedRows.length > 0 && vaultMsg ? (
+                        <p className="text-xs text-red-500 font-medium text-center">{vaultMsg}</p>
+                      ) : (
+                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Selected Amount</p>
+                      )}
+
+                      <h1 className={`text-3xl font-bold text-end ${vaultMsg ? "text-red-500" : "text-slate-900"} `}>
+                        ৳{totalAmount.toLocaleString("en-BD", { minimumFractionDigits: 2 })}
+                      </h1>
                     </div>
                   </div>
                 </div>
@@ -432,7 +467,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                 </button>
                 <button
                   onClick={handleGenerateDeposit}
-                  disabled={!isGenerateEnabled || depositLoading}
+                  disabled={ depositLoading || !isCashInVaultMinMaxAmountAllowed}
                   className="px-6 w-[65%] py-3 cursor-pointer justify-center bg-[#1e293b] shadow-lg hover:bg-black text-white font-semibold text-sm rounded-xl transition-all disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none flex items-center gap-2"
                 >
                   {depositLoading ? (

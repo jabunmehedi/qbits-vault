@@ -6,6 +6,8 @@ import { GetVaults } from "../../services/Vault";
 import { GetLatestReconcile, StartReconcile, UpdateReconcile, ViewReconcile } from "../../services/Reconcile";
 import dayjs from "dayjs";
 import { useToast } from "../../hooks/useToast";
+import { useSelector } from "react-redux";
+import { selectAuthUser } from "../../store/authSlice";
 
 const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
   const [selectedVaultId, setSelectedVaultId] = useState(null);
@@ -15,6 +17,10 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
   const [modalLoading, setModalLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addToast } = useToast();
+
+  const user = useSelector(selectAuthUser);
+
+  console.log({ user });
 
   const getCurrentTime = () => {
     const now = new Date();
@@ -29,7 +35,11 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
 
   // 1. Initial configuration pulling
   useEffect(() => {
-    GetVaults().then((res) => setVaults(res?.data?.data || []));
+    if (user?.vault_assignments?.length === 0) return;
+
+    const assignVaults = user?.vault_assignments?.filter((assign) => assign.status === "active");
+    console.log({ assignVaults });
+    setVaults(assignVaults);
     GetLatestReconcile().then((res) => setLatestReconcileData(res?.data || []));
   }, []);
 
@@ -156,14 +166,14 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
                     exit={{ opacity: 0, y: -10 }}
                     className="absolute z-[100] w-full bg-white border border-gray-200 rounded-lg mt-1 max-h-64 overflow-y-auto shadow-xl divide-y divide-gray-100"
                   >
-                    {vaults.map((vault) => (
+                    {vaults?.map((vault) => (
                       <li
                         key={vault.id}
-                        onClick={() => handleVaultSelect(vault.id)}
+                        onClick={() => handleVaultSelect(vault.vault_id)}
                         className="px-4 py-2.5 text-gray-500 gap-2 hover:bg-cyan-50 cursor-pointer transition-colors flex items-center"
                       >
-                        <span>{vault.name}</span>
-                        <span className="text-cyan-500 text-sm">({vault.vault_code})</span>
+                        <span>{vault?.vault?.name}</span>
+                        {/* <span className="text-cyan-500 text-sm">({vault.vault?.vault_code})</span> */}
                       </li>
                     ))}
                   </motion.ul>

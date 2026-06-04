@@ -2,135 +2,15 @@ import { useEffect, useState } from "react";
 import DataTable from "../../components/global/dataTable/DataTable";
 import { CreateVault, DeleteVault, GetVault, GetVaults, UpdateVault } from "../../services/Vault";
 import dayjs from "dayjs";
-import CustomModal from "../../components/global/modal/CustomModal";
-import { AiOutlinePlus } from "react-icons/ai";
 import { AnimatePresence, motion } from "framer-motion";
 import { useForm } from "react-hook-form";
-import { ChevronRight, X, AlertTriangle, Plus, Loader2 } from "lucide-react";
+import { ChevronRight, Plus, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
-import { GoDatabase } from "react-icons/go";
-import { FiBox } from "react-icons/fi";
 import { useToast } from "../../hooks/useToast";
 import { useSearchParams } from "react-router-dom";
 import VaultBagDetailsDrawer from "../../components/vaults/VaultBagDetailsDrawer";
+import CreateUpdateVault from "../../components/vaults/CreateUpdateVault";
 
-// ─── Bag History Drawer ───────────────────────────────────────────────────────
-// const BagHistoryDrawer = ({ bag, onClose }) => {
-//   const [history, setHistory] = useState([]);
-//   const [loading, setLoading] = useState(true);
-
-//   useEffect(() => {
-//     if (!bag) return;
-//     setLoading(true);
-//     axiosConfig
-//       .get(`/activity-logs/bag/${bag.id}`)
-//       .then((res) => setHistory(res.data?.history || []))
-//       .catch(() => setHistory(bag.history || []))
-//       .finally(() => setLoading(false));
-//   }, [bag]);
-
-//   const eventMeta = {
-//     created: { color: "text-emerald-600 bg-emerald-50 border-emerald-200", icon: <Plus className="w-3 h-3" /> },
-//     updated: { color: "text-blue-600 bg-blue-50 border-blue-200", icon: <Edit3 className="w-3 h-3" /> },
-//     deleted: { color: "text-red-600 bg-red-50 border-red-200", icon: <Trash2 className="w-3 h-3" /> },
-//     cash_in: { color: "text-green-600 bg-green-50 border-green-200", icon: <ArrowDownCircle className="w-3 h-3" /> },
-//     cash_out: { color: "text-orange-600 bg-orange-50 border-orange-200", icon: <ArrowUpCircle className="w-3 h-3" /> },
-//     rack_changed: { color: "text-purple-600 bg-purple-50 border-purple-200", icon: <Edit3 className="w-3 h-3" /> },
-//   };
-
-//   const getMeta = (event) => eventMeta[event] || { color: "text-gray-600 bg-gray-50 border-gray-200", icon: <Clock className="w-3 h-3" /> };
-
-//   return (
-//     <motion.div
-//       initial={{ x: "100%" }}
-//       animate={{ x: 0 }}
-//       exit={{ x: "100%" }}
-//       transition={{ type: "spring", damping: 30, stiffness: 300 }}
-//       className="fixed right-0 top-0 h-full w-full max-w-xl bg-white shadow-2xl z-[60] flex flex-col"
-//     >
-//       <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-5 flex items-center justify-between">
-//         <div className="flex items-center gap-3">
-//           <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg">
-//             <History className="w-5 h-5 text-white" />
-//           </div>
-//           <div>
-//             <p className="font-bold text-gray-900">{bag?.barcode} — History</p>
-//             <p className="text-xs text-gray-400">{bag?.bag_identifier_barcode}</p>
-//           </div>
-//         </div>
-//         <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition">
-//           <X className="w-4 h-4 text-gray-600" />
-//         </button>
-//       </div>
-
-//       <div className="flex-1 overflow-y-auto px-6 py-4">
-//         {loading ? (
-//           <div className="flex justify-center py-20">
-//             <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-cyan-500" />
-//           </div>
-//         ) : history.length === 0 ? (
-//           <div className="text-center py-20 text-gray-400">
-//             <History className="w-12 h-12 mx-auto mb-3 opacity-30" />
-//             <p>No history recorded yet.</p>
-//           </div>
-//         ) : (
-//           <div className="relative">
-//             {/* Timeline line */}
-//             <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-100" />
-
-//             <div className="space-y-4 pl-10">
-//               {history.map((entry, i) => {
-//                 const meta = getMeta(entry.event);
-//                 const changes = entry.data?.changes || null;
-
-//                 return (
-//                   <motion.div key={i} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }} className="relative">
-//                     {/* Dot */}
-//                     <div className={`absolute -left-7 top-1 w-5 h-5 rounded-full border flex items-center justify-center ${meta.color}`}>{meta.icon}</div>
-
-//                     <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition">
-//                       <div className="flex items-start justify-between gap-2 mb-1">
-//                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${meta.color}`}>
-//                           {entry.event?.replace("_", " ").toUpperCase()}
-//                         </span>
-//                         <span className="text-xs text-gray-400 whitespace-nowrap">{dayjs(entry.timestamp).format("DD MMM YYYY, h:mm A")}</span>
-//                       </div>
-
-//                       <p className="text-sm text-gray-700 mt-1">{entry.description}</p>
-
-//                       {changes && Object.keys(changes).length > 0 && (
-//                         <div className="mt-2 space-y-1">
-//                           {Object.entries(changes).map(([field, { from, to }]) => (
-//                             <div key={field} className="text-xs flex items-center gap-1 text-gray-500">
-//                               <span className="font-medium text-gray-600">{field}:</span>
-//                               <span className="line-through text-red-400">{String(from)}</span>
-//                               <span>→</span>
-//                               <span className="text-green-600">{String(to)}</span>
-//                             </div>
-//                           ))}
-//                         </div>
-//                       )}
-
-//                       {(entry.data?.amount || entry.data?.cash_in_amount || entry.data?.cash_out_amount) && (
-//                         <div className="mt-2 text-sm font-bold text-green-600">
-//                           ৳{(entry.data?.amount || entry.data?.cash_in_amount || entry.data?.cash_out_amount).toLocaleString()}
-//                         </div>
-//                       )}
-
-//                       {entry.user_name && <p className="text-xs text-gray-400 mt-2">by {entry.user_name}</p>}
-//                     </div>
-//                   </motion.div>
-//                 );
-//               })}
-//             </div>
-//           </div>
-//         )}
-//       </div>
-//     </motion.div>
-//   );
-// };
-
-// ─── Main Vault Component ─────────────────────────────────────────────────────
 const Vault = () => {
   const [vaults, setVaults] = useState([]);
   const [isOpenModal, setIsOpenModal] = useState(false);
@@ -296,21 +176,6 @@ const Vault = () => {
     }
   }, [vaults, searchParams, setSearchParams]); //
 
-  // const updateRack = (id, value) => {
-  //   const cleaned = value.replace(/[^0-9]/g, "");
-  //   const num = cleaned ? parseInt(cleaned, 10) : 0;
-  //   setBags((prev) => prev.map((b) => (b.id === id ? { ...b, rack_number: cleaned } : b)));
-  //   if (totalRacks && num > parseInt(totalRacks)) {
-  //     setRackErrors((prev) => ({ ...prev, [id]: `Rack cannot exceed ${totalRacks}` }));
-  //   } else {
-  //     setRackErrors((prev) => {
-  //       const u = { ...prev };
-  //       delete u[id];
-  //       return u;
-  //     });
-  //   }
-  // };
-
   // ── Data fetching ─────────────────────────────────────────────────────────────
   const fetchVaultData = async () => {
     const res = await GetVaults({ page: currentPage });
@@ -412,6 +277,25 @@ const Vault = () => {
         return;
       }
     }
+    // ── Rack number validation ──────────────────────────────────────
+    const maxRacks = data.total_racks ? parseInt(data.total_racks, 10) : null;
+    const newRackErrors = {};
+
+    bags.forEach((bag) => {
+      if (!bag.rack_number || bag.rack_number.trim() === "") {
+        newRackErrors[bag.id] = "Rack number is required";
+      } else if (maxRacks !== null && parseInt(bag.rack_number, 10) > maxRacks) {
+        newRackErrors[bag.id] = `Cannot exceed ${maxRacks}`;
+      }
+    });
+
+    if (Object.keys(newRackErrors).length > 0) {
+      setRackErrors(newRackErrors);
+      addToast({ type: "error", message: "Please fix rack number errors before submitting." });
+      return;
+    }
+    // ───────────────────────────────────────────────────────────────
+
     if (Object.keys(rackErrors).length > 0) {
       addToast({ type: "error", message: "Please fix rack number errors before submitting." });
       return;
@@ -423,7 +307,7 @@ const Vault = () => {
       ...(b.originalId ? { id: b.originalId } : {}),
       barcode: b.barcode,
       bag_identifier_barcode: b.bag_identifier_barcode,
-      rack_number: null, // Or a default value since you aren't inputting it
+      rack_number: b.rack_number ? parseInt(b.rack_number, 10) : null,
       current_amount: parseFloat(b.current_amount || 0).toFixed(2),
     }));
 
@@ -772,7 +656,6 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
             setRackErrors([]); // Clear rack errors
             setDeleteErrors([]); // Clear delete errors
             reset({
-              // Reset react-hook-form fields to blank
               name: "",
               vault_code: "",
               bag_limit: "",
@@ -790,220 +673,25 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
 
       {/* ── Create / Edit Modal ── */}
       {isOpenModal && (
-        <CustomModal
-          title={
-            <div className="flex items-center gap-2">
-              <GoDatabase className="text-blue-700" /> {isEditMode ? "Edit Vault Configuration" : "New Vault Configuration"}
-            </div>
-          }
+        <CreateUpdateVault
+          isEditMode={isEditMode}
+          handleSubmit={handleSubmit}
+          register={register}
+          errors={errors}
+          onSubmit={onSubmit}
+          deleteErrors={deleteErrors}
           isCloseModal={handleCloseModal}
-          className="max-w-3xl"
-        >
-          <form className="space-y-6 mt-6" onSubmit={handleSubmit(onSubmit)}>
-            {/* Delete errors banner */}
-            {deleteErrors.length > 0 && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  <p className="text-sm font-semibold text-amber-700">Some bags could not be deleted</p>
-                </div>
-                <ul className="space-y-1">
-                  {deleteErrors.map((err, i) => (
-                    <li key={i} className="text-xs text-amber-600">
-                      • {err.message}
-                    </li>
-                  ))}
-                </ul>
-                <p className="text-xs text-amber-500 mt-2">Zero the bag amount first, then save again.</p>
-              </div>
-            )}
-
-            <div className="space-y-5">
-              <div className="">
-                <div>
-                  <label className="block  uppercase tracking-wider font-semibold text-xs text-gray-400 mb-2">Vault Name *</label>
-                  <input
-                    {...register("name", { required: "Vault name is required" })}
-                    className={`w-full px-4 py-2 bg-[#F8FAFC] border ${errors.name ? "border-red-500" : "border-gray-100"} rounded-lg placeholder:text-xs focus:border-blue-300 focus:outline-none transition`}
-                    placeholder="e.g. SM Office"
-                  />
-                  {errors.name && <span className="text-[10px] text-red-500 mt-1">{errors.name.message}</span>}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block  uppercase tracking-wider font-semibold text-xs text-gray-400 mb-2">Total Racks (optional)</label>
-                  <input
-                    type="number"
-                    {...register("total_racks")}
-                    className="w-full px-4 py-2 bg-[#F8FAFC] border border-gray-100 placeholder:text-xs rounded-lg focus:outline-none focus:border-blue-300"
-                    placeholder="e.g. 10"
-                  />
-                </div>
-                <div>
-                  <label className="block  uppercase tracking-wider font-semibold text-xs text-gray-400 mb-2">Vault Code (AUTO)</label>
-                  <input
-                    value={generatedVaultCode}
-                    // type="number"
-                    {...register("vault_code")}
-                    className="w-full px-4 py-2 font-semibold read-only bg-[#F8FAFC] border border-gray-100 placeholder:text-xs rounded-lg focus:outline-none focus:border-blue-300"
-                    placeholder="e.g. 10"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block  uppercase tracking-wider font-semibold text-xs text-gray-400 mb-2">Address *</label>
-                <textarea
-                  {...register("address", { required: "Address is required" })}
-                  className={`w-full px-4 py-2 bg-[#F8FAFC] border ${errors.address ? "border-red-500" : "border-gray-100"} rounded-lg placeholder:text-xs focus:outline-none focus:border-blue-300`}
-                  placeholder="123 Bank Street..."
-                />
-                {errors.address && <span className="text-[10px] text-red-500 mt-1">{errors.address.message}</span>}
-              </div>
-
-              {/* Bags */}
-              <div className="bg-[#F7FBFF] p-4 rounded-2xl border border-gray-100">
-                <div className="flex justify-between items-center mb-4">
-                  <div className="flex items-center gap-2">
-                    <FiBox className="w-6 h-6 text-blue-600" />
-                    <label className="text-sm font-semibold text-gray-600">Bags Association</label>
-                  </div>
-                  <div className="flex uppercase font-semibold items-center gap-2 cursor-pointer px-4 py-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg text-xs text-blue-400 ">
-                    Limit
-                    <input
-                      type="text"
-                      {...register("bag_limit")}
-                      placeholder="∞"
-                      className="p-2 px-4 w-24 text-center bg-white border border-slate-200 rounded-lg"
-                    />
-                  </div>
-                </div>
-
-                {/* Grid Container */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <AnimatePresence mode="popLayout">
-                    {bags.map((bag) => {
-                      const amount = parseFloat(bag.current_amount || 0);
-                      const hasAmt = amount > 0;
-                      const isError = deleteErrors.some((e) => e.barcode === bag.barcode);
-
-                      return (
-                        <motion.div
-                          key={bag.id}
-                          layout
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.9 }}
-                          className={`relative group flex items-center justify-between p-5 bg-white rounded-2xl border transition-all ${
-                            isError ? "border-red-300 bg-red-50" : "border-gray-200 hover:border-blue-200"
-                          }`}
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="bg-blue-50 w-10 h-10 flex justify-center items-center rounded-xl">
-                              <FiBox className="w-5 h-5 text-blue-500" />
-                            </div>
-                            <div>
-                              <p className="uppercase text-[10px] font-bold text-gray-400 tracking-wider">Bag ID</p>
-                              <p className="text-[#1A335E] text-sm font-bold">{bag.barcode || "707_000"}</p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-6">
-                            <div className="text-right">
-                              <p className="uppercase text-[10px] font-bold text-blue-400 tracking-wider">Initial Amount</p>
-                              <p className="text-[#1A335E] text-sm font-bold">৳ {amount.toFixed(2)}</p>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => removeBag(bag.id)}
-                              className={`transition-colors ${hasAmt ? "text-gray-200 cursor-not-allowed" : "text-gray-300 hover:text-red-500"}`}
-                            >
-                              <X className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-
-                    {/* Add Bag Button Styled as a Card */}
-                    <motion.button
-                      layout
-                      onClick={addBag}
-                      type="button"
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.98 }}
-                      className={`flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 rounded-2xl bg-blue-50/30 hover:bg-blue-50 transition-colors min-h-[92px] ${watchedBagLimit > 0 && bags?.length >= watchedBagLimit ? "cursor-not-allowed border-gray-300 bg-gray-100 hover:bg-gray-100" : "cursor-pointer"}`}
-                    >
-                      <div className="flex  items-center gap-2 text-blue-400 font-semibold">
-                        <AiOutlinePlus className="w-5 h-5" />
-                        <span className=" text-sm font-bold text-blue-600">
-                          {watchedBagLimit > 0 && bags.length >= watchedBagLimit ? <span className="text-red-400">Limit Reached</span> : "Add New Bag"}
-                        </span>
-                        {watchedBagLimit > 0 && (
-                          <span className="text-[10px] text-gray-400 uppercase mt-1">
-                            {bags.length} / {watchedBagLimit} Used
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-blue-300 mt-1 font-medium">Auto-generated ID with ৳ 0.00 base</p>
-                    </motion.button>
-                  </AnimatePresence>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-4 mt-10 pt-6 border-t border-gray-100">
-              <button
-                type="button"
-                onClick={handleCloseModal}
-                className="flex-1 text-black py-3 border border-gray-200 rounded-xl  hover:text-red-400 hover:bg-gray-50 transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className={`flex-1 py-3 flex justify-center items-center  text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition ${isLoading ? "cursor-not-allowed bg-[#f7fbff] border border-blue-100" : " bg-gradient-to-r from-blue-600 to-purple-600"}`}
-              >
-                {isLoading ? <Loader2 size={18} className="animate-spin text-blue-400" /> : isEditMode ? "Save Changes" : "Create Vault"}
-              </button>
-            </div>
-          </form>
-        </CustomModal>
+          generatedVaultCode={generatedVaultCode}
+          bags={bags}
+          setBags={setBags}
+          addBag={addBag}
+          setRackErrors={setRackErrors}
+          rackErrors={rackErrors}
+          removeBag={removeBag}
+          watchedBagLimit={watchedBagLimit}
+          isLoading={isLoading}
+        />
       )}
-
-      {/* ── Vault Bags Drawer ── */}
-      {/* <AnimatePresence>
-        {drawerOpen && selectedVault && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => {
-                setDrawerOpen(false);
-                setHistoryBag(null);
-              }}
-              className="fixed inset-0 bg-black/60 z-50"
-            />
-
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed right-0 top-0 h-full w-full max-w-6xl bg-white shadow-2xl z-50 overflow-y-auto"
-            >
-             
-            </motion.div>
-
-           
-            <AnimatePresence>{historyBag && <BagHistoryDrawer bag={historyBag} onClose={() => setHistoryBag(null)} />}</AnimatePresence>
-          </>
-        )}
-      </AnimatePresence> */}
 
       <VaultBagDetailsDrawer
         drawerOpen={drawerOpen}
@@ -1015,207 +703,6 @@ setTimeout(()=>window.print(),2000);});</script></body></html>`;
         expandedBag={expandedBag}
         setHistoryBag={setHistoryBag}
       />
-
-      {/* <Drawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}>
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-8 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <div className="p-2 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl">
-              <Package className="w-8 h-8 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">{selectedVault?.name}</h2>
-              <p className="text-2xl text-cyan-600 font-mono mt-2">{selectedVault?.vault_id}</p>
-            </div>
-          </div>
-          <button onClick={() => setDrawerOpen(false)} className="p-4 hover:bg-gray-100 rounded-full transition">
-            <X className="w-4 h-4 text-gray-600" />
-          </button>
-        </div>
-
-        <div className="p-8 pt-0">
-          <div className="mb-8 mt-6 flex items-center justify-between">
-            <div>
-              <h3 className="text-xl font-bold text-gray-800">Cash Bags</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                {vaultBagsDetails.length} bag{vaultBagsDetails.length !== 1 ? "s" : ""}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-500">Total Balance</p>
-              <p className="text-xl font-bold text-green-600">
-                ৳{vaultBagsDetails.reduce((s, b) => s + parseFloat(b.current_amount || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-              </p>
-            </div>
-          </div>
-
-          {loadingBags ? (
-            <div className="flex items-center justify-center py-32">
-              <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-cyan-500" />
-            </div>
-          ) : vaultBagsDetails.length === 0 ? (
-            <div className="text-center py-32">
-              <Package className="w-24 h-24 mx-auto mb-6 text-gray-300" />
-              <p className="text-xl text-gray-500">No bags found in this vault.</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {vaultBagsDetails.map((bag) => {
-                const denominations = bag.denominations ? JSON.parse(bag.denominations) : null;
-                const totalNotes = denominations ? Object.values(denominations).reduce((a, b) => a + b, 0) : 0;
-
-                return (
-                  <motion.div
-                    key={bag.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white border border-gray-200 rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300"
-                  >
-                    <button
-                      onClick={() => toggleBagExpand(bag.barcode)}
-                      className="w-full px-8 py-7 flex items-center justify-between hover:bg-gray-50 transition"
-                    >
-                      <div className="flex items-center gap-6">
-                        <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl">
-                          <Package className="w-6 h-6 text-white" />
-                        </div>
-                        <div className="text-left">
-                          <div className="flex items-center gap-4">
-                            <h4 className="text-lg font-bold text-gray-800">{bag.barcode}</h4>
-                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-cyan-100 text-cyan-700">Rack #{bag.rack_number}</span>
-                          </div>
-                          <div className="flex items-center gap-8 mt-4">
-                            <span className="text-xl font-bold text-green-600">
-                              ৳{parseFloat(bag.current_amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                            </span>
-                            <div className="flex items-center gap-4">
-                              {bag.is_sealed && <span className="px-4 py-1.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">Sealed</span>}
-                              {!bag.is_active && <span className="px-4 py-1.5 text-xs font-medium bg-red-100 text-red-700 rounded-full">Inactive</span>}
-                              {bag.last_cash_in_at && (
-                                <span className="text-sm text-gray-600 flex items-center gap-2">
-                                  <ArrowDownCircle className="w-5 h-5 text-green-600" />
-                                  {dayjs(bag.last_cash_in_at).format("DD MMM, YYYY")}
-                                </span>
-                              )}
-                              {bag.last_cash_out_at && (
-                                <span className="text-sm text-gray-600 flex items-center gap-2">
-                                  <ArrowUpCircle className="w-5 h-5 text-red-600" />
-                                  {dayjs(bag.last_cash_out_at).format("DD MMM, YYYY")}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                       
-                        {bag.bag_identifier_barcode && (
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              downloadBagBarcode(bag);
-                            }}
-                            title="Download barcode as PNG"
-                            className="flex items-center gap-1 px-3 py-1.5 text-xs bg-cyan-50 hover:bg-cyan-100 text-cyan-600 border border-cyan-200 rounded-full transition"
-                          >
-                            <Download className="w-3.5 h-3.5" /> Barcode
-                          </motion.button>
-                        )}
-
-                  
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setHistoryBag(bag);
-                          }}
-                          className="flex items-center gap-1 px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition"
-                        >
-                          <History className="w-3.5 h-3.5" /> History
-                        </motion.button>
-
-                        <motion.div animate={{ rotate: expandedBag === bag.barcode ? 180 : 0 }} transition={{ duration: 0.3 }}>
-                          <ChevronDown className="w-7 h-7 text-gray-500" />
-                        </motion.div>
-                      </div>
-                    </button>
-
-                    <AnimatePresence>
-                      {expandedBag === bag.barcode && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.4, ease: "easeInOut" }}
-                          className="border-t border-gray-200 bg-gray-50/70"
-                        >
-                          <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            <div className="lg:col-span-2">
-                              <h5 className="text-sm text-gray-600 mb-5">Denomination Breakdown</h5>
-                              {denominations ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-                                  {Object.entries(denominations)
-                                    .filter(([_, c]) => c > 0)
-                                    .map(([note, count]) => (
-                                      <div key={note} className="bg-white p-6 rounded-xl border border-gray-200 text-center shadow-md">
-                                        <p className="text-xl font-bold text-gray-800">৳{note}</p>
-                                        <p className="text-sm text-gray-600 mt-2">
-                                          {count} note{count !== 1 ? "s" : ""}
-                                        </p>
-                                        <p className="text-xl font-bold text-green-600 mt-3">৳{(parseInt(note) * count).toLocaleString()}</p>
-                                      </div>
-                                    ))}
-                                  {totalNotes === 0 && <p className="col-span-full text-center text-gray-500 py-10">No notes recorded yet.</p>}
-                                </div>
-                              ) : (
-                                <p className="text-gray-400 text-xs">No denomination data available.</p>
-                              )}
-                            </div>
-
-                            <div>
-                              <h5 className="text-sm text-gray-600 mb-5 flex items-center gap-3">
-                                <History className="w-4 h-4 text-gray-600" /> Activity Summary
-                              </h5>
-                              <div className="bg-white p-7 rounded-xl border border-gray-200 shadow-md space-y-6">
-                                <div className="flex justify-between">
-                                  <div>
-                                    <p className="text-xs text-gray-600">Successful Deposits</p>
-                                    <p className="text-lg font-bold text-green-600">{bag.total_successful_deposits}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-gray-600">Total Attempts</p>
-                                    <p className="text-lg font-semibold text-gray-800">{bag.total_cash_in_attempts}</p>
-                                  </div>
-                                </div>
-                                {bag.last_cash_in_amount && (
-                                  <div className="pt-5 border-t border-gray-200">
-                                    <p className="text-sm text-gray-600">Last Cash In (৳)</p>
-                                    <p className="text-2xl font-bold text-green-600">+ {parseFloat(bag.last_cash_in_amount).toLocaleString()}</p>
-                                    <p className="text-sm text-gray-500 mt-1">{dayjs(bag.last_cash_in_at).format("DD MMM YYYY, h:mm A")}</p>
-                                  </div>
-                                )}
-                                {bag.notes && (
-                                  <div className="pt-5 border-t border-gray-200">
-                                    <p className="text-sm text-gray-600">Notes</p>
-                                    <p className="text-gray-700 mt-2">{bag.notes}</p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </Drawer> */}
     </div>
   );
 };
