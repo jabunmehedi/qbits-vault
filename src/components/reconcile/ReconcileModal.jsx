@@ -20,7 +20,6 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
 
   const user = useSelector(selectAuthUser);
 
-  console.log({ user });
 
   const getCurrentTime = () => {
     const now = new Date();
@@ -38,7 +37,6 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
     if (user?.vault_assignments?.length === 0) return;
 
     const assignVaults = user?.vault_assignments?.filter((assign) => assign.status === "active");
-    console.log({ assignVaults });
     setVaults(assignVaults);
     GetLatestReconcile().then((res) => setLatestReconcileData(res?.data || []));
   }, []);

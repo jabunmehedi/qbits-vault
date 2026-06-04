@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Download, Loader2, MapPin, Shield, X, FileText, CheckCircle2, User, KeyRound, Eye, EyeOff } from "lucide-react";
+import { Download, Loader2, MapPin, Shield, X, FileText, CheckCircle2, User, KeyRound, Eye, EyeOff, AlertTriangle, ArrowRight, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
-import { ArchiveUser, DisableUser, GetRoles, GetUser, UserNewPassword } from "../../services/User";
+import { ArchiveUser, DisableUser, GetRoles, GetUser, UserArchiveCheck, UserNewPassword } from "../../services/User";
 import Avatar from "../helpers/Avatar";
 import { RiVerifiedBadgeFill } from "react-icons/ri";
 import { GetVaults, ToggleVaultAccess, UpdateVaultRoles } from "../../services/Vault";
@@ -24,6 +24,14 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
   const [rolesList, setRolesList] = useState([]);
   const [actionLoading, setActionLoading] = useState(null);
   const [isDownloading, setIsDownloading] = useState(false);
+
+  // Migration Panel Workflow States
+  const [showMigrationPanel, setShowMigrationPanel] = useState(false);
+  const [pendingResponsibilities, setPendingResponsibilities] = useState([]);
+  const [availableUsers, setAvailableUsers] = useState([]);
+  const [selectedTargetUser, setSelectedTargetUser] = useState("");
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [checkingMigration, setCheckingMigration] = useState(false);
 
   // Identity document preview modal state
   const [showPreview, setShowPreview] = useState(false);
@@ -65,14 +73,18 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
     mutationFn: async (password) => {
       return await UserNewPassword(userId, { newPassword: password });
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
+      if (res?.success === false) {
+        const validationError = res?.errors?.newPassword?.[0] || res?.message || "Validation error.";
+        addToast({ type: "error", message: validationError });
+        return;
+      }
       setNewPassword("");
       setShowPasswordModal(false);
       addToast({ type: "success", message: "Password updated successfully." });
     },
-    onError: (error) => {
-      console.error("Password update error:", error);
-      addToast({ type: "error", message: "Failed to update password." });
+    onError: () => {
+      addToast({ type: "error", message: "Network communication failed." });
     },
   });
 
@@ -106,22 +118,25 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
         if (!oldUsers) return [];
         return oldUsers.filter((u) => u.id !== userId);
       });
+      addToast({ type: "success", message: "User archived successfully." });
       onClose();
     },
+    onError: (err) => {
+      addToast({
+        type: "error",
+        message: err?.response?.data?.message || "Cannot archive. User has active workflow assignments.",
+      });
+    },
   });
-
-  useEffect(() => {
-    GetRoles().then((res) => {
-      const roles = res?.data || [];
-      setRolesList(roles);
-    });
-  }, [userId]);
 
   useEffect(() => {
     if (!isOpen || !userId) return;
 
     const initData = async () => {
       setLoading(true);
+      setShowMigrationPanel(false);
+      setPendingResponsibilities([]);
+      setSelectedTargetUser("");
       try {
         const [vRes, rRes, uRes] = await Promise.all([GetVaults(), GetRoles(), GetUser(userId)]);
         setVaultList(vRes?.data?.data || []);
@@ -146,6 +161,50 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
     };
     initData();
   }, [isOpen, userId]);
+
+  // Explicitly trigger accountability check data panel via the manual Migrate Button
+  const handleFetchMigrationDetails = async () => {
+    setCheckingMigration(true);
+    try {
+      const response = await UserArchiveCheck(userId);
+      setPendingResponsibilities(response.data.pending_tasks);
+      setAvailableUsers(response.data.fallback_users || []);
+      setShowMigrationPanel((prev) => !prev);
+
+      if (response.data.pending_tasks.length === 0) {
+        addToast({ type: "info", message: "This user has no pending workflow locks." });
+      }
+    } catch (err) {
+      console.error("Fetch requirements error:", err);
+      addToast({ type: "error", message: "Failed to gather task parameters." });
+    } finally {
+      setCheckingMigration(false);
+    }
+  };
+
+  const handleExecuteMigration = async () => {
+    if (!selectedTargetUser) {
+      addToast({ type: "error", message: "Please choose a user to receive assignments." });
+      return;
+    }
+    setIsMigrating(true);
+    try {
+      await axiosConfig.post(`/users/${userId}/migrate-and-archive`, {
+        target_user_id: selectedTargetUser,
+      });
+      queryClient.setQueryData(["users"], (oldUsers) => {
+        if (!oldUsers) return [];
+        return oldUsers.filter((u) => u.id !== userId);
+      });
+      addToast({ type: "success", message: "Workflow parameters shifted; user archived cleanly." });
+      onClose();
+    } catch (err) {
+      console.error("Migration error:", err);
+      addToast({ type: "error", message: err?.response?.data?.message || "Migration process failed." });
+    } finally {
+      setIsMigrating(false);
+    }
+  };
 
   const toggleVaultSetAccess = async (vaultId) => {
     if (!isSuperAdmin && !isAdmin) return;
@@ -202,7 +261,6 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
             onClick={onClose}
             className="fixed inset-0 bg-black/40 backdrop-blur-xs z-[60]"
           />
@@ -239,7 +297,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
 
             {!loading && user && (
               <div className="flex-1 overflow-y-auto space-y-8">
-                <div className="flex items-center p-6 justify-between">
+                <div className="flex items-center p-6 justify-between border-b border-gray-50 pb-6">
                   <div className="flex items-center gap-4">
                     <Avatar src={user?.img} name={user?.name} size="xl" />
                     <div className="flex-1">
@@ -252,7 +310,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-3 items-end">
                     <div className="flex justify-end items-center gap-2">
                       <button
                         onClick={() => setShowPreview(true)}
@@ -293,28 +351,126 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                       </div>
                     </div>
 
-                    <div className="flex items-center w-full text-xs gap-3">
+                    {/* Operational Actions Panel with Side-by-Side Migrate and Archive Option Row */}
+                    <div className="flex items-center gap-2 w-full justify-end">
                       <button
                         onClick={handleDisableUser}
                         disabled={actionLoading === "disable" || (!isSuperAdmin && !isAdmin)}
-                        className={`text-white px-3 py-2 rounded-lg font-bold transition disabled:opacity-20 disabled:bg-gray-500 ${
+                        className={`text-white px-3 py-2 rounded-lg text-xs font-bold transition disabled:opacity-20 ${
                           user?.status === "inactive" ? "bg-green-600 hover:bg-green-700" : "bg-[#AE2448] hover:bg-red-800"
                         }`}
                       >
                         {actionLoading === "disable" ? "..." : user?.status === "inactive" ? "ENABLE USER" : "DISABLE USER"}
                       </button>
+
+                      {/* Explicit Migrate Trigger Button next to Archive */}
+                      <button
+                        onClick={handleFetchMigrationDetails}
+                        disabled={checkingMigration || user?.status === "archived" || (!isSuperAdmin && !isAdmin)}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition text-gray-700 bg-gray-100 border border-gray-200 hover:bg-gray-200 disabled:opacity-40`}
+                      >
+                        {checkingMigration ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <>
+                            <RefreshCw size={12} className={showMigrationPanel ? "rotate-45 transition-transform" : ""} />
+                            MIGRATE
+                          </>
+                        )}
+                      </button>
+
                       <button
                         onClick={handleArchiveUser}
-                        disabled={actionLoading === "archive" || user?.status === "archived" || (!isSuperAdmin && !isAdmin)}
-                        className={`text-white px-3 py-2 rounded-lg font-bold transition disabled:opacity-20 disabled:bg-gray-500 ${
-                          user?.status === "archived" ? "bg-gray-400" : "bg-[#AE2448] hover:bg-red-800"
+                        disabled={archiveMutation.isPending || user?.status === "archived" || (!isSuperAdmin && !isAdmin)}
+                        className={`text-white px-3 py-2 rounded-lg text-xs font-bold transition disabled:opacity-40 ${
+                          user?.status === "archived" ? "bg-gray-400" : "bg-zinc-800 hover:bg-zinc-900"
                         }`}
                       >
-                        {actionLoading === "archive" ? "..." : user?.status === "archived" ? "ARCHIVED" : "ARCHIVE USER"}
+                        {archiveMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : user?.status === "archived" ? "ARCHIVED" : "ARCHIVE USER"}
                       </button>
                     </div>
                   </div>
                 </div>
+
+                {/* Animated Dedicated Data Responsibility Relocation Context Window */}
+                <AnimatePresence>
+                  {showMigrationPanel && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mx-6 p-5 bg-indigo-50/60 border border-indigo-100 rounded-2xl space-y-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+                        <div>
+                          <h4 className="text-xs font-black text-indigo-950 uppercase tracking-wide">Proactive Workflow Migration</h4>
+                          <p className="text-[11px] text-indigo-800 leading-relaxed">
+                            Check operational dependencies or transfer pending verifications/approvals assigned to <strong>{user?.name}</strong> across all
+                            vault subsystems:
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Dynamic Task Summary Display Area */}
+                      {pendingResponsibilities.length > 0 ? (
+                        <div className="bg-white border border-indigo-100/80 rounded-xl p-3 max-h-36 overflow-y-auto space-y-1.5">
+                          {pendingResponsibilities.map((task, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between text-[11px] font-mono text-gray-600 bg-gray-50 px-2.5 py-1.5 rounded-md"
+                            >
+                              <span className="font-bold text-gray-700">{task.type}</span>
+                              <span className="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-sans font-bold">
+                                ID: #{task.id} Open
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center p-3 text-xs bg-white text-emerald-600 border border-emerald-100 rounded-xl font-medium">
+                          ✓ This profile has no pending verifier or approver blocking records.
+                        </div>
+                      )}
+
+                      {/* Select Target Replacement Option Block */}
+                      {pendingResponsibilities.length > 0 && (
+                        <div className="space-y-1.5 pt-1">
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Migrate Outstanding Responsibilities To:</label>
+                          <div className="flex gap-2">
+                            <select
+                              value={selectedTargetUser}
+                              onChange={(e) => setSelectedTargetUser(e.target.value)}
+                              className="flex-1 bg-white border border-gray-200 text-xs rounded-xl px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition"
+                            >
+                              <option value="">-- Choose Target Staff Member --</option>
+                              {availableUsers.map((u) => (
+                                <option key={u.id} value={u.id}>
+                                  {u.name} ({u.email})
+                                </option>
+                              ))}
+                            </select>
+
+                            <button
+                              onClick={handleExecuteMigration}
+                              disabled={isMigrating || !selectedTargetUser}
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 text-white rounded-xl text-xs font-bold tracking-wide transition shadow-xs"
+                            >
+                              {isMigrating ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <>
+                                  Transfer Tasks
+                                  <ArrowRight size={12} />
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Vault Controls Mapping Group */}
                 <div className="grid grid-cols-3 p-6 bg-[#F6F7F9] rounded-lg gap-6">
@@ -425,7 +581,6 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                   onClick={(e) => e.stopPropagation()}
                   className="bg-zinc-800 w-full max-w-xl h-full rounded-2xl shadow-2xl overflow-hidden flex flex-col my-4"
                 >
-                  {/* Modal Header */}
                   <div className="bg-zinc-900 border-b border-zinc-700 px-5 py-3 flex items-center justify-between text-white">
                     <div className="flex items-center gap-2">
                       <FileText className="w-4 h-4 text-blue-400" />
@@ -436,11 +591,9 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                     </button>
                   </div>
 
-                  {/* Document View Area Canvas */}
                   <div className="p-6 bg-zinc-700 flex justify-center overflow-y-auto h-full">
                     <div className="w-full bg-white rounded-md p-6 flex flex-col justify-between relative text-black font-sans border border-zinc-200 shadow-xl max-w-lg">
                       <div>
-                        {/* Upper Header Row */}
                         <div className="flex justify-between items-center border-b-[3px] border-[#1a2b4b] pb-2 mb-4">
                           <div>
                             <h1 className="text-lg font-black tracking-tight text-[#1a2b4b] uppercase">Verified Personnel Profile</h1>
@@ -452,9 +605,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                           </div>
                         </div>
 
-                        {/* Content Split Column Grid */}
                         <div className="flex gap-5 mb-4">
-                          {/* Left Profile Section */}
                           <div className="w-[28%] flex-shrink-0">
                             {user?.img ? (
                               <img src={user.img} alt={user.name} className="w-full aspect-square object-cover rounded-lg border border-gray-200" />
@@ -466,7 +617,6 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                             )}
                           </div>
 
-                          {/* Right Information Section */}
                           <div className="flex-1">
                             <h2 className="text-xl font-black text-[#1a2b4b] tracking-tight leading-tight">{user?.name}</h2>
                             <p className="text-xs italic text-gray-500 mb-3">{user?.email}</p>
@@ -492,15 +642,12 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                           </div>
                         </div>
 
-                        {/* NID Documents Row Section */}
                         <div className="mt-2">
                           <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest block mb-1.5 border-b border-gray-200 pb-0.5">
                             National Identity Card (NID)
                           </span>
 
-                          {/* Side-by-Side View Block Wrapper */}
                           <div className="grid grid-cols-2 gap-4">
-                            {/* Front View Card */}
                             <div>
                               <div className="w-full h-28 aspect-[3/2] bg-[#f8fafc] border border-gray-300 rounded-lg overflow-hidden flex items-center justify-center p-1">
                                 {user?.nid_front ? (
@@ -512,7 +659,6 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                               <p className="text-[9px] font-bold text-gray-500 text-center mt-1 uppercase tracking-wide">NID: Front View</p>
                             </div>
 
-                            {/* Back View Card */}
                             <div>
                               <div className="w-full h-28 aspect-[3/2] bg-[#f8fafc] border border-gray-300 rounded-lg overflow-hidden flex items-center justify-center p-1">
                                 {user?.nid_back ? (
@@ -527,7 +673,6 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                         </div>
                       </div>
 
-                      {/* Footer Section */}
                       <div className="border-t border-gray-200 pt-2 flex justify-between items-center text-[8px] text-gray-400 font-mono font-bold mt-6">
                         <div>THIS IS A SYSTEM GENERATED DOCUMENT</div>
                         <div>SECURITY HASH: {userId ? `SEC-${userId}X79` : "N/A"}</div>
@@ -535,7 +680,6 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                     </div>
                   </div>
 
-                  {/* Action Footer Buttons */}
                   <div className="bg-zinc-900 border-t border-zinc-700 p-3 flex gap-2 justify-end">
                     <button
                       onClick={() => setShowPreview(false)}

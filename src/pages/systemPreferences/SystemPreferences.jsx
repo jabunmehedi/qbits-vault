@@ -26,7 +26,6 @@ const SystemPreferences = () => {
     GetVaults()
       .then((res) => {
         if (isMounted) {
-          console.log(res?.data?.data);
           const formattedVaults = (res?.data?.data || []).map((vlt) => ({
             ...vlt,
             bag_min_bal_limit: vlt.bag_min_bal_limit ?? "",
@@ -47,8 +46,6 @@ const SystemPreferences = () => {
     };
   }, []);
 
-  console.log({ vaults });
-
   // Safe Threshold Numerical State Mutator Input Tracker
   const handleThresholdChange = (id, field, value) => {
     setVaults((prev) => prev.map((vlt) => (vlt.id === id ? { ...vlt, [field]: value } : vlt)));
@@ -57,8 +54,6 @@ const SystemPreferences = () => {
   // Persistent Form Mutator Request Action Trigger
   const handleSaveThreshold = async (vaultRow) => {
     setIsSaving(vaultRow.id);
-
-    console.log({ vaultRow });
 
     try {
       // FIX: Linked API parameters directly to the actual state keys

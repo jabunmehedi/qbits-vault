@@ -55,7 +55,7 @@ export const UserNewPassword = async (id, data) => {
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);
-    return error?.response;
+    return error?.response?.data;
   }
 };
 export const GetRoles = async () => {
@@ -124,6 +124,15 @@ export const ForgetPassword = async (email) => {
 export const ConfirmResetPassword = async (payload) => {
   try {
     const response = await axios.post(`/reset-password/confirm`, payload);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response;
+  }
+};
+export const UserArchiveCheck = async (userId) => {
+  try {
+    const response = await axios.get(`/users/${userId}/archive-check`);
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);

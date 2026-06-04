@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Drawer from "../global/drawer/Drawer";
 import { MdArrowOutward, MdOutlineCalculate, MdRestartAlt } from "react-icons/md";
 import DataTable from "../global/dataTable/DataTable";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CreateCashIn, UpdateCashIn } from "../../services/Cash";
 import { GetOrders } from "../../services/Orders";
@@ -28,7 +28,6 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const [paginationData, setPaginationData] = useState({});
   const [loading, setLoading] = useState(false);
   const [orders, setOrders] = useState([]);
-  const [ordersLoaded, setOrdersLoaded] = useState(false);
   const [denominations, setDenominations] = useState(INITIAL_DENOMINATIONS);
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositError, setDepositError] = useState("");
@@ -39,6 +38,9 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
 
+  // Track whether the default vault has been seeded for this drawer session
+  const defaultVaultSeeded = useRef(false);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const currentPage = parseInt(searchParams.get("page") || "1");
   const searchTerm = searchParams.get("search") || "";
@@ -46,18 +48,21 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
 
   const reduxUser = useSelector(selectAuthUser);
   const dispatch = useDispatch();
+  const { addToast } = useToast();
 
-  // console.log({reduxUser})
+  // ── Sync reduxUser → local user state (separate from dispatch) ──
+  useEffect(() => {
+    if (reduxUser) {
+      setUser(reduxUser);
+    }
+  }, [reduxUser]);
 
+  // ── Fetch auth user when drawer opens ──
   useEffect(() => {
     if (isOpen) {
-      dispatch(fetchAuthUser()).then(() => {
-        setUser(reduxUser);
-      });
+      dispatch(fetchAuthUser());
     }
-  }, [isOpen, reduxUser]);
-
-  const { addToast } = useToast();
+  }, [isOpen, dispatch]);
 
   // ── Reset on close ──
   const handleClose = useCallback(() => {
@@ -69,33 +74,38 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     setIsConfirmModalOpen(false);
     setSelectedVault(null);
     setError(null);
-    setOrdersLoaded(false);
+    defaultVaultSeeded.current = false; // reset seed guard so next open seeds default again
     onClose();
   }, [onClose]);
 
-  // ── Seed vault + denominations from editData (runs once when editData arrives) ──
+  // ── Seed vault + denominations from editData (edit mode only) ──
   useEffect(() => {
-    if (!isEditMode || !editData) return;
+    if (!isEditMode || !editData || !user) return;
 
-    setDenominations(editData.denominations ? Object.fromEntries(DENOM_NOTES.map((n) => [n, editData.denominations[String(n)] ?? 0])) : INITIAL_DENOMINATIONS);
+    setDenominations(
+      editData.denominations
+        ? Object.fromEntries(DENOM_NOTES.map((n) => [n, editData.denominations[String(n)] ?? 0]))
+        : INITIAL_DENOMINATIONS
+    );
 
     const vault = user?.vault_assignments?.find((v) => v.vault.id === editData.vault_id);
     setSelectedVault(vault || null);
-  }, [isEditMode, editData]); // eslint-disable-line
+  }, [isEditMode, editData, user]); // eslint-disable-line
 
+  // ── Seed default vault (create mode only, once per drawer session) ──
   useEffect(() => {
     if (isEditMode) return;
+    if (defaultVaultSeeded.current) return;
+    if (!user?.default_vault_id) return;
 
-    if (user?.default_vault_id) {
-      const defaultV = user.vault_assignments?.find((v) => v.vault.id == user.default_vault_id);
-      setSelectedVault(defaultV || null);
-    }
+    const defaultV = user.vault_assignments?.find((v) => v.vault.id == user.default_vault_id);
+    setSelectedVault(defaultV || null);
+    defaultVaultSeeded.current = true; // mark as seeded
   }, [isEditMode, user]);
 
+  // ── Pre-select edit orders once orders list is loaded ──
   useEffect(() => {
-    if (!isEditMode || !editData || orders.length === 0) {
-      return;
-    }
+    if (!isEditMode || !editData || orders.length === 0) return;
 
     const editOrderIds = editData.orders.map((o) => o.order_id);
     const matched = orders.filter((o) => editOrderIds.includes(o.order_id));
@@ -103,7 +113,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     if (matched.length > 0) {
       setSelectedRows(matched);
     }
-  }, [orders]);
+  }, [orders]); // eslint-disable-line
 
   // ── Fetch orders ──
   const fetchOrders = useCallback(async () => {
@@ -164,20 +174,13 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const totalAmount = selectedRows.reduce((sum, o) => sum + (parseFloat(o.total_cash_to_deposit) || 0), 0);
   const grandTotal = Object.entries(denominations).reduce((sum, [val, cnt]) => sum + parseInt(val) * (parseInt(cnt) || 0), 0);
   const difference = grandTotal - totalAmount;
-  // const isGenerateEnabled = selectedRows.length > 0 && totalAmount > selectedRows?.vault?.bag_balance_limit;
 
-  const updateDenom = (value, delta) => setDenominations((prev) => ({ ...prev, [value]: Math.max(0, (prev[value] || 0) + delta) }));
+  const updateDenom = (value, delta) =>
+    setDenominations((prev) => ({ ...prev, [value]: Math.max(0, (prev[value] || 0) + delta) }));
 
   const handleInputChange = (value, val) => {
     const num = parseInt(val.replace(/[^0-9]/g, "")) || 0;
     setDenominations((prev) => ({ ...prev, [value]: num }));
-  };
-
-  const handleGenerateDeposit = () => {
-    const { valid, msg } = vaultValidation();
-    if (!valid) return setError(msg);
-    setDepositLoading(true);
-    setStep(2);
   };
 
   // ── Vault limit validations ──
@@ -186,17 +189,22 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
 
   const vaultValidation = () => {
     if (!selectedVault) return { valid: false, msg: "Please select a vault." };
-    if (bagMin > 0 && totalAmount < bagMin) return { valid: false, msg: `Minimum cash-in amount is ৳${bagMin.toLocaleString("en-BD")}` };
-    if (bagMax > 0 && totalAmount > bagMax) return { valid: false, msg: `Maximum cash-in limit is ৳${bagMax.toLocaleString("en-BD")}` };
+    if (bagMin > 0 && totalAmount < bagMin)
+      return { valid: false, msg: `Minimum cash-in amount is ৳${bagMin.toLocaleString("en-BD")}` };
+    if (bagMax > 0 && totalAmount > bagMax)
+      return { valid: false, msg: `Maximum cash-in limit is ৳${bagMax.toLocaleString("en-BD")}` };
     return { valid: true, msg: null };
   };
 
   const { valid: isVaultValid, msg: vaultMsg } = vaultValidation();
   const isCashInVaultMinMaxAmountAllowed = selectedRows.length > 0 && isVaultValid;
 
-  // console.log({ isCashInVaultMinMaxAmountAllowed });
-
-  // console.log({isVaultValid})
+  const handleGenerateDeposit = () => {
+    const { valid, msg } = vaultValidation();
+    if (!valid) return setError(msg);
+    setDepositLoading(true);
+    setStep(2);
+  };
 
   const handleDoneClick = () => setIsConfirmModalOpen(true);
 
@@ -218,10 +226,8 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
         const originalOrderIds = editData.orders.map((o) => o.order_id);
         const selectedOrderIds = selectedRows.map((o) => o.order_id);
 
-        // Orders that were original but now unselected → delete
         const removedOrderIds = originalOrderIds.filter((id) => !selectedOrderIds.includes(id));
 
-        // Orders that are newly selected (not in original) → add
         const addedOrders = selectedRows
           .filter((row) => !originalOrderIds.includes(row.order_id))
           .map((row) => ({
@@ -237,8 +243,8 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
           cash_in_amount: totalAmount,
           denominations: denominations,
           vault_id: selectedVault?.vault.id || user?.default_vault_id,
-          added_orders: addedOrders, // new orders to add
-          removed_order_ids: removedOrderIds, // order_ids to remove
+          added_orders: addedOrders,
+          removed_order_ids: removedOrderIds,
         };
       } else {
         payload = {
@@ -307,7 +313,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     {
       title: "Select",
       key: "selection",
-      className: "!w-10  text-center",
+      className: "!w-10 text-center",
       render: (row) => {
         const isSelected = selectedRows.some((s) => s.id === row.id);
         return (
@@ -316,13 +322,22 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
               whileTap={{ scale: 0.92 }}
               onClick={(e) => {
                 e.stopPropagation();
-                setSelectedRows((prev) => (prev.some((item) => item.id === row.id) ? prev.filter((item) => item.id !== row.id) : [...prev, row]));
+                setSelectedRows((prev) =>
+                  prev.some((item) => item.id === row.id)
+                    ? prev.filter((item) => item.id !== row.id)
+                    : [...prev, row]
+                );
               }}
               className={`relative w-6 h-6 rounded flex items-center justify-center border overflow-hidden transition-all duration-300 ${
                 isSelected ? "bg-cyan-50 border-cyan-200" : "bg-transparent border-gray-200 hover:border-cyan-200"
               }`}
             >
-              <motion.div className="absolute inset-0 bg-cyan-50" initial={false} animate={{ scale: isSelected ? 1 : 0 }} transition={{ duration: 0.35 }} />
+              <motion.div
+                className="absolute inset-0 bg-cyan-50"
+                initial={false}
+                animate={{ scale: isSelected ? 1 : 0 }}
+                transition={{ duration: 0.35 }}
+              />
               <motion.svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 relative z-10 pointer-events-none" initial={false}>
                 <motion.path
                   d="M4 12L9 17L20 6"
@@ -370,7 +385,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     {
       title: "Status",
       key: "status",
-      render: (row) => <span className="bg-cyan-50 px-2 py-1 rounded text-xs text-cyan-500">Received By AT</span>,
+      render: () => <span className="bg-cyan-50 px-2 py-1 rounded text-xs text-cyan-500">Received By AT</span>,
     },
     {
       title: "Received Date",
@@ -391,7 +406,9 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
               <MdArrowOutward className="text-blue-500" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-800">{isEditMode ? "Edit Cash In Request" : "Cash In Request"}</h2>
+              <h2 className="text-xl font-bold text-slate-800">
+                {isEditMode ? "Edit Cash In Request" : "Cash In Request"}
+              </h2>
               <p className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
                 {isEditMode ? `Editing · ${editData?.tran_id}` : "Select orders to deposit into vault"}
               </p>
@@ -407,7 +424,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="flex flex-col h-full "
+              className="flex flex-col h-full"
             >
               <div className="p-6 bg-white">
                 <div className="flex items-end justify-between">
@@ -415,16 +432,20 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                     vaults={user?.vault_assignments}
                     defaultVault={user?.default_vault_id}
                     selectedVault={selectedVault}
-                    onSelect={setSelectedVault}
+                    onSelect={(vault) => {
+                      setSelectedVault(vault);
+                      setError(null);
+                    }}
                     error={error}
                     setError={setError}
                   />
 
                   <div className="flex items-center gap-4">
                     <div className="flex flex-col">
-                      <p className="text-[10px] font-bold text-slate-400  uppercase mt-4 ml-1"></p>
                       <div
-                        className={`px-4 py-2 rounded-full border border-slate-200  text-xs font-semibold ${selectedRows.length > 0 ? "text-cyan-600" : "text-slate-400"}`}
+                        className={`px-4 py-2 rounded-full border border-slate-200 text-xs font-semibold ${
+                          selectedRows.length > 0 ? "text-cyan-600" : "text-slate-400"
+                        }`}
                       >
                         {selectedRows.length} Orders Selected
                       </div>
@@ -435,8 +456,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                       ) : (
                         <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Selected Amount</p>
                       )}
-
-                      <h1 className={`text-3xl font-bold text-end ${vaultMsg ? "text-red-500" : "text-slate-900"} `}>
+                      <h1 className={`text-3xl font-bold text-end ${vaultMsg ? "text-red-500" : "text-slate-900"}`}>
                         ৳{totalAmount.toLocaleString("en-BD", { minimumFractionDigits: 2 })}
                       </h1>
                     </div>
@@ -467,7 +487,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                 </button>
                 <button
                   onClick={handleGenerateDeposit}
-                  disabled={ depositLoading || !isCashInVaultMinMaxAmountAllowed}
+                  disabled={depositLoading || !isCashInVaultMinMaxAmountAllowed}
                   className="px-6 w-[65%] py-3 cursor-pointer justify-center bg-[#1e293b] shadow-lg hover:bg-black text-white font-semibold text-sm rounded-xl transition-all disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none flex items-center gap-2"
                 >
                   {depositLoading ? (
@@ -579,7 +599,9 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grand Total</p>
-                      <p className={`text-4xl font-black ${totalAmount < grandTotal ? "text-red-600" : "text-blue-600"}`}>৳{grandTotal.toLocaleString()}</p>
+                      <p className={`text-4xl font-black ${totalAmount < grandTotal ? "text-red-600" : "text-blue-600"}`}>
+                        ৳{grandTotal.toLocaleString()}
+                      </p>
                     </div>
                   </div>
 
@@ -603,7 +625,9 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                             </div>
                           ))
                       ) : (
-                        <div className="h-32 flex items-center justify-center text-slate-300 text-sm italic">Start adding notes to see summary</div>
+                        <div className="h-32 flex items-center justify-center text-slate-300 text-sm italic">
+                          Start adding notes to see summary
+                        </div>
                       )}
                     </div>
                   </div>
