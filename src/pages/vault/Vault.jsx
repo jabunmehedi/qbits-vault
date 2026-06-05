@@ -10,6 +10,9 @@ import { useToast } from "../../hooks/useToast";
 import { useSearchParams } from "react-router-dom";
 import VaultBagDetailsDrawer from "../../components/vaults/VaultBagDetailsDrawer";
 import CreateUpdateVault from "../../components/vaults/CreateUpdateVault";
+import { useSelector } from "react-redux";
+import { selectIsSuperAdmin } from "../../store/authSlice";
+import { usePermissions } from "../../hooks/usePermissions";
 
 const Vault = () => {
   const [vaults, setVaults] = useState([]);
@@ -40,6 +43,9 @@ const Vault = () => {
 
   const [activeActionMenuId, setActiveActionMenuId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+
+  const isSuperAdmin = useSelector(selectIsSuperAdmin);
+  const { hasPermission } = usePermissions();
 
   const {
     register,
@@ -367,30 +373,30 @@ const Vault = () => {
   const toggleBagExpand = (barcode) => setExpandedBag(expandedBag === barcode ? null : barcode);
 
   // ── Print all bag barcodes (on create) ───────────────────────────────────────
-//   const printBagBarcodes = (bags, vaultName) => {
-//     const printWindow = window.open("", "_blank", "width=1000,height=900");
-//     if (!printWindow) {
-//       alert("Please allow popups for printing.");
-//       return;
-//     }
-//     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Barcodes - ${vaultName}</title>
-// <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-// <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;padding:15mm}
-// .label-container{display:flex;flex-direction:column;gap:25mm;max-width:180mm;margin:0 auto}
-// .barcode-label{padding:5mm 20mm;text-align:center;page-break-inside:avoid}
-// .barcode-label svg{width:100%;max-width:140mm;height:auto;margin:0 auto 10mm;display:block}
-// @media print{@page{size:A4;margin:8mm}}</style></head><body>
-// <div class="label-container">${bags.map((b) => `<div class="barcode-label"><svg class="barcode" data-code="${b.bag_identifier_barcode}"></svg></div>`).join("")}</div>
-// <script>document.addEventListener("DOMContentLoaded",function(){
-// document.querySelectorAll(".barcode").forEach(function(svg){
-// const c=svg.getAttribute("data-code");if(!c)return;
-// try{JsBarcode(svg,c,{format:"CODE128",width:3,height:110,displayValue:true,fontSize:24,textMargin:12,margin:10});}
-// catch(e){svg.outerHTML="<div style='color:red'>Invalid: "+c+"</div>";}});
-// setTimeout(()=>window.print(),2000);});</script></body></html>`;
-//     printWindow.document.open();
-//     printWindow.document.write(html);
-//     printWindow.document.close();
-//   };
+  //   const printBagBarcodes = (bags, vaultName) => {
+  //     const printWindow = window.open("", "_blank", "width=1000,height=900");
+  //     if (!printWindow) {
+  //       alert("Please allow popups for printing.");
+  //       return;
+  //     }
+  //     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Barcodes - ${vaultName}</title>
+  // <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  // <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;padding:15mm}
+  // .label-container{display:flex;flex-direction:column;gap:25mm;max-width:180mm;margin:0 auto}
+  // .barcode-label{padding:5mm 20mm;text-align:center;page-break-inside:avoid}
+  // .barcode-label svg{width:100%;max-width:140mm;height:auto;margin:0 auto 10mm;display:block}
+  // @media print{@page{size:A4;margin:8mm}}</style></head><body>
+  // <div class="label-container">${bags.map((b) => `<div class="barcode-label"><svg class="barcode" data-code="${b.bag_identifier_barcode}"></svg></div>`).join("")}</div>
+  // <script>document.addEventListener("DOMContentLoaded",function(){
+  // document.querySelectorAll(".barcode").forEach(function(svg){
+  // const c=svg.getAttribute("data-code");if(!c)return;
+  // try{JsBarcode(svg,c,{format:"CODE128",width:3,height:110,displayValue:true,fontSize:24,textMargin:12,margin:10});}
+  // catch(e){svg.outerHTML="<div style='color:red'>Invalid: "+c+"</div>";}});
+  // setTimeout(()=>window.print(),2000);});</script></body></html>`;
+  //     printWindow.document.open();
+  //     printWindow.document.write(html);
+  //     printWindow.document.close();
+  //   };
 
   const handlePageChange = (page) => {
     setSearchParams((prev) => {
@@ -513,27 +519,6 @@ const Vault = () => {
           setDeleteConfirmId(null);
         };
 
-        // const handleEdit = async (e) => {
-        //   e.stopPropagation();
-        //   setActiveActionMenuId(null);
-
-        //   try {
-        //     const res = await GetCashOut(row.id);
-
-        //     const freshCashOutData = res.data?.data || res.data || res;
-        //     setEditCashOutData(freshCashOutData);
-
-        //     // 4. Open the Cash Out Request Drawer
-        //     setOpenCashOutReqDrawer(true);
-        //     // } else {
-        //     //   addToast({ message: res?.message || "Failed to fetch cashout details.", type: "error" });
-        //     // }
-        //   } catch (err) {
-        //     console.error("Error fetching specific cashout item details:", err);
-        //     addToast({ message: "An error occurred while fetching details.", type: "error" });
-        //   }
-        // };
-
         const handleDeleteClick = (e) => {
           e.stopPropagation(); // Stop parent triggers
           setDeleteConfirmId(row.id); // Shift dropdown view into inline verification mode
@@ -570,37 +555,41 @@ const Vault = () => {
                   {!isConfirmingDelete ? (
                     <motion.div key="options" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                       {/* Edit Option */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEditModal(row);
-                        }}
-                        className="flex items-center w-full px-3 py-2 text-xs hover:text-blue-600 hover:bg-blue-50 transition-colors gap-2 cursor-pointer"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          />
-                        </svg>
-                        Edit
-                      </button>
+                      {(isSuperAdmin || hasPermission("vault.edit")) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditModal(row);
+                          }}
+                          className="flex items-center w-full px-3 py-2 text-xs hover:text-blue-600 hover:bg-blue-50 transition-colors gap-2 cursor-pointer"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            />
+                          </svg>
+                          Edit
+                        </button>
+                      )}
 
                       {/* Delete Option Trigger */}
-                      <button
-                        onClick={handleDeleteClick}
-                        className="flex items-center w-full px-3 py-2 text-xs hover:text-red-600 hover:bg-red-50 transition-colors gap-2 cursor-pointer"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                        Delete
-                      </button>
+                      {(isSuperAdmin || hasPermission("vault.delete")) && (
+                        <button
+                          onClick={handleDeleteClick}
+                          className="flex items-center w-full px-3 py-2 text-xs hover:text-red-600 hover:bg-red-50 transition-colors gap-2 cursor-pointer"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                          Delete
+                        </button>
+                      )}
                     </motion.div>
                   ) : (
                     <motion.div
@@ -648,25 +637,28 @@ const Vault = () => {
           <p className="text-[#424242] text-lg font-medium">Vault Management</p>
           <span className="text-gray-400 text-sm capitalize">Monitor and manage all vault assets and bags</span>
         </div>
-        <button
-          onClick={() => {
-            setIsEditMode(false);
-            setIsOpenModal(true);
-            setBags([]); // Clear bags state
-            setRackErrors([]); // Clear rack errors
-            setDeleteErrors([]); // Clear delete errors
-            reset({
-              name: "",
-              vault_code: "",
-              bag_limit: "",
-              address: "",
-              total_racks: "",
-            });
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1a73e8] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-200 hover:bg-blue-600 transition-all"
-        >
-          <Plus className="w-5 h-5" /> Create Vault
-        </button>
+        {isSuperAdmin ||
+          (hasPermission("vault_create") && (
+            <button
+              onClick={() => {
+                setIsEditMode(false);
+                setIsOpenModal(true);
+                setBags([]); // Clear bags state
+                setRackErrors([]); // Clear rack errors
+                setDeleteErrors([]); // Clear delete errors
+                reset({
+                  name: "",
+                  vault_code: "",
+                  bag_limit: "",
+                  address: "",
+                  total_racks: "",
+                });
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-[#1a73e8] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-200 hover:bg-blue-600 transition-all"
+            >
+              <Plus className="w-5 h-5" /> Create Vault
+            </button>
+          ))}
       </div>
 
       <DataTable columns={columns} data={vaults} paginationData={paginationData} changePage={handlePageChange} className="h-[calc(100vh-120px)]" />

@@ -4,7 +4,6 @@ import dayjs from "dayjs";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import CashDepositConfirmModal from "../../components/cashin/CashDepositConfirmModal";
 import { ApproveCashIn, DeleteCashIn, GetCashIn, GetCashIns, VerifyCashIn } from "../../services/Cash";
 import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
 import { GetCashInLedger } from "../../services/Ledger";
@@ -16,7 +15,7 @@ import { useToast } from "../../hooks/useToast";
 import VerifyButton from "../../components/verifyButton/VerifyButton";
 import CashInDetails from "../../components/cashin/CashInDetails";
 import { useSelector } from "react-redux";
-import { selectAuthUser } from "../../store/authSlice";
+import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
 import ApprovalCell from "../../components/cashin/ApprovalCell";
 
 const DENOM_NOTES = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
@@ -47,6 +46,7 @@ const CashIn = () => {
   const [verifyLoading, setVerifyLoading] = useState(null);
 
   const { hasPermission } = usePermissions();
+  const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const user = useSelector(selectAuthUser);
   const { addToast } = useToast();
 
@@ -610,44 +610,48 @@ const CashIn = () => {
         const isOneVerified = row?.required_verifiers?.some((v) => v?.verified);
         return (
           <div className="flex items-center gap-3 py-2">
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEditClick(row.id);
-              }}
-              className={`p-2 rounded-lg ${isOneVerified ? "hidden" : ""} bg-blue-500/10 cursor-pointer hover:bg-blue-500/20 text-blue-600 border border-blue-400/20 transition-all`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
-              </svg>
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={(e) => {
-                e.stopPropagation();
-                const rect = e.currentTarget.getBoundingClientRect();
-                setDeleteCoords({ top: rect.top, left: rect.left + rect.width / 2 });
-                setDeleteConfirmId(row.id);
-              }}
-              className={`p-2 rounded-lg ${isOneVerified ? "hidden" : ""} bg-red-500/10 cursor-pointer hover:bg-red-500/20 text-red-600 border border-red-400/20 transition-all`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
-            </motion.button>
+            {(isSuperAdmin || hasPermission("cash-in.edit")) && (
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditClick(row.id);
+                }}
+                className={`p-2 rounded-lg ${isOneVerified ? "hidden" : ""} bg-blue-500/10 cursor-pointer hover:bg-blue-500/20 text-blue-600 border border-blue-400/20 transition-all`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
+                </svg>
+              </motion.button>
+            )}
+            {(isSuperAdmin || hasPermission("cash-in.delete")) && (
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setDeleteCoords({ top: rect.top, left: rect.left + rect.width / 2 });
+                  setDeleteConfirmId(row.id);
+                }}
+                className={`p-2 rounded-lg ${isOneVerified ? "hidden" : ""} bg-red-500/10 cursor-pointer hover:bg-red-500/20 text-red-600 border border-red-400/20 transition-all`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+              </motion.button>
+            )}
             <div className="relative group">
               <motion.button
                 whileHover={{ scale: 1.1 }}

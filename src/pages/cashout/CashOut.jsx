@@ -2,15 +2,13 @@ import { useEffect, useState } from "react";
 import DataTable from "../../components/global/dataTable/DataTable";
 import { AnimatePresence, motion } from "framer-motion";
 import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
-
 import dayjs from "dayjs";
 import { GetVaults } from "../../services/Vault";
-// import { useSearchParams } from "react-router-dom";
 import CashOutConfirmationModal from "../../components/cashout/CashOutConfirmationModal";
 import { ApproveCashOut, CustodianVerifyCashReceived, DeleteCashOut, GetCashOut, GetCashOuts, VerifyCashOut } from "../../services/Cash";
 import { useSelector } from "react-redux";
 import { usePermissions } from "../../hooks/usePermissions";
-import { selectAuthUser } from "../../store/authSlice";
+import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
 import CashOutRequestDrawer from "../../components/cashout/CashOutRequestDrawer";
 import VerifyButton from "../../components/verifyButton/VerifyButton";
 import { useToast } from "../../hooks/useToast";
@@ -88,12 +86,8 @@ const ExpandableBagIds = ({ bags, isExpanded, onToggle, onIdClick }) => {
 };
 
 const CashOut = () => {
-  // const [searchParams, setSearchParams] = useSearchParams();
-  // const step = parseInt(searchParams.get("step") || "0");
-  // const [isCashOut, setIsCashOut] = useState(step >= 1);
   const [vaults, setVaults] = useState([]);
   const [selectedVaultId, setSelectedVaultId] = useState(null);
-  // const [bags, setBags] = useState([]);
   const [selectedRows, setSelectedRows] = useState([]);
   const [cashOuts, setCashOuts] = useState([]);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -112,6 +106,7 @@ const CashOut = () => {
 
   const { hasPermission } = usePermissions();
   const user = useSelector(selectAuthUser);
+  const isSuperAdmin = useSelector(selectIsSuperAdmin);
 
   const { addToast } = useToast();
 
@@ -449,34 +444,38 @@ const CashOut = () => {
                   {!isConfirmingDelete ? (
                     <motion.div key="options" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                       {/* Edit Option */}
-                      <button
-                        onClick={handleEdit}
-                        className="flex items-center w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors gap-2 font-medium cursor-pointer"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          />
-                        </svg>
-                        Edit
-                      </button>
+                      {(isSuperAdmin || hasPermission("cash-out.edit")) && (
+                        <button
+                          onClick={handleEdit}
+                          className="flex items-center w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors gap-2 font-medium cursor-pointer"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            />
+                          </svg>
+                          Edit
+                        </button>
+                      )}
 
                       {/* Delete Option Trigger */}
-                      <button
-                        onClick={handleDeleteClick}
-                        className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors gap-2 font-medium cursor-pointer"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                        Delete
-                      </button>
+                      {(isSuperAdmin || hasPermission("cash-out.delete")) && (
+                        <button
+                          onClick={handleDeleteClick}
+                          className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors gap-2 font-medium cursor-pointer"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                          Delete
+                        </button>
+                      )}
                     </motion.div>
                   ) : (
                     <motion.div
@@ -523,17 +522,18 @@ const CashOut = () => {
           <p className="text-xs text-gray-400">Manage Your All Cash Out</p>
         </div>
         <div className="flex items-center gap-4">
-          {hasPermission("cash-in.request") && (
-            <div
-              onClick={() => {
-                setEditCashOutData(null);
-                setOpenCashOutReqDrawer(true);
-              }}
-              className="cursor-pointer transition-all px-4 py-2 hover:bg-black rounded text-white bg-[#424242]"
-            >
-              Cash Out Request
-            </div>
-          )}
+          {isSuperAdmin ||
+            (hasPermission("cash-out.create") && (
+              <div
+                onClick={() => {
+                  setEditCashOutData(null);
+                  setOpenCashOutReqDrawer(true);
+                }}
+                className="cursor-pointer transition-all px-4 py-2 hover:bg-black rounded text-white bg-[#424242]"
+              >
+                Cash Out Request
+              </div>
+            ))}
         </div>
       </div>
 
