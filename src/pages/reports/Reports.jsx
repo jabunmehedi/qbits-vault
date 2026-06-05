@@ -1,16 +1,20 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Calendar, Layers, Loader2, Search } from "lucide-react";
+import { Calendar, Layers, Loader2 } from "lucide-react";
 import { GetReports } from "../../services/Reports";
 import DataTable from "../../components/global/dataTable/DataTable";
 import { GetVaults } from "../../services/Vault";
 import { useSelector } from "react-redux";
 import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
+import { useSearchParams } from "react-router-dom";
 
 const Reports = () => {
   const [timeline, setTimeline] = useState("all");
   const [selectedVault, setSelectedVault] = useState("all");
   const [vaults, setVaults] = useState([]);
+  const [paginationData, setPaginationData] = useState({});
+  const [searchParams, setSearchParams] = useSearchParams();
+  // const currentPage = parseInt(searchParams.get("page") || "1");
 
   // Extra states for your new granular search filters
   const [tranId, setTranId] = useState("");
@@ -25,14 +29,18 @@ const Reports = () => {
     });
   }, []);
 
+  const handlePageChange = (page) => {
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      p.set("page", page.toString());
+      return p;
+    });
+  };
+
   // Compute derived filtered vaults list based on user role assignments
-  const filteredVaults = isSuperAdmin 
-    ? vaults 
-    : vaults.filter((vault) => 
-        user?.vault_assignments?.some(
-          (assign) => Number(assign.vault_id) === Number(vault.id) && assign.status === "active"
-        )
-      );
+  const filteredVaults = isSuperAdmin
+    ? vaults
+    : vaults.filter((vault) => user?.vault_assignments?.some((assign) => Number(assign.vault_id) === Number(vault.id) && assign.status === "active"));
 
   // React Query Fetch Hook
   const { data, isLoading } = useQuery({
@@ -74,9 +82,7 @@ const Reports = () => {
       key: "vault",
       className: "w-32 text-start",
       render: (row) => (
-        <span className="bg-gray-100  text-slate-600 font-bold px-2 py-0.5 rounded text-[10px]">
-          {row.vault?.name || `ID: ${row.vault_id}`}
-        </span>
+        <span className="bg-gray-100  text-slate-600 font-bold px-2 py-0.5 rounded text-[10px]">{row.vault?.name || `ID: ${row.vault_id}`}</span>
       ),
     },
     {
@@ -104,9 +110,7 @@ const Reports = () => {
       key: "debit",
       className: "w-28 text-end font-bold !text-red-500",
       render: (row) => (
-        <span className="text-red-400">
-          {row.debit ? `$${Number(row.debit).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}
-        </span>
+        <span className="text-red-400">{row.debit ? `$${Number(row.debit).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
       ),
     },
     {
@@ -114,9 +118,7 @@ const Reports = () => {
       key: "credit",
       className: "w-28 text-end font-bold !text-green-600",
       render: (row) => (
-        <span className="text-green-600">
-          {row.credit ? `$${Number(row.credit).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}
-        </span>
+        <span className="text-green-600">{row.credit ? `$${Number(row.credit).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
       ),
     },
   ];
@@ -124,7 +126,7 @@ const Reports = () => {
   return (
     <div className="w-full bg-slate-50 p-6 min-h-screen font-sans text-slate-800">
       {/* Upper Controls / Breadcrumb Panel */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 pb-4 border-b border-gray-200">
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 pb-4 py-4 px-4 rounded-2xl bg-white border-b border-gray-200">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">Vault Ledger Audit Reports</h1>
           <p className="text-xs text-slate-500 mt-0.5">Review cash inflows and outflows structured in bookkeeping format</p>
@@ -133,7 +135,7 @@ const Reports = () => {
         {/* Filters Matrix Row */}
         <div className="flex flex-wrap items-center gap-3 mt-4 md:mt-0">
           {/* Dynamic Transaction ID Text Search Input */}
-          <div className="flex items-center gap-1.5 bg-white border rounded-xl px-3 py-1.5 shadow-2xs">
+          {/* <div className="flex items-center gap-1.5 bg-white border rounded-xl px-3 py-1.5 shadow-2xs">
             <Search size={14} className="text-slate-400" />
             <input
               type="text"
@@ -145,10 +147,10 @@ const Reports = () => {
               }}
               className="text-xs font-semibold bg-transparent outline-none text-slate-700 w-32 placeholder-slate-400"
             />
-          </div>
+          </div> */}
 
           {/* Timeline Dropdown Control */}
-          <div className="flex items-center gap-1.5 bg-white border rounded-xl px-3 py-1.5 shadow-2xs">
+          <div className="flex items-center gap-1.5 bg-white rounded-xl px-3 py-1.5 ">
             <Calendar size={14} className="text-slate-400" />
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Timeline:</span>
             <select
@@ -166,7 +168,7 @@ const Reports = () => {
           </div>
 
           {/* Vault ID Select Filter Constraint */}
-          <div className="flex items-center gap-1.5 bg-white border rounded-xl px-3 py-1.5 shadow-2xs">
+          <div className="flex items-center gap-1.5 bg-white  rounded-xl px-3 py-1.5 ">
             <Layers size={14} className="text-slate-400" />
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vault:</span>
             <select
@@ -227,7 +229,7 @@ const Reports = () => {
             Gathering structural accounting logs...
           </div>
         ) : (
-          <DataTable data={ledgerRows} columns={columns} className="h-[calc(100vh-220px)]" />
+          <DataTable data={ledgerRows} columns={columns} paginationData={pagination} changePage={handlePageChange} className="h-[calc(100vh-220px)]" />
         )}
       </div>
     </div>

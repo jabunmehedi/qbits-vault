@@ -109,7 +109,8 @@ const RoleDrawer = ({ isOpen, onClose, rolesList, refetchRoles }) => {
             {/* Roles List */}
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Existing Roles</p>
             <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
-              {rolesList.map((role) => (
+              {rolesList.filter((role)=> role.name !== "super-admin")
+              .map((role) => (
                 <div
                   key={role.id}
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 group hover:border-blue-200 transition-all relative"

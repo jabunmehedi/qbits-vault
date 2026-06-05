@@ -301,13 +301,14 @@ const CashOut = () => {
       className: "w-20 text-center",
       render: (row) => {
         const isVerifierShowButton = row?.custodian?.custodian_id === user?.id && row?.custodian?.status === "pending";
+        const isVerified = row?.verifier_status === "verified";
         return (
           <>
             {row?.custodian ? (
               <div className="flex flex-col items-center gap-2">
                 <CustodianAvatar custodian={row?.custodian || []} />
 
-                {isVerifierShowButton && (
+                {isVerifierShowButton && isVerified && (
                   <VerifyButton
                     handleSubmit={() => handleCustodianVerify(row.id)}
                     isOpen={activeCustodianId === row.id}
@@ -347,7 +348,7 @@ const CashOut = () => {
         return (
           <div className="flex flex-col items-center gap-2">
             <VerifierAvatars requiredVerifiers={row.required_approvers || []} />
-            
+
             {isApproverShowButton && isVerified && isCustodianConditionMet && (
               <VerifyButton
                 handleSubmit={() => handleApprove(row.id)}
@@ -440,7 +441,7 @@ const CashOut = () => {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -5 }}
                 transition={{ duration: 0.15 }}
-                className={`absolute right-0 mt-1 ${row?.verifier_status === "verified" ? "hidden": ""} bg-white border border-gray-200 divide-y divide-gray-100 rounded-lg shadow-xl z-50 overflow-hidden transition-all ${
+                className={`absolute right-0 mt-1 ${row?.verifier_status === "verified" ? "hidden" : ""} bg-white border border-gray-200 divide-y divide-gray-100 rounded-lg shadow-xl z-50 overflow-hidden transition-all ${
                   isConfirmingDelete ? "w-44" : "w-28"
                 }`}
               >

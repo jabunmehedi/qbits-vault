@@ -347,9 +347,9 @@ const Vault = () => {
 
       await fetchVaultData();
 
-      if (!isEditMode && validBags.length > 0) {
-        printBagBarcodes(validBags, data.name);
-      }
+      // if (!isEditMode && validBags.length > 0) {
+      //   printBagBarcodes(validBags, data.name);
+      // }
     } catch (error) {
       const serverErrors = error?.response?.data?.errors;
       if (serverErrors?.length > 0) {
@@ -367,30 +367,30 @@ const Vault = () => {
   const toggleBagExpand = (barcode) => setExpandedBag(expandedBag === barcode ? null : barcode);
 
   // ── Print all bag barcodes (on create) ───────────────────────────────────────
-  const printBagBarcodes = (bags, vaultName) => {
-    const printWindow = window.open("", "_blank", "width=1000,height=900");
-    if (!printWindow) {
-      alert("Please allow popups for printing.");
-      return;
-    }
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Barcodes - ${vaultName}</title>
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;padding:15mm}
-.label-container{display:flex;flex-direction:column;gap:25mm;max-width:180mm;margin:0 auto}
-.barcode-label{padding:5mm 20mm;text-align:center;page-break-inside:avoid}
-.barcode-label svg{width:100%;max-width:140mm;height:auto;margin:0 auto 10mm;display:block}
-@media print{@page{size:A4;margin:8mm}}</style></head><body>
-<div class="label-container">${bags.map((b) => `<div class="barcode-label"><svg class="barcode" data-code="${b.bag_identifier_barcode}"></svg></div>`).join("")}</div>
-<script>document.addEventListener("DOMContentLoaded",function(){
-document.querySelectorAll(".barcode").forEach(function(svg){
-const c=svg.getAttribute("data-code");if(!c)return;
-try{JsBarcode(svg,c,{format:"CODE128",width:3,height:110,displayValue:true,fontSize:24,textMargin:12,margin:10});}
-catch(e){svg.outerHTML="<div style='color:red'>Invalid: "+c+"</div>";}});
-setTimeout(()=>window.print(),2000);});</script></body></html>`;
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-  };
+//   const printBagBarcodes = (bags, vaultName) => {
+//     const printWindow = window.open("", "_blank", "width=1000,height=900");
+//     if (!printWindow) {
+//       alert("Please allow popups for printing.");
+//       return;
+//     }
+//     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Barcodes - ${vaultName}</title>
+// <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+// <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;padding:15mm}
+// .label-container{display:flex;flex-direction:column;gap:25mm;max-width:180mm;margin:0 auto}
+// .barcode-label{padding:5mm 20mm;text-align:center;page-break-inside:avoid}
+// .barcode-label svg{width:100%;max-width:140mm;height:auto;margin:0 auto 10mm;display:block}
+// @media print{@page{size:A4;margin:8mm}}</style></head><body>
+// <div class="label-container">${bags.map((b) => `<div class="barcode-label"><svg class="barcode" data-code="${b.bag_identifier_barcode}"></svg></div>`).join("")}</div>
+// <script>document.addEventListener("DOMContentLoaded",function(){
+// document.querySelectorAll(".barcode").forEach(function(svg){
+// const c=svg.getAttribute("data-code");if(!c)return;
+// try{JsBarcode(svg,c,{format:"CODE128",width:3,height:110,displayValue:true,fontSize:24,textMargin:12,margin:10});}
+// catch(e){svg.outerHTML="<div style='color:red'>Invalid: "+c+"</div>";}});
+// setTimeout(()=>window.print(),2000);});</script></body></html>`;
+//     printWindow.document.open();
+//     printWindow.document.write(html);
+//     printWindow.document.close();
+//   };
 
   const handlePageChange = (page) => {
     setSearchParams((prev) => {

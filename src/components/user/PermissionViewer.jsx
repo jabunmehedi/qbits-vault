@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, UserIcon, X, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Check, UserIcon, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { UpdatePermissions } from "../../services/Permission";
 import { useToast } from "../../hooks/useToast";
@@ -173,7 +173,7 @@ const PermissionViewer = ({ isOpen, onClose, user, permissions, onSaved }) => {
                       <div>
                         {/* Domain Group Matrix Item Header */}
                         <div className="flex px-4 py-3 items-center justify-between bg-slate-50 border-b border-slate-100">
-                          <h4 className="capitalize font-black text-xs text-slate-700 tracking-wide">{groupName} Scope</h4>
+                          <h4 className="capitalize font-black text-xs text-slate-700 tracking-wide">{groupName}</h4>
 
                           <button
                             type="button"
