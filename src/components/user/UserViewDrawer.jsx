@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Download, Loader2, MapPin, Shield, X, FileText, CheckCircle2, User, KeyRound, Eye, EyeOff, AlertTriangle, ArrowRight, RefreshCw } from "lucide-react";
+import { Download, Loader2, MapPin, Shield, X, FileText, User, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
-import { ArchiveUser, DisableUser, GetRoles, GetUser, UserArchiveCheck, UserNewPassword } from "../../services/User";
+import { ArchiveUser, DisableUser, GetRoles, GetUser, MigrateUser, UserArchiveCheck, UserNewPassword } from "../../services/User";
 import Avatar from "../helpers/Avatar";
 import { RiVerifiedBadgeFill } from "react-icons/ri";
 import { GetVaults, ToggleVaultAccess, UpdateVaultRoles } from "../../services/Vault";
@@ -12,6 +12,7 @@ import { selectIsAdmin, selectIsSuperAdmin } from "../../store/authSlice";
 import { useSelector } from "react-redux";
 import UserChangePasswordModal from "./UserChangePasswordModal";
 import { useToast } from "../../hooks/useToast";
+import UserMigrationModal from "./UserMigrationModal";
 
 const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
   const queryClient = useQueryClient();
@@ -88,14 +89,42 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
     },
   });
 
+  // MODIFIED: Added explicit data-envelope detection strategy inside cache updates
+  const migrationMutation = useMutation({
+    mutationFn: ({ uid, targetId }) => MigrateUser(uid, targetId),
+    onSuccess: (res) => {
+      if (res?.success === false || res?.data?.success === false) {
+        addToast({ type: "error", message: res?.message || "Migration validation failed." });
+        return;
+      }
+      queryClient.setQueriesData({ queryKey: ["users"] }, (oldCache) => filterUsers(oldCache, (u) => u.id !== userId));
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      addToast({ type: "success", message: "Workflow parameters shifted; user archived cleanly." });
+      onClose();
+    },
+    onError: (err) => {
+      addToast({
+        type: "error",
+        message: err?.response?.data?.message || "Migration process failed.",
+      });
+    },
+  });
+
+  const patchUsers = (oldCache, patchFn) => {
+    if (!oldCache) return oldCache;
+    if (Array.isArray(oldCache)) return oldCache.map(patchFn);
+    if (oldCache?.data && Array.isArray(oldCache.data)) return { ...oldCache, data: oldCache.data.map(patchFn) };
+    if (oldCache?.data?.data && Array.isArray(oldCache.data.data)) return { ...oldCache, data: { ...oldCache.data, data: oldCache.data.data.map(patchFn) } };
+    return oldCache;
+  };
+
   const roleMutation = useMutation({
     mutationFn: ({ uid, vid, roles }) => UpdateVaultRoles(uid, vid, roles),
     onSuccess: (data, variables) => {
       const newlySelectedRoles = rolesList.filter((r) => variables.roles.includes(r.id));
-      queryClient.setQueryData(["users"], (oldUsers) => {
-        if (!oldUsers) return [];
-        return oldUsers.map((u) => (u.id === userId ? { ...u, roles: newlySelectedRoles } : u));
-      });
+      queryClient.setQueriesData({ queryKey: ["users"] }, (oldCache) =>
+        patchUsers(oldCache, (u) => (u.id === userId ? { ...u, roles: newlySelectedRoles } : u)),
+      );
     },
   });
 
@@ -103,21 +132,31 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
     mutationFn: (uid) => DisableUser(uid),
     onSuccess: () => {
       const toggleStatus = (s) => (s === "inactive" ? "active" : "inactive");
-      queryClient.setQueryData(["users"], (oldUsers) => {
-        if (!oldUsers) return [];
-        return oldUsers.map((u) => (u.id === userId ? { ...u, status: toggleStatus(u.status) } : u));
-      });
+      queryClient.setQueriesData({ queryKey: ["users"] }, (oldCache) =>
+        patchUsers(oldCache, (u) => (u.id === userId ? { ...u, status: toggleStatus(u.status) } : u)),
+      );
       setUser((prev) => ({ ...prev, status: toggleStatus(prev.status) }));
     },
   });
 
+  const filterUsers = (oldCache, filterFn) => {
+    if (!oldCache) return oldCache;
+    if (Array.isArray(oldCache)) return oldCache.filter(filterFn);
+    if (oldCache?.data && Array.isArray(oldCache.data)) return { ...oldCache, data: oldCache.data.filter(filterFn) };
+    if (oldCache?.data?.data && Array.isArray(oldCache.data.data))
+      return { ...oldCache, data: { ...oldCache.data, data: oldCache.data.data.filter(filterFn) } };
+    return oldCache;
+  };
+
   const archiveMutation = useMutation({
     mutationFn: (uid) => ArchiveUser(uid),
-    onSuccess: () => {
-      queryClient.setQueryData(["users"], (oldUsers) => {
-        if (!oldUsers) return [];
-        return oldUsers.filter((u) => u.id !== userId);
-      });
+    onSuccess: (res) => {
+      if (res?.success === false || res?.data?.success === false) {
+        addToast({ type: "error", message: res?.data?.message || "Archive target validation rejected." });
+        return;
+      }
+      queryClient.setQueriesData({ queryKey: ["users"] }, (oldCache) => filterUsers(oldCache, (u) => u.id !== userId));
+      queryClient.invalidateQueries({ queryKey: ["users"] });
       addToast({ type: "success", message: "User archived successfully." });
       onClose();
     },
@@ -182,28 +221,13 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
     }
   };
 
-  const handleExecuteMigration = async () => {
+  const handleExecuteMigration = () => {
     if (!selectedTargetUser) {
       addToast({ type: "error", message: "Please choose a user to receive assignments." });
       return;
     }
-    setIsMigrating(true);
-    try {
-      await axiosConfig.post(`/users/${userId}/migrate-and-archive`, {
-        target_user_id: selectedTargetUser,
-      });
-      queryClient.setQueryData(["users"], (oldUsers) => {
-        if (!oldUsers) return [];
-        return oldUsers.filter((u) => u.id !== userId);
-      });
-      addToast({ type: "success", message: "Workflow parameters shifted; user archived cleanly." });
-      onClose();
-    } catch (err) {
-      console.error("Migration error:", err);
-      addToast({ type: "error", message: err?.response?.data?.message || "Migration process failed." });
-    } finally {
-      setIsMigrating(false);
-    }
+    // CHANGED: Instead of manual async-await, use the tracking mutation context hook
+    migrationMutation.mutate({ uid: userId, targetId: selectedTargetUser });
   };
 
   const toggleVaultSetAccess = async (vaultId) => {
@@ -367,21 +391,17 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                       <button
                         onClick={handleFetchMigrationDetails}
                         disabled={checkingMigration || user?.status === "archived" || (!isSuperAdmin && !isAdmin)}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition text-gray-700 bg-gray-100 border border-gray-200 hover:bg-gray-200 disabled:opacity-40`}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition text-gray-700 bg-gray-100 border border-gray-200 hover:bg-gray-200 disabled:opacity-40"
                       >
-                        {checkingMigration ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : (
-                          <>
-                            <RefreshCw size={12} className={showMigrationPanel ? "rotate-45 transition-transform" : ""} />
-                            MIGRATE
-                          </>
-                        )}
+                        <>
+                          <RefreshCw size={12} />
+                          MIGRATE
+                        </>
                       </button>
 
                       <button
                         onClick={handleArchiveUser}
-                        disabled={archiveMutation.isPending || user?.status === "archived" || (!isSuperAdmin && !isAdmin)}
+                        disabled={checkingMigration || migrationMutation.isPending || user?.status === "archived" || (!isSuperAdmin && !isAdmin)}
                         className={`text-white px-3 py-2 rounded-lg text-xs font-bold transition disabled:opacity-40 ${
                           user?.status === "archived" ? "bg-gray-400" : "bg-zinc-800 hover:bg-zinc-900"
                         }`}
@@ -391,86 +411,6 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                     </div>
                   </div>
                 </div>
-
-                {/* Animated Dedicated Data Responsibility Relocation Context Window */}
-                <AnimatePresence>
-                  {showMigrationPanel && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="mx-6 p-5 bg-indigo-50/60 border border-indigo-100 rounded-2xl space-y-4"
-                    >
-                      <div className="flex items-start gap-3">
-                        <AlertTriangle className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
-                        <div>
-                          <h4 className="text-xs font-black text-indigo-950 uppercase tracking-wide">Proactive Workflow Migration</h4>
-                          <p className="text-[11px] text-indigo-800 leading-relaxed">
-                            Check operational dependencies or transfer pending verifications/approvals assigned to <strong>{user?.name}</strong> across all
-                            vault subsystems:
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Dynamic Task Summary Display Area */}
-                      {pendingResponsibilities.length > 0 ? (
-                        <div className="bg-white border border-indigo-100/80 rounded-xl p-3 max-h-36 overflow-y-auto space-y-1.5">
-                          {pendingResponsibilities.map((task, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between text-[11px] font-mono text-gray-600 bg-gray-50 px-2.5 py-1.5 rounded-md"
-                            >
-                              <span className="font-bold text-gray-700">{task.type}</span>
-                              <span className="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-sans font-bold">
-                                ID: #{task.id} Open
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center p-3 text-xs bg-white text-emerald-600 border border-emerald-100 rounded-xl font-medium">
-                          ✓ This profile has no pending verifier or approver blocking records.
-                        </div>
-                      )}
-
-                      {/* Select Target Replacement Option Block */}
-                      {pendingResponsibilities.length > 0 && (
-                        <div className="space-y-1.5 pt-1">
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Migrate Outstanding Responsibilities To:</label>
-                          <div className="flex gap-2">
-                            <select
-                              value={selectedTargetUser}
-                              onChange={(e) => setSelectedTargetUser(e.target.value)}
-                              className="flex-1 bg-white border border-gray-200 text-xs rounded-xl px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition"
-                            >
-                              <option value="">-- Choose Target Staff Member --</option>
-                              {availableUsers.map((u) => (
-                                <option key={u.id} value={u.id}>
-                                  {u.name} ({u.email})
-                                </option>
-                              ))}
-                            </select>
-
-                            <button
-                              onClick={handleExecuteMigration}
-                              disabled={isMigrating || !selectedTargetUser}
-                              className="flex items-center justify-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 text-white rounded-xl text-xs font-bold tracking-wide transition shadow-xs"
-                            >
-                              {isMigrating ? (
-                                <Loader2 size={12} className="animate-spin" />
-                              ) : (
-                                <>
-                                  Transfer Tasks
-                                  <ArrowRight size={12} />
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
 
                 {/* Vault Controls Mapping Group */}
                 <div className="grid grid-cols-3 p-6 bg-[#F6F7F9] rounded-lg gap-6">
@@ -542,7 +482,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                               <div
                                 key={role.id}
                                 onClick={() => toggleRole(role)}
-                                className={`rounded-3xl p-4 flex items-center justify-between cursor-pointer transition-all border ${
+                                className={`rounded-3xl p-4 flex items-center capitalize justify-between cursor-pointer transition-all border ${
                                   isEnabled ? "bg-blue-600 text-white border-blue-600" : "bg-white border-gray-200 hover:border-gray-300"
                                 }`}
                               >
@@ -719,6 +659,19 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
               newPassword={newPassword}
               setNewPassword={setNewPassword}
               userName={user?.name}
+            />
+          )}
+
+          {showMigrationPanel && (
+            <UserMigrationModal
+              onClose={() => setShowMigrationPanel(false)}
+              userName={user?.name}
+              pendingResponsibilities={pendingResponsibilities}
+              availableUsers={availableUsers}
+              selectedTargetUser={selectedTargetUser}
+              setSelectedTargetUser={setSelectedTargetUser}
+              onExecuteMigration={handleExecuteMigration}
+              isMigrating={migrationMutation.isPending}
             />
           )}
         </>

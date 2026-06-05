@@ -12,6 +12,8 @@ const UserChangePasswordModal = ({
   setNewPassword,
 }) => {
   const [showPasswordText, setShowPasswordText] = useState(false);
+
+  // console.log({showPasswordModal})
   return (
     <AnimatePresence>
       {showPasswordModal && (

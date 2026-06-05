@@ -139,3 +139,12 @@ export const UserArchiveCheck = async (userId) => {
     return error?.response;
   }
 };
+export const MigrateUser = async (migrateUserId, targetUserId) => {
+  try {
+    const response = await axios.post(`/users/migrate/${migrateUserId}`, {targetUserId});
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response;
+  }
+};

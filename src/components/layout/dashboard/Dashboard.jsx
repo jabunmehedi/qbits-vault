@@ -130,7 +130,7 @@ export default function Dashboard() {
                 setVaultDropdownOpen(!vaultDropdownOpen);
                 setTimeframeDropdownOpen(false);
               }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white/90 backdrop-blur-md border border-slate-200 hover:border-indigo-500/50 rounded-xl text-sm font-semibold text-slate-700 transition-all shadow-sm"
+              className="flex items-center gap-2 px-4 py-2.5 bg-white/90 backdrop-blur-md border border-slate-200 hover:border-indigo-500/50 rounded-xl text-sm font-semibold text-slate-700 transition-all "
             >
               <FiLayers className="text-indigo-600" />
               <span>{selectedVaultLabel}</span>
@@ -182,7 +182,7 @@ export default function Dashboard() {
                 setTimeframeDropdownOpen(!timeframeDropdownOpen);
                 setVaultDropdownOpen(false);
               }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white/90 backdrop-blur-md border border-slate-200 hover:border-cyan-500/50 rounded-xl text-sm font-semibold text-slate-700 transition-all shadow-sm"
+              className="flex items-center gap-2 px-4 py-2.5 bg-white/90 backdrop-blur-md border border-slate-200 hover:border-cyan-500/50 rounded-xl text-sm font-semibold text-slate-700 transition-all "
             >
               <FiCalendar className="text-cyan-600" />
               <span>{timeframeLabels[timeframe]}</span>
