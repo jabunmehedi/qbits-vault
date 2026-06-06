@@ -522,18 +522,17 @@ const CashOut = () => {
           <p className="text-xs text-gray-400">Manage Your All Cash Out</p>
         </div>
         <div className="flex items-center gap-4">
-          {isSuperAdmin ||
-            (hasPermission("cash-out.create") && (
-              <div
-                onClick={() => {
-                  setEditCashOutData(null);
-                  setOpenCashOutReqDrawer(true);
-                }}
-                className="cursor-pointer transition-all px-4 py-2 hover:bg-black rounded text-white bg-[#424242]"
-              >
-                Cash Out Request
-              </div>
-            ))}
+          {(isSuperAdmin || hasPermission("cash-out.create")) && (
+            <div
+              onClick={() => {
+                setEditCashOutData(null);
+                setOpenCashOutReqDrawer(true);
+              }}
+              className="cursor-pointer transition-all px-4 py-2 hover:bg-black rounded text-white bg-[#424242]"
+            >
+              Cash Out Request
+            </div>
+          )}
         </div>
       </div>
 

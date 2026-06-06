@@ -637,28 +637,27 @@ const Vault = () => {
           <p className="text-[#424242] text-lg font-medium">Vault Management</p>
           <span className="text-gray-400 text-sm capitalize">Monitor and manage all vault assets and bags</span>
         </div>
-        {isSuperAdmin ||
-          (hasPermission("vault_create") && (
-            <button
-              onClick={() => {
-                setIsEditMode(false);
-                setIsOpenModal(true);
-                setBags([]); // Clear bags state
-                setRackErrors([]); // Clear rack errors
-                setDeleteErrors([]); // Clear delete errors
-                reset({
-                  name: "",
-                  vault_code: "",
-                  bag_limit: "",
-                  address: "",
-                  total_racks: "",
-                });
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-[#1a73e8] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-200 hover:bg-blue-600 transition-all"
-            >
-              <Plus className="w-5 h-5" /> Create Vault
-            </button>
-          ))}
+        {(isSuperAdmin || hasPermission("vault.create")) && (
+          <button
+            onClick={() => {
+              setIsEditMode(false);
+              setIsOpenModal(true);
+              setBags([]); // Clear bags state
+              setRackErrors([]); // Clear rack errors
+              setDeleteErrors([]); // Clear delete errors
+              reset({
+                name: "",
+                vault_code: "",
+                bag_limit: "",
+                address: "",
+                total_racks: "",
+              });
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-[#1a73e8] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-200 hover:bg-blue-600 transition-all"
+          >
+            <Plus className="w-5 h-5" /> Create Vault
+          </button>
+        )}
       </div>
 
       <DataTable columns={columns} data={vaults} paginationData={paginationData} changePage={handlePageChange} className="h-[calc(100vh-120px)]" />
