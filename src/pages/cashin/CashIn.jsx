@@ -484,6 +484,11 @@ const CashIn = () => {
     try {
       const res = await VerifyCashIn(id);
 
+      if (!res?.success) {
+        addToast({ message: res?.message, type: "error" });
+        return;
+      }
+
       fetchCashInsData();
       addToast({ message: "Cash-in verified successfully", type: "success" });
     } catch (err) {
@@ -496,6 +501,11 @@ const CashIn = () => {
     setVerifyLoading(id);
     try {
       const res = await ApproveCashIn(id);
+
+      if (!res?.success) {
+        addToast({ message: res?.message, type: "error" });
+        return;
+      }
 
       fetchCashInsData();
       addToast({ message: "Cash-in verified successfully", type: "success" });
