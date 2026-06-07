@@ -141,11 +141,13 @@ const User = () => {
     if (!users.length) return;
     setUserVaultSelection((prev) => {
       const next = { ...prev };
+
       users.forEach((user) => {
-        if (next[user.id] !== undefined) return; // already set
-        // Prefer default_vault_id if it exists in vault_assignments
+        // CHANGED: Always re-seed if user is in the list
+        // (removes stale null entries left from previous cache operations)
         const assignments = user.vault_assignments ?? [];
         const hasDefault = assignments.some((va) => va.vault_id === user.default_vault_id);
+
         if (hasDefault) {
           next[user.id] = user.default_vault_id;
         } else if (assignments.length > 0) {
@@ -154,6 +156,15 @@ const User = () => {
           next[user.id] = null;
         }
       });
+
+      // Clean up stale keys for users no longer in the list
+      const currentUserIds = new Set(users.map((u) => u.id));
+      Object.keys(next).forEach((id) => {
+        if (!currentUserIds.has(Number(id))) {
+          delete next[id];
+        }
+      });
+
       return next;
     });
   }, [users]);

@@ -89,17 +89,32 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
     },
   });
 
-  // MODIFIED: Added explicit data-envelope detection strategy inside cache updates
   const migrationMutation = useMutation({
     mutationFn: ({ uid, targetId }) => MigrateUser(uid, targetId),
     onSuccess: (res) => {
-      if (res?.success === false || res?.data?.success === false) {
-        addToast({ type: "error", message: res?.message || "Migration validation failed." });
+      // Safely extract from any nesting level
+      const isFailure = res?.success === false || res?.data?.success === false || res?.status === false;
+
+      if (isFailure) {
+        addToast({
+          type: "error",
+          message: res?.message || res?.data?.message || "Migration validation failed.",
+        });
         return;
       }
+
+      // Remove migrated user from all cached user-list shapes
       queryClient.setQueriesData({ queryKey: ["users"] }, (oldCache) => filterUsers(oldCache, (u) => u.id !== userId));
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-      addToast({ type: "success", message: "Workflow parameters shifted; user archived cleanly." });
+
+      // Invalidate AFTER optimistic update so refetch doesn't race
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["users"] });
+      }, 300);
+
+      addToast({
+        type: "success",
+        message: "Workflow parameters shifted; user archived cleanly.",
+      });
       onClose();
     },
     onError: (err) => {
@@ -122,12 +137,17 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
     mutationFn: ({ uid, vid, roles }) => UpdateVaultRoles(uid, vid, roles),
     onSuccess: (data, variables) => {
       const newlySelectedRoles = rolesList.filter((r) => variables.roles.includes(r.id));
+
+      // ADDED: Push role changes into the users list cache in real time
       queryClient.setQueriesData({ queryKey: ["users"] }, (oldCache) =>
-        patchUsers(oldCache, (u) => (u.id === userId ? { ...u, roles: newlySelectedRoles } : u)),
+        patchUsers(oldCache, (u) => {
+          if (u.id !== userId) return u;
+          const updatedAssignments = (u.vault_assignments ?? []).map((va) => (va.vault_id === variables.vid ? { ...va, roles: variables.roles } : va));
+          return { ...u, vault_assignments: updatedAssignments, roles: newlySelectedRoles };
+        }),
       );
     },
   });
-
   const statusMutation = useMutation({
     mutationFn: (uid) => DisableUser(uid),
     onSuccess: () => {
@@ -236,6 +256,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
       await ToggleVaultAccess(userId, vaultId);
       const res = await GetUser(userId);
       const updatedAssignments = res?.data?.data?.vault_assignments || res?.data?.vaultAssignments || [];
+
       setUserAssignments(updatedAssignments);
 
       const stillActive = updatedAssignments.find((a) => a.vault_id === vaultId && (a.status === "active" || a.status === 1));
@@ -243,6 +264,14 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
         setActiveVaultId(null);
         setActiveRoles([]);
       }
+
+      // ADDED: Push vault toggle changes into the users list cache in real time
+      queryClient.setQueriesData({ queryKey: ["users"] }, (oldCache) =>
+        patchUsers(oldCache, (u) => {
+          if (u.id !== userId) return u;
+          return { ...u, vault_assignments: updatedAssignments };
+        }),
+      );
     } catch (error) {
       console.error("Toggle failed:", error);
     }
