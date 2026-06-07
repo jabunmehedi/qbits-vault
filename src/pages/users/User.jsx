@@ -12,7 +12,7 @@ import UserViewDrawer from "../../components/user/UserViewDrawer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePermissions } from "../../hooks/usePermissions";
 import { useSelector } from "react-redux";
-import { selectIsAdmin, selectIsSuperAdmin } from "../../store/authSlice";
+import { selectAuthUser, selectIsAdmin, selectIsSuperAdmin } from "../../store/authSlice";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const SUPERADMIN_NAMES = new Set(["Superadmin", "Super Admin", "superadmin", "super_admin", "super-admin"]);
@@ -42,14 +42,11 @@ const User = () => {
   const { hasPermission } = usePermissions();
   const queryClient = useQueryClient();
 
-  const loggedUser = useMemo(() => {
-    try {
-      const auth = localStorage.getItem("auth");
-      return auth ? JSON.parse(auth).user : null;
-    } catch {
-      return null;
-    }
-  }, []);
+  const loggedUser = useSelector(selectAuthUser);
+
+  console.log({loggedUser})
+
+
 
   // ── Derived permission flag ──
   const canViewUserDetail = useMemo(() => isSuperAdmin || (isAdmin && hasPermission("user.details")), [isSuperAdmin, isAdmin, hasPermission]);
@@ -176,8 +173,6 @@ const User = () => {
           key: "manage",
           className: "text-left w-40",
           render: (row) => {
-            // Hide the button for the logged-in superadmin's own row
-            // if (isSuperAdmin && row.id === loggedUser?.id) return null;
             return (
               <button
                 onClick={() => handleOpenPermissions(row)}

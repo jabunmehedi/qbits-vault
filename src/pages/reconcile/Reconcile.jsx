@@ -11,7 +11,7 @@ import ReconcileViewDrawer from "../../components/reconcile/ReconcileViewDrawer"
 import VerifyButton from "../../components/verifyButton/VerifyButton";
 import { useToast } from "../../hooks/useToast";
 import ReconclieDetails from "../../components/reconcile/ReconclieDetails";
-import { selectAuthUser } from "../../store/authSlice";
+import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import customParseFormat from "dayjs/plugin/customParseFormat";
@@ -38,6 +38,7 @@ const Reconcile = () => {
   const step = parseInt(searchParams.get("step") || "0");
   const { addToast } = useToast();
 
+  const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const user = useSelector(selectAuthUser);
   const { hasPermission } = usePermissions();
 
@@ -266,7 +267,7 @@ const Reconcile = () => {
             </motion.button>
 
             {/* Conditional Reschedule Button */}
-            {showReschedule && (
+            {showReschedule && (isSuperAdmin || hasPermission("reconciliation.reschedule")) && (
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
