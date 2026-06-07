@@ -238,7 +238,7 @@ const Reconcile = () => {
         let showReschedule = false;
 
         if (row?.status === "pending" && cleanDateStr) {
-          console.log("come here")
+          console.log("come here");
           // Combine Date and Time into a single comprehensive target timestamp
           const targetSchedule = dayjs(`${cleanDateStr} ${cleanTimeStr}`, "YYYY-MM-DD HH:mm:ss");
           const now = dayjs();
@@ -251,7 +251,6 @@ const Reconcile = () => {
             showReschedule = true;
           }
         }
-
 
         return (
           <div className="flex gap-2 py-2">

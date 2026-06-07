@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import DataTable from "../../components/global/dataTable/DataTable";
 import axiosConfig from "../../utils/axiosConfig";
 import { GetRoles, GetUsers } from "../../services/User";
-import { Check, ChevronDown, Shield, X, Search, Filter, Plus, Settings2, Vault, Building2 } from "lucide-react";
+import { Check, ChevronDown, Shield, X, Search, Filter, Plus, Settings2, Building2 } from "lucide-react";
 import { CiMail } from "react-icons/ci";
 import PermissionViewer from "../../components/user/PermissionViewer";
 import CreateNewUserModal from "../../components/user/CreateNewUserModal";
@@ -30,7 +30,6 @@ const VaultDropdown = ({ row, onVaultChange, selectedVaultId }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
-  console.log({row})
 
   const vaultAssignments = row?.vault_assignments ?? [];
 
@@ -50,7 +49,6 @@ const VaultDropdown = ({ row, onVaultChange, selectedVaultId }) => {
     return <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded tracking-wider uppercase">No Vault</span>;
   }
 
-  console.log({ vaultAssignments });
 
   return (
     <div className="relative" ref={ref}>
@@ -68,22 +66,24 @@ const VaultDropdown = ({ row, onVaultChange, selectedVaultId }) => {
 
       {open && (
         <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-lg min-w-[160px] py-1 overflow-hidden">
-          {vaultAssignments.map((va) => (
-            <button
-              key={va.vault_id}
-              onClick={(e) => {
-                e.stopPropagation();
-                onVaultChange(row.id, va.vault_id);
-                setOpen(false);
-              }}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-semibold transition-colors
+          {vaultAssignments
+            .filter((va) => va.status === "active")
+            .map((va) => (
+              <button
+                key={va.vault_id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onVaultChange(row.id, va.vault_id);
+                  setOpen(false);
+                }}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-semibold transition-colors
                 ${selectedVaultId === va.vault_id ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-50"}`}
-            >
-              <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="truncate">{va.vault?.name ?? `Vault #${va.vault_id}`}</span>
-              {selectedVaultId === va.vault_id && <Check className="w-3 h-3 ml-auto stroke-[3px]" />}
-            </button>
-          ))}
+              >
+                <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{va.vault?.name ?? `Vault #${va.vault_id}`}</span>
+                {selectedVaultId === va.vault_id && <Check className="w-3 h-3 ml-auto stroke-[3px]" />}
+              </button>
+            ))}
         </div>
       )}
     </div>
