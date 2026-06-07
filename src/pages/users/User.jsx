@@ -49,7 +49,7 @@ const User = () => {
     } catch {
       return null;
     }
-  }, []); 
+  }, []);
 
   // ── Derived permission flag ──
   const canViewUserDetail = useMemo(() => isSuperAdmin || (isAdmin && hasPermission("user.details")), [isSuperAdmin, isAdmin, hasPermission]);
