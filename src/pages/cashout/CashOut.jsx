@@ -34,7 +34,7 @@ const ExpandableBagIds = ({ bags, isExpanded, onToggle, onIdClick }) => {
             key={bag.id || `preview-${i}`}
             className="whitespace-nowrap font-semibold bg-white rounded-md px-2 py-1 border border-gray-200 hover:bg-indigo-50 cursor-pointer"
           >
-            {bag?.bag?.barcode} - RN
+            {bag?.bag?.barcode} - RN#{bag?.bag?.rack_number}
             {i === previewbags.length - 1 && !hasMore ? "" : ","}
           </span>
         ))}

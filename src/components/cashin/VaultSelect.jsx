@@ -31,7 +31,7 @@ const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, set
     });
   }, [vaults, defaultVault]);
 
-    console.log({sortedVaults})
+
 
   return (
     <div className="relative min-w-64 " ref={containerRef}>

@@ -346,6 +346,12 @@ const Vault = () => {
       } else {
         const res = await CreateVault(payload);
 
+        if (!res?.success) {
+          addToast({ type: "error", message: res?.message });
+          setIsLoading(false);
+          return;
+        }
+
         if (res?.errors) {
           Object.keys(res.errors).forEach((field) => {
             setError(field, {

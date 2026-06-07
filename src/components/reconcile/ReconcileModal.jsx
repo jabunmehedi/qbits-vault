@@ -105,8 +105,6 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
     }
   };
 
-  console.log({ vaults });
-  console.log({ selectedVaultId });
 
   return (
     <CustomModal isCloseModal={isClose}>
