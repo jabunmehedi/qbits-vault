@@ -42,7 +42,7 @@ export const UpdateUser = async (id, data) => {
 };
 export const ChangePassword = async (id, data) => {
   try {
-    const response = await axios.post(`/users/${id}/password`, data);
+    const response = await axios.post(`/users/change-password/${id}`, data);
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);

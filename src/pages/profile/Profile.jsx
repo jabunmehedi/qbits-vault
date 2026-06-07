@@ -154,10 +154,12 @@ const Profile = () => {
     setSuccessMessage("");
 
     try {
-      await ChangePassword(user?.id, {
+      const res = await ChangePassword(user?.id, {
         currentPassword: data.currentPassword,
         newPassword: data.newPassword,
       });
+
+      console.log({ res });
 
       setSuccessMessage("Credentials reset successfully! Relogging...");
       setTimeout(() => {
