@@ -73,7 +73,13 @@ const Reconcile = () => {
   const handleVerifyClick = async (id) => {
     setVerifyLoading(id);
     try {
-      await VerifyReconcile(id);
+      const res = await VerifyReconcile(id);
+
+      if (!res?.success) {
+        addToast({ message: res?.message, type: "error" });
+        return;
+      }
+
       fetchReconcileData();
       addToast({ message: "Cash-in verified successfully", type: "success" });
     } catch (err) {
