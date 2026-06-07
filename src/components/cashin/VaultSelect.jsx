@@ -15,6 +15,8 @@ const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, set
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+
+
   const sortedVaults = useMemo(() => {
     if (!vaults) return [];
 
@@ -28,6 +30,8 @@ const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, set
       return (b.vault?.id || 0) - (a.vault?.id || 0);
     });
   }, [vaults, defaultVault]);
+
+    console.log({sortedVaults})
 
   return (
     <div className="relative min-w-64 " ref={containerRef}>
@@ -55,7 +59,7 @@ const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, set
           >
             <div className="max-h-60 overflow-y-auto">
               {/* Mapped over sortedVaults instead of vaults */}
-              {sortedVaults.map((vault) => (
+              {sortedVaults.filter((v)=> v.status === "active").map((vault) => (
                 <button
                   key={vault.id}
                   onClick={() => {

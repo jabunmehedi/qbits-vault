@@ -20,7 +20,6 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
 
   const user = useSelector(selectAuthUser);
 
-
   const getCurrentTime = () => {
     const now = new Date();
     const hours = String(now.getHours()).padStart(2, "0");
@@ -106,8 +105,8 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
     }
   };
 
-  console.log({vaults})
-  console.log({selectedVaultId})
+  console.log({ vaults });
+  console.log({ selectedVaultId });
 
   return (
     <CustomModal isCloseModal={isClose}>
