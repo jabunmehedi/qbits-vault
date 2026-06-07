@@ -151,6 +151,12 @@ const CashOut = () => {
     try {
       const res = await VerifyCashOut(id);
 
+       if (!res?.success) {
+        addToast({ message: res?.message, type: "error" });
+        return;
+      }
+      
+
       fetchCashOutLits();
       addToast({ message: "Cashout verified successfully", type: "success" });
     } catch (err) {
