@@ -147,6 +147,7 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
 
             <div className="relative overflow-visible">
               <button
+                disabled={reconcileId ? true : false}
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg flex justify-between items-center text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
               >

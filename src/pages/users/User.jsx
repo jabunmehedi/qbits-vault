@@ -30,7 +30,6 @@ const VaultDropdown = ({ row, onVaultChange, selectedVaultId }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
-
   const vaultAssignments = row?.vault_assignments ?? [];
 
   // Close on outside click
@@ -48,7 +47,6 @@ const VaultDropdown = ({ row, onVaultChange, selectedVaultId }) => {
   if (vaultAssignments.length === 0) {
     return <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded tracking-wider uppercase">No Vault</span>;
   }
-
 
   return (
     <div className="relative" ref={ref}>
