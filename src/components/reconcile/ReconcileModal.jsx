@@ -106,6 +106,9 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
     }
   };
 
+  console.log({vaults})
+  console.log({selectedVaultId})
+
   return (
     <CustomModal isCloseModal={isClose}>
       <div className="flex flex-col">
@@ -152,7 +155,7 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg flex justify-between items-center text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
               >
-                {selectedVaultId ? vaults.find((v) => v.id === selectedVaultId)?.name || "Unknown Vault" : "Choose a Vault"}
+                {selectedVaultId ? vaults.find((v) => v.vault_id === selectedVaultId)?.vault?.name || "Unknown Vault" : "Choose a Vault"}
                 <ChevronDown className={`w-5 h-5 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
@@ -166,12 +169,11 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
                   >
                     {vaults?.map((vault) => (
                       <li
-                        key={vault.id}
+                        key={vault.vault_id}
                         onClick={() => handleVaultSelect(vault.vault_id)}
                         className="px-4 py-2.5 text-gray-500 gap-2 hover:bg-cyan-50 cursor-pointer transition-colors flex items-center"
                       >
                         <span>{vault?.vault?.name}</span>
-                        {/* <span className="text-cyan-500 text-sm">({vault.vault?.vault_code})</span> */}
                       </li>
                     ))}
                   </motion.ul>
