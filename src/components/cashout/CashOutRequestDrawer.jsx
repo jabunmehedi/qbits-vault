@@ -430,7 +430,7 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
                           <p className="text-[12px] font-medium text-[#9A3412]">Difference from selected bags</p>
                         </div>
                       </div>
-                      <div className="text-xl font-black text-[#9A3412] ">BDT {totalSelectedBagAmount.toFixed(2)}</div>
+                      <div className="text-xl font-black text-[#9A3412] ">BDT {totalSelectedBagAmount.toFixed(2) - parseFloat(requestedAmount)}</div>
                     </div>
 
                     <div className="">
