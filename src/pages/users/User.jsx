@@ -1,8 +1,8 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import DataTable from "../../components/global/dataTable/DataTable";
 import axiosConfig from "../../utils/axiosConfig";
 import { GetRoles, GetUsers } from "../../services/User";
-import { Check, ChevronDown, Shield, X, Search, Filter, Plus, Settings2 } from "lucide-react";
+import { Check, ChevronDown, Shield, X, Search, Filter, Plus, Settings2, Vault, Building2 } from "lucide-react";
 import { CiMail } from "react-icons/ci";
 import PermissionViewer from "../../components/user/PermissionViewer";
 import CreateNewUserModal from "../../components/user/CreateNewUserModal";
@@ -14,10 +14,10 @@ import { usePermissions } from "../../hooks/usePermissions";
 import { useSelector } from "react-redux";
 import { selectAuthUser, selectIsAdmin, selectIsSuperAdmin } from "../../store/authSlice";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Constants ─────────────────────────────────────────────────────────────────
 const SUPERADMIN_NAMES = new Set(["Superadmin", "Super Admin", "superadmin", "super_admin", "super-admin"]);
 
-// ─── Status color map ─────────────────────────────────────────────────────────
+// ─── Status color map ──────────────────────────────────────────────────────────
 const STATUS_COLOR = {
   inactive: "bg-red-500",
   archived: "bg-gray-500",
@@ -25,7 +25,72 @@ const STATUS_COLOR = {
 };
 const DEFAULT_STATUS_COLOR = "bg-green-500";
 
-// ─── Main component ────────────────────────────────────────────────────────────
+// ─── VaultDropdown: per-row vault selector ─────────────────────────────────────
+const VaultDropdown = ({ row, onVaultChange, selectedVaultId }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  console.log({row})
+
+  const vaultAssignments = row?.vault_assignments ?? [];
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const selectedAssignment = vaultAssignments.find((va) => va.vault_id === selectedVaultId);
+  const displayName = selectedAssignment?.vault?.name ?? row?.default_vault?.name ?? "No Vault";
+
+  if (vaultAssignments.length === 0) {
+    return <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded tracking-wider uppercase">No Vault</span>;
+  }
+
+  console.log({ vaultAssignments });
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((prev) => !prev);
+        }}
+        className="flex items-center gap-1.5 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded tracking-wider uppercase hover:bg-blue-100 transition-colors border border-blue-100"
+      >
+        <Building2 className="w-3 h-3" />
+        <span className="max-w-[100px] truncate">{displayName}</span>
+        <ChevronDown className={`w-3 h-3 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-lg min-w-[160px] py-1 overflow-hidden">
+          {vaultAssignments.map((va) => (
+            <button
+              key={va.vault_id}
+              onClick={(e) => {
+                e.stopPropagation();
+                onVaultChange(row.id, va.vault_id);
+                setOpen(false);
+              }}
+              className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-semibold transition-colors
+                ${selectedVaultId === va.vault_id ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-50"}`}
+            >
+              <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="truncate">{va.vault?.name ?? `Vault #${va.vault_id}`}</span>
+              {selectedVaultId === va.vault_id && <Check className="w-3 h-3 ml-auto stroke-[3px]" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Main component ─────────────────────────────────────────────────────────────
 const User = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [roleDrawerOpen, setRoleDrawerOpen] = useState(false);
@@ -37,6 +102,9 @@ const User = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
+  // Map of userId → selected vaultId
+  const [userVaultSelection, setUserVaultSelection] = useState({});
+
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const isAdmin = useSelector(selectIsAdmin);
   const { hasPermission } = usePermissions();
@@ -44,11 +112,9 @@ const User = () => {
 
   const loggedUser = useSelector(selectAuthUser);
 
-  console.log({loggedUser})
+  console.log({ loggedUser });
 
-
-
-  // ── Derived permission flag ──
+  // ── Derived permission flags ──
   const canViewUserDetail = useMemo(() => isSuperAdmin || (isAdmin && hasPermission("user.details")), [isSuperAdmin, isAdmin, hasPermission]);
 
   const canManagePermissions = useMemo(() => isSuperAdmin || (isAdmin && hasPermission("permission.view")), [isSuperAdmin, isAdmin, hasPermission]);
@@ -71,6 +137,28 @@ const User = () => {
       return res?.data?.data ?? [];
     },
   });
+
+  // ── Seed default vault selection when users load ──
+  useEffect(() => {
+    if (!users.length) return;
+    setUserVaultSelection((prev) => {
+      const next = { ...prev };
+      users.forEach((user) => {
+        if (next[user.id] !== undefined) return; // already set
+        // Prefer default_vault_id if it exists in vault_assignments
+        const assignments = user.vault_assignments ?? [];
+        const hasDefault = assignments.some((va) => va.vault_id === user.default_vault_id);
+        if (hasDefault) {
+          next[user.id] = user.default_vault_id;
+        } else if (assignments.length > 0) {
+          next[user.id] = assignments[0].vault_id;
+        } else {
+          next[user.id] = null;
+        }
+      });
+      return next;
+    });
+  }, [users]);
 
   // ── React Query: Roles ──
   const { data: roles = [] } = useQuery({
@@ -108,7 +196,12 @@ const User = () => {
   // ── Stable non-superadmin roles list ──
   const visibleRoles = useMemo(() => roles.filter((role) => !SUPERADMIN_NAMES.has(role.name)), [roles]);
 
-  // ── Handlers ──
+  // ── Vault selection handler ──
+  const handleVaultChange = useCallback((userId, vaultId) => {
+    setUserVaultSelection((prev) => ({ ...prev, [userId]: vaultId }));
+  }, []);
+
+  // ── Helpers ──
   const handleOpenUserView = useCallback(
     (row) => {
       if (!canViewUserDetail) return;
@@ -133,6 +226,7 @@ const User = () => {
 
   // ── Columns ──
   const columns = useMemo(() => {
+    // ── Identity column (includes vault dropdown) ──
     const identityColumn = {
       title: "IDENTITY",
       key: "name",
@@ -159,39 +253,55 @@ const User = () => {
                 </div>
               </div>
             </div>
-            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded mt-1 self-start tracking-wider uppercase">
-              {row?.default_vault?.name ?? "No Default Vault"}
-            </span>
+
+            {/* Vault Dropdown */}
+            <div className="mt-1">
+              <VaultDropdown row={row} selectedVaultId={userVaultSelection[row.id] ?? null} onVaultChange={handleVaultChange} />
+            </div>
           </div>
         </div>
       ),
     };
 
+    // ── Manage (permissions) column ──
     const manageColumn = canManagePermissions
       ? {
           title: "MANAGE",
           key: "manage",
           className: "text-left w-40",
-          render: (row) => {
-            return (
-              <button
-                onClick={() => handleOpenPermissions(row)}
-                className="flex items-center gap-2 border shadow border-slate-300 px-4 py-1.5 rounded-lg text-[#1a2b4b] font-bold text-[11px] uppercase tracking-widest hover:bg-[#1a2b4b] hover:text-white transition-all active:scale-95"
-              >
-                <Settings2 className="w-3.5 h-3.5" />
-                Permissions
-              </button>
-            );
-          },
+          render: (row) => (
+            <button
+              onClick={() => handleOpenPermissions(row)}
+              className="flex items-center gap-2 border shadow border-slate-300 px-4 py-1.5 rounded-lg text-[#1a2b4b] font-bold text-[11px] uppercase tracking-widest hover:bg-[#1a2b4b] hover:text-white transition-all active:scale-95"
+            >
+              <Settings2 className="w-3.5 h-3.5" />
+              Permissions
+            </button>
+          ),
         }
       : null;
 
+    // ── Role columns — checked based on selected vault's role list ──
     const roleColumns = visibleRoles.map((role) => ({
       title: role.name.toUpperCase(),
       key: role.id,
       className: "text-center",
       render: (row) => {
-        const isSelected = row.roles?.some((r) => r.id === role.id);
+        const selectedVaultId = userVaultSelection[row.id] ?? null;
+        const vaultAssignments = row.vault_assignments ?? [];
+
+        let isSelected = false;
+
+        if (selectedVaultId !== null) {
+          // Find the vault assignment for the currently selected vault
+          const assignment = vaultAssignments.find((va) => va.vault_id === selectedVaultId);
+          // assignment.roles is an array of role IDs (numbers)
+          isSelected = assignment?.roles?.includes(role.id) ?? false;
+        } else {
+          // Fallback: no vault selected — use the user's global roles array
+          isSelected = row.roles?.some((r) => r.id === role.id) ?? false;
+        }
+
         return (
           <div className="flex justify-center">
             <div
@@ -207,7 +317,17 @@ const User = () => {
     }));
 
     return [identityColumn, ...(manageColumn ? [manageColumn] : []), ...roleColumns];
-  }, [visibleRoles, canManagePermissions, canViewUserDetail, isSuperAdmin, loggedUser, handleOpenUserView, handleOpenPermissions]);
+  }, [
+    visibleRoles,
+    canManagePermissions,
+    canViewUserDetail,
+    isSuperAdmin,
+    loggedUser,
+    userVaultSelection,
+    handleOpenUserView,
+    handleOpenPermissions,
+    handleVaultChange,
+  ]);
 
   return (
     <div className="font-sans">
