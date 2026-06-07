@@ -7,7 +7,6 @@ import { useSelector } from "react-redux";
 import { selectAuthUser, selectIsSuperAdmin } from "../../../store/authSlice";
 import KYCReminderModal from "../../kycModal/KYCReminderModal";
 
-
 export default function Dashboard() {
   const [dashboardData, setDashboardData] = useState(null);
   const [showKYCModal, setShowKYCModal] = useState(false);
@@ -23,11 +22,11 @@ export default function Dashboard() {
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
 
   const formatCurrency = (value) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
+    const formattedNumber = new Intl.NumberFormat("en-IN", {
       maximumFractionDigits: 0,
     }).format(value || 0);
+
+    return `${formattedNumber}`;
   };
 
   // Synchronize dashboard API updates whenever either timeframe OR selectedVault mutations fire
@@ -191,7 +190,7 @@ export default function Dashboard() {
 
             <AnimatePresence>
               {timeframeDropdownOpen && (
-                <motion.div
+              <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
@@ -368,14 +367,20 @@ export default function Dashboard() {
                           {item.type === "Cash In" ? "CI" : item.type === "Cash Out" ? "CO" : "VT"}
                         </div>
                         <div>
-                          <div className="text-xs font-bold text-slate-800 group-hover:text-cyan-600 transition-colors">{item.tran_id} <span className="text-xs text-indigo-400">{item.vault_name}</span></div>
+                          <div className="text-xs font-bold text-slate-800 group-hover:text-cyan-600 transition-colors">
+                            {item.tran_id} <span className="text-xs text-indigo-400">{item.vault_name}</span>
+                          </div>
                           <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
                             <span>{item.type}</span> &bull; <span>{item.time}</span>
                           </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs font-bold text-slate-800">{item.amount}</div>
+                        <div className="text-xs font-bold text-slate-800">
+                          {item.amount.toString().includes("BDT") || item.amount.toString().includes("৳")
+                            ? item.amount
+                            : formatCurrency(parseFloat(item.amount.toString().replace(/[^\d.]/g, "")) || 0)}
+                        </div>
                         <div className="text-[10px] text-amber-600 flex items-center gap-1 justify-end mt-0.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block animate-pulse" />
                           <span>{item?.status}</span>

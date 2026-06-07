@@ -52,6 +52,7 @@ const Vault = () => {
     handleSubmit,
     reset,
     watch,
+    setError,
     formState: { errors },
   } = useForm();
 
@@ -328,7 +329,6 @@ const Vault = () => {
       bag_limit: data.bag_limit ? Number(data.bag_limit) : null,
     };
 
-    // ── FIX: always send vault_id back on update so backend doesn't reset it ──
     if (isEditMode && editingVaultDisplayId) {
       payload.vault_code = editingVaultDisplayId;
     }
@@ -344,7 +344,18 @@ const Vault = () => {
         }
         toast.success("Vault updated successfully.");
       } else {
-        await CreateVault(payload);
+        const res = await CreateVault(payload);
+
+        if (res?.errors) {
+          Object.keys(res.errors).forEach((field) => {
+            setError(field, {
+              type: "server",
+              message: res.errors[field][0],
+            });
+          });
+          setIsLoading(false);
+          return;
+        }
         toast.success("Vault created successfully.");
       }
 
@@ -495,7 +506,7 @@ const Vault = () => {
       className: "w-34 text-start",
       render: (row) => (
         <div className="flex flex-col">
-          <span>{row.last_cash_out ? dayjs(row.last_cash_out).format("DD MMM, YYYY") : "—"}</span>
+          <span>{row.last_cash_out ? dayjs(row.last_cash_out).format("DD MMM, YYYY HH:mm A") : "—"}</span>
         </div>
       ),
     },
@@ -642,9 +653,9 @@ const Vault = () => {
             onClick={() => {
               setIsEditMode(false);
               setIsOpenModal(true);
-              setBags([]); // Clear bags state
-              setRackErrors([]); // Clear rack errors
-              setDeleteErrors([]); // Clear delete errors
+              setBags([]);
+              setRackErrors([]);
+              setDeleteErrors([]);
               reset({
                 name: "",
                 vault_code: "",
