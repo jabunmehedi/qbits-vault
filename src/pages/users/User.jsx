@@ -110,8 +110,6 @@ const User = () => {
 
   const loggedUser = useSelector(selectAuthUser);
 
-  console.log({ loggedUser });
-
   // ── Derived permission flags ──
   const canViewUserDetail = useMemo(() => isSuperAdmin || (isAdmin && hasPermission("user.details")), [isSuperAdmin, isAdmin, hasPermission]);
 

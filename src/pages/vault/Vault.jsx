@@ -362,17 +362,16 @@ const Vault = () => {
           setIsLoading(false);
           return;
         }
-        toast.success("Vault created successfully.");
+
+        addToast({ type: "success", message: "Vault created successfully." });
       }
 
+      
       setIsLoading(false);
       handleCloseModal();
-
+      
       await fetchVaultData();
 
-      // if (!isEditMode && validBags.length > 0) {
-      //   printBagBarcodes(validBags, data.name);
-      // }
     } catch (error) {
       const serverErrors = error?.response?.data?.errors;
       if (serverErrors?.length > 0) {

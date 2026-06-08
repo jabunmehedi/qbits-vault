@@ -189,13 +189,27 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
   });
 
   useEffect(() => {
-    if (!isOpen || !userId) return;
+    if (!isOpen || !userId) {
+      setUser(null);
+      setVaultList([]);
+      setActiveVaultId(null);
+      setActiveRoles([]);
+      setUserAssignments([]);
+      return;
+    }
 
     const initData = async () => {
       setLoading(true);
       setShowMigrationPanel(false);
       setPendingResponsibilities([]);
       setSelectedTargetUser("");
+
+      setUser(null);
+      setVaultList([]);
+      setActiveVaultId(null);
+      setActiveRoles([]);
+      setUserAssignments([]);
+
       try {
         const [vRes, rRes, uRes] = await Promise.all([GetVaults(), GetRoles(), GetUser(userId)]);
         setVaultList(vRes?.data?.data || []);

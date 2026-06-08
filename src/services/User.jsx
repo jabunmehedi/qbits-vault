@@ -46,7 +46,7 @@ export const ChangePassword = async (id, data) => {
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);
-    return error?.response;
+    return error?.response?.data;
   }
 };
 export const UserNewPassword = async (id, data) => {
@@ -141,7 +141,7 @@ export const UserArchiveCheck = async (userId) => {
 };
 export const MigrateUser = async (migrateUserId, targetUserId) => {
   try {
-    const response = await axios.post(`/users/migrate/${migrateUserId}`, {targetUserId});
+    const response = await axios.post(`/users/migrate/${migrateUserId}`, { targetUserId });
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);

@@ -159,7 +159,9 @@ const Profile = () => {
         newPassword: data.newPassword,
       });
 
-      console.log({ res });
+      if (!res?.success) {
+        setServerError(res?.message || "Failed to reset authentication credentials.");
+      }
 
       setSuccessMessage("Credentials reset successfully! Relogging...");
       setTimeout(() => {

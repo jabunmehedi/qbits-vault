@@ -542,10 +542,10 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                       Cancel
                     </button>
                     <button
-                      disabled={!isAuditReadyForFinalSubmit() || !canPerformCounting() || !isAllowedToEnd}
+                      disabled={!isAuditReadyForFinalSubmit() && !isAllowedToEnd}
                       onClick={handleFinalSubmit}
                       className={`flex-1 font-medium py-2.5 px-4 rounded-lg transition-all ${
-                        isAuditReadyForFinalSubmit() && canPerformCounting()
+                        isAuditReadyForFinalSubmit() && isAllowedToEnd 
                           ? "bg-green-600 hover:bg-green-700 text-white shadow-md cursor-pointer"
                           : "bg-gray-200 text-gray-400 cursor-not-allowed"
                       }`}
