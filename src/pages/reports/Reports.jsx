@@ -14,7 +14,6 @@ const Reports = () => {
   const [vaults, setVaults] = useState([]);
   const [paginationData, setPaginationData] = useState({});
   const [searchParams, setSearchParams] = useSearchParams();
-  // const currentPage = parseInt(searchParams.get("page") || "1");
 
   // Extra states for your new granular search filters
   const [tranId, setTranId] = useState("");
@@ -120,7 +119,7 @@ const Reports = () => {
       render: (row) => (
         <span className="text-green-600">{row.credit ? `$${Number(row.credit).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
       ),
-    },
+    }
   ];
 
   return (

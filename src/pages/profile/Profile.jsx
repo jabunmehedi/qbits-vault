@@ -4,8 +4,8 @@ import { Camera, Save, Lock, Shield, CheckCircle, User, Settings, Eye, EyeOff, X
 import { ChangePassword, GetUser, UpdateUser } from "../../services/User";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
-import { selectAuthUser } from "../../store/authSlice";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchAuthUser, selectAuthUser } from "../../store/authSlice";
 import { MakeDefaultVault } from "../../services/Vault";
 import { useToast } from "../../hooks/useToast";
 
@@ -16,9 +16,9 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
 
   // Profile states
-  const [name, setName] = useState("Md. Rahman");
-  const [email, setEmail] = useState("rahman@example.com");
-  const [phone, setPhone] = useState("+880 17xxx xxxxx");
+  const [name, setName] = useState();
+  const [email, setEmail] = useState();
+  const [phone, setPhone] = useState();
   const [userRoles, setUserRoles] = useState([]);
   const [userPermissions, setUserPermissions] = useState([]);
   const [avatar, setAvatar] = useState("");
@@ -42,6 +42,7 @@ const Profile = () => {
   const dropdownRef = useRef(null);
 
   const { addToast } = useToast();
+  const dispatch = useDispatch();
 
   const navigate = useNavigate();
   const { handleSubmit, register, reset, watch } = useForm();
@@ -63,7 +64,6 @@ const Profile = () => {
         return;
       }
       setSelectedFile(file);
-      // Create a local object URL instantly for rapid fluid UI preview updates
       setImagePreviewUrl(URL.createObjectURL(file));
     }
   };
@@ -88,7 +88,11 @@ const Profile = () => {
   ];
 
   useEffect(() => {
+    if (!user?.id) return;
+
     GetUser(user?.id).then((res) => {
+      dispatch(fetchAuthUser());
+
       setName(res?.data?.data?.name || "");
       setEmail(res?.data?.data?.email || "");
       setPhone(res?.data?.data?.phone || "");
@@ -96,7 +100,7 @@ const Profile = () => {
       setAvatar(res?.data?.data?.img || "");
       setUserPermissions(res?.data?.data?.permissions || []);
     });
-  }, [user?.id]);
+  }, [user?.id, dispatch]);
 
   const handleUpdateProfile = async () => {
     if (!name || !email) {
@@ -184,6 +188,8 @@ const Profile = () => {
       };
 
       await MakeDefaultVault(user?.id, payload);
+
+      dispatch(fetchAuthUser());
 
       addToast({ type: "success", message: "Default vault updated successfully." });
     } catch (error) {
@@ -301,7 +307,7 @@ const Profile = () => {
                       <input
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500/50 focus:bg-white outline-none font-semibold transition-all"
+                        className="w-full px-4 py-3 text-sm text-black bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500/50 focus:bg-white outline-none font-semibold transition-all"
                       />
                     ) : (
                       <div className="px-4 py-3 bg-slate-50 border border-transparent text-sm text-slate-800 font-bold rounded-xl">{name}</div>
@@ -314,7 +320,7 @@ const Profile = () => {
                       <input
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500/50 focus:bg-white outline-none font-semibold transition-all"
+                        className="w-full px-4 py-3 text-sm text-black bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500/50 focus:bg-white outline-none font-semibold transition-all"
                       />
                     ) : (
                       <div className="px-4 py-3 bg-slate-50 border border-transparent text-sm text-slate-700 font-medium rounded-xl font-mono">{email}</div>
@@ -327,7 +333,7 @@ const Profile = () => {
                       <input
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
-                        className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500/50 focus:bg-white outline-none font-semibold transition-all"
+                        className="w-full px-4 py-3 text-black text-sm bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500/50 focus:bg-white outline-none font-semibold transition-all"
                       />
                     ) : (
                       <div className="px-4 py-3 bg-slate-50 border border-transparent text-sm text-slate-700 font-medium rounded-xl">
@@ -346,7 +352,7 @@ const Profile = () => {
                         className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-xs flex items-center gap-2 transition disabled:opacity-50"
                       >
                         <Save className="w-4 h-4" />
-                        {isSubmitting ? "Syncing..." : "Commit Modifications"}
+                        {isSubmitting ? "Syncing..." : "Update"}
                       </button>
                       <button
                         onClick={() => {
@@ -356,7 +362,7 @@ const Profile = () => {
                         }}
                         className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold uppercase tracking-wider rounded-xl transition"
                       >
-                        Abort
+                        Cancel
                       </button>
                     </>
                   ) : (
@@ -537,25 +543,27 @@ const Profile = () => {
                         className="absolute left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden p-1.5"
                       >
                         <div className="max-h-60 overflow-y-auto space-y-0.5 scrollbar-thin scrollbar-thumb-slate-100">
-                          {user?.vault_assignments?.map((vlt) => {
-                            const isSelected = defaultVault === vlt.vault_id;
-                            return (
-                              <button
-                                key={vlt.vault_id}
-                                type="button"
-                                onClick={() => {
-                                  setDefaultVault(vlt.vault_id);
-                                  setDropdownOpen(false);
-                                }}
-                                className={`w-full flex items-center justify-between px-3 py-2.5 text-sm font-semibold rounded-lg text-left transition-all ${
-                                  isSelected ? "bg-cyan-50/70 text-cyan-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                }`}
-                              >
-                                <span className="truncate">{vlt.vault?.name}</span>
-                                {isSelected && <Check className="w-4 h-4 text-cyan-600 flex-shrink-0 ml-2" />}
-                              </button>
-                            );
-                          })}
+                          {user?.vault_assignments
+                            ?.filter((vault) => vault?.status === "active")
+                            .map((vlt) => {
+                              const isSelected = defaultVault === vlt.vault_id;
+                              return (
+                                <button
+                                  key={vlt.vault_id}
+                                  type="button"
+                                  onClick={() => {
+                                    setDefaultVault(vlt.vault_id);
+                                    setDropdownOpen(false);
+                                  }}
+                                  className={`w-full flex items-center justify-between px-3 py-2.5 text-sm font-semibold rounded-lg text-left transition-all ${
+                                    isSelected ? "bg-cyan-50/70 text-cyan-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                  }`}
+                                >
+                                  <span className="truncate">{vlt.vault?.name}</span>
+                                  {isSelected && <Check className="w-4 h-4 text-cyan-600 flex-shrink-0 ml-2" />}
+                                </button>
+                              );
+                            })}
                         </div>
                       </motion.div>
                     )}

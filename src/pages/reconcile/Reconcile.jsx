@@ -82,9 +82,9 @@ const Reconcile = () => {
       }
 
       fetchReconcileData();
-      addToast({ message: "Cash-in verified successfully", type: "success" });
+      addToast({ message: "Reconcile verified successfully", type: "success" });
     } catch (err) {
-      console.error("Failed to verify cash-in:", err);
+      console.error("Failed to verify Reconcile:", err);
     } finally {
       setVerifyLoading(null);
     }

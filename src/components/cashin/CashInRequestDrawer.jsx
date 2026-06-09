@@ -82,11 +82,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   useEffect(() => {
     if (!isEditMode || !editData || !user) return;
 
-    setDenominations(
-      editData.denominations
-        ? Object.fromEntries(DENOM_NOTES.map((n) => [n, editData.denominations[String(n)] ?? 0]))
-        : INITIAL_DENOMINATIONS
-    );
+    setDenominations(editData.denominations ? Object.fromEntries(DENOM_NOTES.map((n) => [n, editData.denominations[String(n)] ?? 0])) : INITIAL_DENOMINATIONS);
 
     const vault = user?.vault_assignments?.find((v) => v.vault.id === editData.vault_id);
     setSelectedVault(vault || null);
@@ -175,8 +171,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const grandTotal = Object.entries(denominations).reduce((sum, [val, cnt]) => sum + parseInt(val) * (parseInt(cnt) || 0), 0);
   const difference = grandTotal - totalAmount;
 
-  const updateDenom = (value, delta) =>
-    setDenominations((prev) => ({ ...prev, [value]: Math.max(0, (prev[value] || 0) + delta) }));
+  const updateDenom = (value, delta) => setDenominations((prev) => ({ ...prev, [value]: Math.max(0, (prev[value] || 0) + delta) }));
 
   const handleInputChange = (value, val) => {
     const num = parseInt(val.replace(/[^0-9]/g, "")) || 0;
@@ -189,10 +184,8 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
 
   const vaultValidation = () => {
     if (!selectedVault) return { valid: false, msg: "Please select a vault." };
-    if (bagMin > 0 && totalAmount < bagMin)
-      return { valid: false, msg: `Minimum cash-in amount is ৳${bagMin.toLocaleString("en-BD")}` };
-    if (bagMax > 0 && totalAmount > bagMax)
-      return { valid: false, msg: `Maximum cash-in limit is ৳${bagMax.toLocaleString("en-BD")}` };
+    if (bagMin > 0 && totalAmount < bagMin) return { valid: false, msg: `Minimum cash-in amount is ৳${bagMin.toLocaleString("en-BD")}` };
+    if (bagMax > 0 && totalAmount > bagMax) return { valid: false, msg: `Maximum cash-in limit is ৳${bagMax.toLocaleString("en-BD")}` };
     return { valid: true, msg: null };
   };
 
@@ -300,11 +293,20 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     });
 
     setIsConfirmModalOpen(false);
-    setIsDepositError(false);
+    setIsDepositError(false)
+
+    if (!res?.success) {
+      addToast({
+        type: "error",
+        message: res?.message || "Bag creation request failed",
+      });
+      setDepositError(res?.message);
+      return;
+    }
 
     addToast({
-      type: res?.success === false ? "error" : "success",
-      message: res?.success === false ? res?.message : "Bag creation request sent successfully",
+      type: "success",
+      message: res?.message || "Bag creation request sent successfully",
     });
   };
 
@@ -322,22 +324,13 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
               whileTap={{ scale: 0.92 }}
               onClick={(e) => {
                 e.stopPropagation();
-                setSelectedRows((prev) =>
-                  prev.some((item) => item.id === row.id)
-                    ? prev.filter((item) => item.id !== row.id)
-                    : [...prev, row]
-                );
+                setSelectedRows((prev) => (prev.some((item) => item.id === row.id) ? prev.filter((item) => item.id !== row.id) : [...prev, row]));
               }}
               className={`relative w-6 h-6 rounded flex items-center justify-center border overflow-hidden transition-all duration-300 ${
                 isSelected ? "bg-cyan-50 border-cyan-200" : "bg-transparent border-gray-200 hover:border-cyan-200"
               }`}
             >
-              <motion.div
-                className="absolute inset-0 bg-cyan-50"
-                initial={false}
-                animate={{ scale: isSelected ? 1 : 0 }}
-                transition={{ duration: 0.35 }}
-              />
+              <motion.div className="absolute inset-0 bg-cyan-50" initial={false} animate={{ scale: isSelected ? 1 : 0 }} transition={{ duration: 0.35 }} />
               <motion.svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 relative z-10 pointer-events-none" initial={false}>
                 <motion.path
                   d="M4 12L9 17L20 6"
@@ -406,9 +399,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
               <MdArrowOutward className="text-blue-500" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-800">
-                {isEditMode ? "Edit Cash In Request" : "Cash In Request"}
-              </h2>
+              <h2 className="text-xl font-bold text-slate-800">{isEditMode ? "Edit Cash In Request" : "Cash In Request"}</h2>
               <p className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
                 {isEditMode ? `Editing · ${editData?.tran_id}` : "Select orders to deposit into vault"}
               </p>
@@ -599,9 +590,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grand Total</p>
-                      <p className={`text-4xl font-black ${totalAmount < grandTotal ? "text-red-600" : "text-blue-600"}`}>
-                        ৳{grandTotal.toLocaleString()}
-                      </p>
+                      <p className={`text-4xl font-black ${totalAmount < grandTotal ? "text-red-600" : "text-blue-600"}`}>৳{grandTotal.toLocaleString()}</p>
                     </div>
                   </div>
 
@@ -625,9 +614,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                             </div>
                           ))
                       ) : (
-                        <div className="h-32 flex items-center justify-center text-slate-300 text-sm italic">
-                          Start adding notes to see summary
-                        </div>
+                        <div className="h-32 flex items-center justify-center text-slate-300 text-sm italic">Start adding notes to see summary</div>
                       )}
                     </div>
                   </div>

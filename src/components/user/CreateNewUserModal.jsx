@@ -10,31 +10,31 @@ const SUPERADMIN_NAMES = ["Superadmin", "Super Admin", "superadmin", "super-admi
 
 const INITIAL_FORM = { name: "", email: "", password: "", role: [] };
 
-// ─── Component ────────────────────────────────────────────────────────────────
-const CreateNewUserModal = ({
-  setOpenModal,
-  onUserCreated,
-  roles,
-  roleSearch,
-  setRoleSearch,
-}) => {
+const CreateNewUserModal = ({ setOpenModal, onUserCreated, roles, roleSearch, setRoleSearch }) => {
   const [formData, setFormData] = useState(INITIAL_FORM);
+  const [errors, setErrors] = useState({});
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addToast } = useToast();
   const dropdownRef = useRef(null);
 
-  // ✅ Exclude superadmin roles from the dropdown
   const assignableRoles = roles.filter((role) => !SUPERADMIN_NAMES.includes(role.name));
 
-  // ✅ Apply role search filter locally
-  const filteredRoles = assignableRoles.filter((role) =>
-    role?.name?.toLowerCase().includes((roleSearch || "").toLowerCase())
-  );
+  const filteredRoles = assignableRoles.filter((role) => role?.name?.toLowerCase().includes((roleSearch || "").toLowerCase()));
+
+  // Helper to handle input change and clear errors for that field
+  const handleInputChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: null }));
+    }
+  };
 
   // Toggle Role
   const toggleRole = (role) => {
+    if (errors.role) setErrors((prev) => ({ ...prev, role: null }));
+
     const isSelected = formData.role.includes(role.id);
     if (isSelected) {
       setFormData((prev) => ({ ...prev, role: prev.role.filter((id) => id !== role.id) }));
@@ -47,9 +47,7 @@ const CreateNewUserModal = ({
 
   // Sync selectedRoles when formData.role changes (e.g. on reset)
   useEffect(() => {
-    const currentRoleNames = assignableRoles
-      .filter((role) => formData?.role?.includes(role.id))
-      .map((role) => role.name);
+    const currentRoleNames = assignableRoles.filter((role) => formData?.role?.includes(role.id)).map((role) => role.name);
     setSelectedRoles(currentRoleNames);
   }, [formData.role, roles]);
 
@@ -67,14 +65,17 @@ const CreateNewUserModal = ({
   const handleClose = () => {
     setOpenModal(false);
     setFormData(INITIAL_FORM);
+    setErrors({}); // ✅ Clear errors on close
     setSelectedRoles([]);
     if (setRoleSearch) setRoleSearch("");
   };
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
+    setErrors({});
 
     if (!formData.role || !formData.role.length) {
+      setErrors((prev) => ({ ...prev, role: "Please select at least one role" }));
       addToast({ type: "error", message: "Please select at least one role" });
       return;
     }
@@ -83,20 +84,30 @@ const CreateNewUserModal = ({
 
     try {
       const res = await CreateUser(formData);
-      const { success, message } = res;
+
+      const { success, message, errors: backendErrors } = res;
 
       if (!success) {
+        if (backendErrors) {
+          setErrors(backendErrors);
+        }
         addToast({ type: "error", message: message || "Failed to create user" });
         return;
       }
 
-      // ✅ Trigger React Query cache invalidation in parent — list updates instantly
       if (onUserCreated) onUserCreated();
-
       handleClose();
       addToast({ type: "success", message: "User created successfully" });
     } catch (err) {
-      const errorMessage = err.response?.data?.message || "Failed to create user";
+      console.error(err);
+
+      const apiResponse = err.response?.data;
+      const errorMessage = apiResponse?.message || "Failed to create user";
+
+      if (apiResponse?.errors) {
+        setErrors(apiResponse.errors); // ✅ Feeds 'email' and 'password' arrays into your view state
+      }
+
       addToast({ type: "error", message: errorMessage });
     } finally {
       setIsSubmitting(false);
@@ -107,25 +118,36 @@ const CreateNewUserModal = ({
     <CustomModal isCloseModal={handleClose} className="max-w-lg">
       <h2 className="text-lg font-bold text-[#1a2b4b] mb-6 uppercase tracking-tight">Create New User</h2>
       <form onSubmit={handleCreateSubmit} className="space-y-4">
-        {["name", "email", "password"].map((field) => (
-          <div key={field}>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{field}</label>
-            <input
-              type={field === "password" ? "password" : "text"}
-              className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-blue-400 text-sm"
-              onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-              required
-            />
-          </div>
-        ))}
+        {["name", "email", "password"].map((field) => {
+          const hasError = !!errors[field];
+          return (
+            <div key={field}>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{field}</label>
+              <input
+                type={field === "password" ? "password" : "text"}
+                value={formData[field]}
+                className={`w-full px-4 py-2 rounded-xl outline-none text-sm transition-colors ${
+                  hasError
+                    ? "bg-red-50 border-2 border-red-500 focus:border-red-600 text-red-900"
+                    : "bg-gray-50 border border-gray-200 focus:border-blue-400 text-gray-900"
+                }`}
+                onChange={(e) => handleInputChange(field, e.target.value)}
+              />
 
-        {/* ✅ Role Dropdown — fixed z-index so it overflows modal without scrolling */}
+              {hasError && <p className="text-xs text-red-500 font-semibold mt-1 pl-1">{Array.isArray(errors[field]) ? errors[field][0] : errors[field]}</p>}
+            </div>
+          );
+        })}
+
+        {/* Role Dropdown */}
         <div className="relative" ref={dropdownRef}>
           <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Assign Roles</label>
           <button
             type="button"
             onClick={() => setDropdownOpen((prev) => !prev)}
-            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-left text-sm flex justify-between items-center min-h-[42px]"
+            className={`w-full px-4 py-2 rounded-xl text-left text-sm flex justify-between items-center min-h-[42px] transition-colors ${
+              errors.role ? "bg-red-50 border-2 border-red-500" : "bg-gray-50 border border-gray-200"
+            }`}
           >
             <span className={formData.role?.length ? "text-gray-900" : "text-gray-400"}>
               {selectedRoles.length > 0 ? (
@@ -143,6 +165,8 @@ const CreateNewUserModal = ({
             <ChevronDown size={16} className={`transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
           </button>
 
+          {errors.role && <p className="text-xs text-red-500 font-semibold mt-1 pl-1">{Array.isArray(errors.role) ? errors.role[0] : errors.role}</p>}
+
           <AnimatePresence>
             {dropdownOpen && (
               <motion.div
@@ -150,9 +174,7 @@ const CreateNewUserModal = ({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.15 }}
-                // ✅ z-[99999] ensures dropdown renders above the modal overlay
                 className="absolute z-[99999] w-full mt-2 bg-white border border-gray-200 shadow-2xl rounded-xl p-2"
-                // ✅ Prevent the modal from scrolling when interacting with dropdown
                 onMouseDown={(e) => e.stopPropagation()}
               >
                 <input
@@ -173,9 +195,7 @@ const CreateNewUserModal = ({
                         className="flex items-center justify-between p-2 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors"
                       >
                         <span className="text-xs font-bold text-gray-700">{role?.name}</span>
-                        {formData.role.includes(role.id) && (
-                          <Check size={14} className="text-blue-600 shrink-0" />
-                        )}
+                        {formData.role.includes(role.id) && <Check size={14} className="text-blue-600 shrink-0" />}
                       </div>
                     ))
                   )}

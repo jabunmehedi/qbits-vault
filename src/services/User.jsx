@@ -6,7 +6,7 @@ export const CreateUser = async (data) => {
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);
-    return error?.response;
+    return error?.response?.data;
   }
 };
 export const GetUsers = async (params = {}) => {

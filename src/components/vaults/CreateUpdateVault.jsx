@@ -22,8 +22,8 @@ const CreateUpdateVault = ({
   removeBag,
   watchedBagLimit,
   isLoading,
+  watchedTotalRacks,
 }) => {
-
   return (
     <CustomModal
       title={
@@ -155,7 +155,9 @@ const CreateUpdateVault = ({
                           <input
                             type="text"
                             placeholder="Rack Number"
-                            value={bag.rack_number}
+                            // Show visually "1" if total rack constraint isn't provided
+                            value={!watchedTotalRacks || watchedTotalRacks <= 0 ? "1" : bag.rack_number || ""}
+                            disabled={!watchedTotalRacks || watchedTotalRacks <= 0}
                             onChange={(e) => {
                               const val = e.target.value.replace(/[^0-9]/g, "");
                               setBags((prev) => prev.map((b) => (b.id === bag.id ? { ...b, rack_number: val } : b)));
@@ -165,11 +167,12 @@ const CreateUpdateVault = ({
                                 return u;
                               });
                             }}
-                            className={`max-w-[100px] h-[34px] px-2 py-1 bg-[#F8FAFC] placeholder:text-xs rounded-lg focus:outline-none focus:border-blue-300 border ${
-                              rackErrors[bag.id] ? "border-red-400" : "border-gray-200"
+                            className={`max-w-[100px] h-[34px] px-2 py-1 placeholder:text-xs rounded-lg focus:outline-none border transition-colors ${
+                              !watchedTotalRacks || watchedTotalRacks <= 0
+                                ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed select-none"
+                                : `bg-[#F8FAFC] focus:border-blue-300 ${rackErrors[bag.id] ? "border-red-400" : "border-gray-200"}`
                             }`}
                           />
-                          {/* {rackErrors[bag.id] && <p className="text-[10px] text-red-500 mt-1">{rackErrors[bag.id]}</p>} */}
                         </div>
 
                         <button

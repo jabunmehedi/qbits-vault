@@ -470,7 +470,7 @@ const InitialVerification = ({ onSuccess }) => {
                   onChange={(e) => setCurrentAddr({ ...currentAddr, upazilaId: e.target.value })}
                   disabled={!currentAddr.districtId}
                 >
-                  <option value="">Upazila/Thana</option>
+                  <option value="">Upazila</option>
                   {curUpazilas.map((u) => (
                     <option key={u.id} value={u.id}>
                       {u.name}
@@ -537,7 +537,7 @@ const InitialVerification = ({ onSuccess }) => {
                   disabled={isSame || !permanentAddr.districtId}
                   onChange={(e) => setPermanentAddr({ ...permanentAddr, upazilaId: e.target.value })}
                 >
-                  <option value="">Upazila/Thana</option>
+                  <option value="">Upazila</option>
                   {perUpazilas.map((u) => (
                     <option key={u.id} value={u.id}>
                       {u.name}

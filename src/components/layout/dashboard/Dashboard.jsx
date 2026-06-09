@@ -190,7 +190,7 @@ export default function Dashboard() {
 
             <AnimatePresence>
               {timeframeDropdownOpen && (
-              <motion.div
+                <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
@@ -341,6 +341,35 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
+            {dashboardData?.pendingVaultBagRequest?.length > 0 && (
+              <div className="bg-gradient-to-br from-orange-50 to-slate-50 border border-orange-100 rounded-2xl p-5 relative overflow-hidden">
+                <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-indigo-500/5 blur-xl rounded-full" />
+
+                <div>
+                  <p className="text-xs font-bold text-orange-600 uppercase tracking-widest">
+                    New Bag create Request ({dashboardData.pendingVaultBagRequest.length})
+                  </p>
+
+                  <div className="space-y-3 mt-2">
+                    {dashboardData.pendingVaultBagRequest.map((item, idx) => (
+                      <div key={item.id || idx} className="border-b border-orange-100/50 last:border-0 pb-2 last:pb-0">
+                        <h4 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                          <span>{item?.vault?.name || "N/A"}</span>
+                          <span className="text-indigo-500 text-xs font-mono">(Code: {item?.vault?.vault_code || "—"})</span>
+                        </h4>
+
+                        <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
+                          <span>
+                            Requested by: <strong className="text-slate-700">{item?.request_user?.name}</strong>
+                          </span>
+                          <span className="bg-orange-100/80 text-orange-700 px-2 py-0.5 rounded-full text-[10px] font-semibold">Pending</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="bg-white/80 backdrop-blur-xl border border-slate-200/80 rounded-2xl p-5 flex-1 flex flex-col justify-between">
               <div>
@@ -349,45 +378,51 @@ export default function Dashboard() {
                     <h3 className="text-base font-bold text-slate-900">Verification Ledger</h3>
                     <p className="text-xs text-slate-400 mt-0.5">Pending security authorization pipelines.</p>
                   </div>
-                  <span className="bg-amber-50 text-amber-600 border border-amber-200 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                    {dashboardData?.pendingLedger?.length} Pending
-                  </span>
+                  {dashboardData?.pendingLedger?.length > 0 && (
+                    <span className="bg-amber-50 text-amber-600 border border-amber-200 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                      {dashboardData?.pendingLedger?.length} Pending
+                    </span>
+                  )}
                 </div>
 
                 <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-200">
-                  {dashboardData?.pendingLedger.map((item) => (
-                    <div
-                      key={item.tran_id}
-                      className="group flex justify-between items-center p-3 bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-xl transition-all"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`p-2 rounded-lg text-xs font-bold ${item.type === "Cash In" ? "bg-cyan-50 text-cyan-600" : item.type === "Cash Out" ? "bg-rose-50 text-rose-600" : "bg-purple-50 text-purple-600"}`}
-                        >
-                          {item.type === "Cash In" ? "CI" : item.type === "Cash Out" ? "CO" : "VT"}
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-slate-800 group-hover:text-cyan-600 transition-colors">
-                            {item.tran_id} <span className="text-xs text-indigo-400">{item.vault_name}</span>
+                  {dashboardData?.pendingLedger?.length > 0 ? (
+                    dashboardData?.pendingLedger.map((item) => (
+                      <div
+                        key={item.tran_id}
+                        className="group flex justify-between items-center p-3 bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-xl transition-all"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`p-2 rounded-lg text-xs font-bold ${item.type === "Cash In" ? "bg-cyan-50 text-cyan-600" : item.type === "Cash Out" ? "bg-rose-50 text-rose-600" : "bg-purple-50 text-purple-600"}`}
+                          >
+                            {item.type === "Cash In" ? "CI" : item.type === "Cash Out" ? "CO" : "VT"}
                           </div>
-                          <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-                            <span>{item.type}</span> &bull; <span>{item.time}</span>
+                          <div>
+                            <div className="text-xs font-bold text-slate-800 group-hover:text-cyan-600 transition-colors">
+                              {item.tran_id} <span className="text-xs text-indigo-400">{item.vault_name}</span>
+                            </div>
+                            <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                              <span>{item.type}</span> &bull; <span>{item.time}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs font-bold text-slate-800">
+                            {item.amount.toString().includes("BDT") || item.amount.toString().includes("৳")
+                              ? item.amount
+                              : formatCurrency(parseFloat(item.amount.toString().replace(/[^\d.]/g, "")) || 0)}
+                          </div>
+                          <div className="text-[10px] text-amber-600 flex items-center gap-1 justify-end mt-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block animate-pulse" />
+                            <span>{item?.status}</span>
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-xs font-bold text-slate-800">
-                          {item.amount.toString().includes("BDT") || item.amount.toString().includes("৳")
-                            ? item.amount
-                            : formatCurrency(parseFloat(item.amount.toString().replace(/[^\d.]/g, "")) || 0)}
-                        </div>
-                        <div className="text-[10px] text-amber-600 flex items-center gap-1 justify-end mt-0.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block animate-pulse" />
-                          <span>{item?.status}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <div className="text-center flex justify-center h-[250px] items-center text-gray-300  ">No pending verifications</div>
+                  )}
                 </div>
               </div>
               <button className="w-full mt-4 text-center py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-semibold rounded-xl border border-slate-200/60 transition-all">

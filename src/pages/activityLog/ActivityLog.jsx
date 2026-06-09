@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity,
   Search,
-  Filter,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -16,11 +15,9 @@ import {
   Clock,
   RefreshCw,
   X,
-  Package,
   Eye,
 } from "lucide-react";
 import axiosConfig from "../../utils/axiosConfig";
-
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const MODULES = ["", "vault", "bag", "transaction", "user"];
@@ -320,7 +317,7 @@ const ActivityLog = () => {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Event", "Module", "Description", "Subject", "User", "IP", "Time", ""].map((h) => (
+                {["Event", "Module", "Description", "User", "IP", "Time", ""].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     {h}
                   </th>
@@ -340,16 +337,8 @@ const ActivityLog = () => {
                     <td className="px-4 py-3">
                       <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-md capitalize">{log.module}</span>
                     </td>
-                    <td className="px-4 py-3 text-gray-700 max-w-xs truncate">{log.description}</td>
-                    <td className="px-4 py-3">
-                      {log.subject_label ? (
-                        <span className="text-cyan-600 font-medium">{log.subject_label}</span>
-                      ) : log.subject_id ? (
-                        <span className="text-gray-400">#{log.subject_id}</span>
-                      ) : (
-                        <span className="text-gray-300">—</span>
-                      )}
-                    </td>
+                    <td className="px-4 py-3 text-gray-700 max-w-xs ">{log.description}</td>
+
                     <td className="px-4 py-3 text-gray-600">{log.user_name || "System"}</td>
                     <td className="px-4 py-3 text-gray-400 font-mono text-xs">{log.ip_address || "—"}</td>
                     <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{dayjs(log.created_at).format("DD MMM YY, h:mm A")}</td>
