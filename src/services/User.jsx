@@ -148,3 +148,12 @@ export const MigrateUser = async (migrateUserId, targetUserId) => {
     return error?.response;
   }
 };
+export const ResendEmailOtp = async () => {
+  try {
+    const response = await axios.post(`/resend/email/verification/otp`);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response;
+  }
+};

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import axiosConfig from "../../utils/axiosConfig";
 import { Check, Shield, ArrowRight, Loader2, Phone } from "lucide-react";
@@ -15,12 +15,14 @@ import {
 } from "../../store/authSlice";
 import { useDivisions, useDistricts } from "bd-geo-location/react";
 import { IoDocumentTextOutline } from "react-icons/io5";
-import { UserVerification } from "../../services/User";
+import { ResendEmailOtp, UserVerification } from "../../services/User";
+import { EmailVerify, PhoneVerify, SendPhoneOtp } from "../../services/Auth";
+import { useToast } from "../../hooks/useToast";
 
 const InitialVerification = ({ onSuccess }) => {
   const dispatch = useDispatch();
 
-  // ── All state from Redux — zero localStorage reads ───────────────────────────
+  // ── Redux Selectors ──────────────────────────────────────────────────────────
   const loggedUser = useSelector(selectAuthUser);
   const userLoading = useSelector(selectAuthLoading);
   const isEmailVerified = useSelector(selectIsEmailVerified);
@@ -28,24 +30,26 @@ const InitialVerification = ({ onSuccess }) => {
   const isAddressSaved = useSelector(selectIsAddressSaved);
   const isKycDone = useSelector(selectIsKycVerified);
 
-  // Case 3 Address States
+  // ── Address Configuration States ─────────────────────────────────────────────
   const [currentAddr, setCurrentAddr] = useState({ street: "", divisionId: "", districtId: "", upazilaId: "" });
   const [permanentAddr, setPermanentAddr] = useState({ street: "", divisionId: "", districtId: "", upazilaId: "" });
   const [isSame, setIsSame] = useState(false);
 
-  // Current Address Data
+  // Geographic Data Bindings
   const curDivisions = useDivisions();
   const curDistricts = useDistricts(currentAddr.divisionId);
-  // Extract upazilas from the selected district object
   const curUpazilas = curDistricts?.find((d) => d.id === currentAddr.districtId)?.upazilas || [];
 
-  // Permanent Address Data
   const perDivisions = useDivisions();
   const perDistricts = useDistricts(permanentAddr.divisionId);
   const perUpazilas = perDistricts?.find((d) => d.id === permanentAddr.districtId)?.upazilas || [];
 
-  // ── Step: null until user loads, then computed once ──────────────────────────
+  // Flow State Machine
   const [step, setStep] = useState(null);
+
+  // Input Box DOM References for smooth focus control
+  const emailRefs = useRef([]);
+  const phoneRefs = useRef([]);
 
   useEffect(() => {
     if (!loggedUser) return;
@@ -56,55 +60,164 @@ const InitialVerification = ({ onSuccess }) => {
     onSuccess?.();
   }, [loggedUser, isEmailVerified, isPhoneVerified, isAddressSaved, isKycDone]);
 
-
-
-  // ── Local UI state ────────────────────────────────────────────────────────────
+  // ── Unified Core UI and Verification State Arrays ───────────────────────────
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const [emailCode, setEmailCode] = useState("");
+
+  // Normalized 6-box structures for both email and phone tokens
+  const [emailOtp, setEmailOtp] = useState(["", "", "", "", "", ""]);
+  const [phoneOtp, setPhoneOtp] = useState(["", "", "", "", "", ""]);
+
   const [phoneNumber, setPhoneNumber] = useState("");
   const [showOtpView, setShowOtpView] = useState(false);
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [address, setAddress] = useState("");
   const [kycFiles, setKycFiles] = useState({ front: null, back: null, photo: null });
 
-  // Pre-fill phone / address once user loads
+  // ── 4-Minute Resend Mechanism Timers (240 Seconds) ───────────────────────────
+  const [emailTimer, setEmailTimer] = useState(0);
+  const [phoneTimer, setPhoneTimer] = useState(0);
+
+  const { addToast } = useToast();
+
+  useEffect(() => {
+    const checkStoredTimers = () => {
+      const now = Math.floor(Date.now() / 1000);
+
+      const storedEmailExpiry = localStorage.getItem("email_otp_expiry");
+      if (storedEmailExpiry) {
+        const emailLeft = parseInt(storedEmailExpiry, 10) - now;
+        if (emailLeft > 0) setEmailTimer(emailLeft);
+        else localStorage.removeItem("email_otp_expiry");
+      }
+
+      const storedPhoneExpiry = localStorage.getItem("phone_otp_expiry");
+      if (storedPhoneExpiry) {
+        const phoneLeft = parseInt(storedPhoneExpiry, 10) - now;
+        if (phoneLeft > 0) setPhoneTimer(phoneLeft);
+        else localStorage.removeItem("phone_otp_expiry");
+      }
+    };
+
+    checkStoredTimers();
+  }, [step]);
+
+  // 2. Background Countdown Processing Loop
+  useEffect(() => {
+    if (emailTimer <= 0) return;
+    const interval = setInterval(() => {
+      setEmailTimer((prev) => {
+        if (prev <= 1) {
+          localStorage.removeItem("email_otp_expiry");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [emailTimer]);
+
+  // Background Countdown Engine for Phone OTP Resends
+  useEffect(() => {
+    if (phoneTimer <= 0) return;
+    const interval = setInterval(() => {
+      setPhoneTimer((prev) => {
+        if (prev <= 1) {
+          localStorage.removeItem("phone_otp_expiry");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [phoneTimer]);
+
+  // Sync profile metadata on lifecycle adjustments
   useEffect(() => {
     if (loggedUser?.phone) setPhoneNumber(loggedUser.phone);
     if (loggedUser?.address) setAddress(loggedUser.address);
   }, [loggedUser]);
 
-  // Auto-send OTP if user has phone but hasn't verified yet
+  // Automated trigger configuration to dispatch Phone OTP on step transitions
   useEffect(() => {
     if (step === 2 && loggedUser?.phone && !isPhoneVerified && !showOtpView) {
       handleSendOtp(loggedUser.phone);
     }
   }, [step, loggedUser]);
 
-  // Sync logic for Case 3 (Address)
+  // Mirror structural alignment rules across current/permanent fields
   useEffect(() => {
     if (isSame) {
       setPermanentAddr({ ...currentAddr });
     } else {
-      setPermanentAddr({
-        street: "",
-        divisionId: "",
-        districtId: "",
-        upazilaId: "",
-      });
+      setPermanentAddr({ street: "", divisionId: "", districtId: "", upazilaId: "" });
     }
   }, [currentAddr, isSame]);
 
-  // ── Handlers ──────────────────────────────────────────────────────────────────
+  // Helper parsing routine for dynamic counter visualization
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
 
-  const handleSendOtp = async (phone) => {
+  // ── API Network Dispatch Handlers ───────────────────────────────────────────
+
+  const handleSendEmailOtp = async () => {
+    if (emailTimer > 0) return;
     setLoading(true);
     setError("");
     try {
-      await axiosConfig.post("/phone/send-otp", { phone });
+      const res = await ResendEmailOtp();
+
+      if (!res?.success) {
+        addToast({ message: res?.message, type: "error" });
+        return;
+      }
+      const expiryTimestamp = Math.floor(Date.now() / 1000) + 240;
+      localStorage.setItem("email_otp_expiry", expiryTimestamp.toString());
+
+      setEmailTimer(240); // 4 minutes lockout initialization
+      setEmailOtp(["", "", "", "", "", ""]);
+      emailRefs.current[0]?.focus();
+    } catch (err) {
+      if (err.response?.status === 429 && err.response?.data?.seconds_left) {
+        const secondsLeft = err.response.data.seconds_left;
+        const expiryTimestamp = Math.floor(Date.now() / 1000) + secondsLeft;
+        localStorage.setItem("email_otp_expiry", expiryTimestamp.toString());
+        setEmailTimer(secondsLeft);
+      }
+      setError(err.response?.data?.message || "Failed to send verification code");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendOtp = async (phone) => {
+    if (phoneTimer > 0) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await SendPhoneOtp(phone);
+
+      if (!res?.success) {
+        addToast({ message: res?.message, type: "error" });
+        return;
+      }
+      const expiryTimestamp = Math.floor(Date.now() / 1000) + 240;
+      localStorage.setItem("phone_otp_expiry", expiryTimestamp.toString());
+
+      setPhoneTimer(240); // 4 minutes lockout initialization
+      setPhoneOtp(["", "", "", "", "", ""]);
       setShowOtpView(true);
     } catch (err) {
+      if (err.response?.status === 429 && err.response?.data?.seconds_left) {
+        const secondsLeft = err.response.data.seconds_left;
+        const expiryTimestamp = Math.floor(Date.now() / 1000) + secondsLeft;
+        localStorage.setItem("phone_otp_expiry", expiryTimestamp.toString());
+        setPhoneTimer(secondsLeft);
+        setShowOtpView(true);
+      }
       setError(err.response?.data?.message || "Failed to send OTP");
     } finally {
       setLoading(false);
@@ -112,18 +225,24 @@ const InitialVerification = ({ onSuccess }) => {
   };
 
   const handleVerifyEmail = async () => {
-    if (!emailCode.trim()) return setError("Please enter the verification code");
+    const fullCode = emailOtp.join("");
+    if (fullCode.length < 6) return setError("Please enter the complete 6-digit code");
     setLoading(true);
     setError("");
     setSuccess(false);
     try {
-      await axiosConfig.post("/email/verify", { code: emailCode.trim() });
+      const res = await EmailVerify({ code: fullCode });
+
+      if (!res?.success) {
+        addToast({ message: res?.message, type: "error" });
+        return;
+      }
+
       setSuccess(true);
-      // Optimistic update — no re-fetch needed
       dispatch(patchAuthUser({ email_verified_at: new Date().toISOString() }));
       setTimeout(() => {
         setSuccess(false);
-        setEmailCode("");
+        setEmailOtp(["", "", "", "", "", ""]);
         setStep(2);
       }, 1200);
     } catch (err) {
@@ -134,11 +253,16 @@ const InitialVerification = ({ onSuccess }) => {
   };
 
   const handleVerifyPhoneOtp = async () => {
+    const fullOtp = phoneOtp.join("");
+    if (fullOtp.length < 6) return setError("Please enter the complete 6-digit OTP");
     setLoading(true);
     setError("");
     try {
-      const fullOtp = otp.join("");
-      await axiosConfig.post("/phone/verify", { otp: fullOtp, phone: phoneNumber });
+      const res = await PhoneVerify(fullOtp, phoneNumber);
+      if (!res?.success) {
+        addToast({ message: res?.message, type: "error" });
+        return;
+      }
       dispatch(
         patchAuthUser({
           phone: phoneNumber,
@@ -157,12 +281,9 @@ const InitialVerification = ({ onSuccess }) => {
     if (!currentAddr.street || !currentAddr.upazilaId) {
       return setError("Please complete your address");
     }
-
     setLoading(true);
     setError("");
-
     try {
-      // Helper to extract names from IDs for Current Address
       const currentPayload = {
         street: currentAddr.street,
         division: curDivisions?.find((d) => d.id === currentAddr.divisionId)?.name || "",
@@ -170,7 +291,6 @@ const InitialVerification = ({ onSuccess }) => {
         upazila: curUpazilas?.find((u) => u.id === currentAddr.upazilaId)?.name || "",
       };
 
-      // Helper to extract names from IDs for Permanent Address
       const permanentPayload = {
         street: permanentAddr.street,
         division: perDivisions?.find((d) => d.id === permanentAddr.divisionId)?.name || "",
@@ -178,14 +298,8 @@ const InitialVerification = ({ onSuccess }) => {
         upazila: perUpazilas?.find((u) => u.id === permanentAddr.upazilaId)?.name || "",
       };
 
-      const finalPayload = {
-        current: currentPayload,
-        permanent: permanentPayload,
-      };
+      await axiosConfig.post("/user/verification", { current: currentPayload, permanent: permanentPayload });
 
-      await axiosConfig.post("/user/verification", finalPayload);
-
-      // Optimistically update Redux with the names for display
       dispatch(
         patchAuthUser({
           current_address: currentPayload.street,
@@ -206,50 +320,20 @@ const InitialVerification = ({ onSuccess }) => {
     }
   };
 
-  // const handleCompleteKyc = async () => {
-  //   setLoading(true);
-  //   setError("");
-  //   try {
-  //     const formData = new FormData();
-  //     if (kycFiles.front) formData.append("nid_front", kycFiles.front);
-  //     if (kycFiles.back) formData.append("nid_back", kycFiles.back);
-  //     if (kycFiles.photo) formData.append("photo", kycFiles.photo);
-
-  //     await axiosConfig.post("/user/kyc", formData, {
-  //       headers: { "Content-Type": "multipart/form-data" },
-  //     });
-
-  //     // Re-fetch to get latest verified/kyc_verified_at from server
-  //     await dispatch(fetchAuthUser());
-  //     onSuccess?.();
-  //   } catch (err) {
-  //     setError(err.response?.data?.message || "KYC submission failed.");
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
   const handleCompleteKyc = async () => {
     setLoading(true);
     setError("");
     const formData = new FormData();
-
     try {
-
       if (kycFiles.front) formData.append("nid_front_img", kycFiles.front);
       if (kycFiles.back) formData.append("nid_back_img", kycFiles.back);
       if (kycFiles.photo) formData.append("img", kycFiles.photo);
 
-
       await axiosConfig.post(`/user/verification`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-
-      // 4. Refresh Redux state
       await dispatch(fetchAuthUser()).unwrap();
-
-      if (onSuccess) {
-        onSuccess();
-      }
+      onSuccess?.();
     } catch (err) {
       console.error("KYC Error:", err);
       setError(err.response?.data?.message || "KYC submission failed.");
@@ -261,39 +345,58 @@ const InitialVerification = ({ onSuccess }) => {
   const handleSkipKyc = async () => {
     try {
       await UserVerification({ is_skip: 1 });
-
       await dispatch(fetchAuthUser()).unwrap();
-
-      if (typeof onSuccess === "function") {
-        onSuccess();
-      }
+      onSuccess?.();
     } catch (error) {
       console.error("Failed to skip KYC:", error);
     }
   };
 
-  // ── OTP input helpers ─────────────────────────────────────────────────────────
-  const handleOtpInput = (e, idx) => {
-    const val = e.target.value.replace(/\D/, "");
-    const next = [...otp];
-    next[idx] = val;
-    setOtp(next);
-    if (val && idx < 5) e.target.nextSibling?.focus();
-  };
+  // ── Boxed Grid Inputs Matrix Interceptor Logic ─────────────────────────────
+  const handleMatrixInput = (e, idx, type) => {
+    const val = e.target.value.replace(/\D/g, ""); // Extract numbers only
+    const targetOtp = type === "email" ? emailOtp : phoneOtp;
+    const targetSet = type === "email" ? setEmailOtp : setPhoneOtp;
+    const targetRefs = type === "email" ? emailRefs : phoneRefs;
 
-  const handleOtpKeyDown = (e, idx) => {
-    if (e.key === "Backspace" && !otp[idx] && idx > 0) {
-      e.target.previousSibling?.focus();
+    const updatedOtp = [...targetOtp];
+    // Keep only the last character typed if overwriting an existing digit
+    updatedOtp[idx] = val.slice(-1);
+    targetSet(updatedOtp);
+
+    // Dynamic jumping focus rule forward
+    if (val && idx < 5) {
+      targetRefs.current[idx + 1]?.focus();
     }
   };
 
-  const handleOtpPaste = (e) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-    setOtp(pasted.split("").concat(Array(6).fill("")).slice(0, 6));
+  const handleMatrixKeyDown = (e, idx, type) => {
+    const targetOtp = type === "email" ? emailOtp : phoneOtp;
+    const targetRefs = type === "email" ? emailRefs : phoneRefs;
+
+    // Shift focus backward on backspace cleanout sequences
+    if (e.key === "Backspace" && !targetOtp[idx] && idx > 0) {
+      targetRefs.current[idx - 1]?.focus();
+    }
   };
 
-  // ── Loading skeleton ──────────────────────────────────────────────────────────
+  const handleMatrixPaste = (e, type) => {
+    e.preventDefault();
+    const targetSet = type === "email" ? setEmailOtp : setPhoneOtp;
+    const targetRefs = type === "email" ? emailRefs : phoneRefs;
+
+    const pastedText = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    const parsedDigits = pastedText.split("");
+
+    // Pad with empty strings if the pasted length is under 6 digits
+    const completeArray = [...parsedDigits, ...Array(6 - parsedDigits.length).fill("")].slice(0, 6);
+    targetSet(completeArray);
+
+    // Auto focus appropriate box based on input string capacity
+    const targetFocusIndex = parsedDigits.length === 6 ? 5 : parsedDigits.length;
+    targetRefs.current[targetFocusIndex]?.focus();
+  };
+
   if (userLoading || step === null) {
     return (
       <div className="min-h-screen bg-[#f1f5f9] flex items-center justify-center">
@@ -302,7 +405,6 @@ const InitialVerification = ({ onSuccess }) => {
     );
   }
 
-  // ── Sidebar config ────────────────────────────────────────────────────────────
   const STEPS = [
     { id: 1, title: "Email Verify", done: isEmailVerified },
     { id: 2, title: "Phone Verify", done: isPhoneVerified },
@@ -310,33 +412,52 @@ const InitialVerification = ({ onSuccess }) => {
     { id: 4, title: "KYC", done: isKycDone },
   ];
 
-  // ── Step content ──────────────────────────────────────────────────────────────
   const renderStepContent = () => {
     switch (step) {
-      // ── Step 1: Email ─────────────────────────────────────────────────────────
+      // ── Boxed Step 1 Flow: Email Input ─────────────────────────────────────────
       case 1:
         return (
           <div className="w-full max-w-sm">
             <h2 className="text-3xl font-bold text-[#0f172a] mb-2">Email Verification</h2>
-            <p className="text-gray-400 mb-8">
+            <p className="text-gray-400 mb-6">
               We've sent a code to <span className="text-gray-700 font-semibold">{loggedUser?.email}</span>
             </p>
 
-            <input
-              type="text"
-              placeholder="Enter verification code"
-              className="w-full px-5 py-4 bg-[#f8fafc] border border-gray-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none text-lg tracking-widest text-center mb-6"
-              value={emailCode}
-              onChange={(e) => setEmailCode(e.target.value)}
-              maxLength={6}
-            />
+            <div className="flex gap-2 mb-4 justify-center" onPaste={(e) => handleMatrixPaste(e, "email")}>
+              {emailOtp.map((digit, idx) => (
+                <input
+                  key={idx}
+                  ref={(el) => (emailRefs.current[idx] = el)}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  className="w-12 h-14 text-center border border-gray-200 rounded-xl bg-[#f8fafc] text-xl font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                  value={digit}
+                  onChange={(e) => handleMatrixInput(e, idx, "email")}
+                  onKeyDown={(e) => handleMatrixKeyDown(e, idx, "email")}
+                />
+              ))}
+            </div>
+
+            {/* Countdown Display & Resend Trigger */}
+            <div className="text-center mb-6">
+              {emailTimer > 0 ? (
+                <p className="text-sm text-gray-400">
+                  Resend code available in <span className="text-blue-600 font-semibold">{formatTime(emailTimer)}</span>
+                </p>
+              ) : (
+                <button type="button" onClick={handleSendEmailOtp} className="text-sm text-blue-600 font-semibold hover:underline">
+                  Resend Verification Code
+                </button>
+              )}
+            </div>
 
             {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
             {success && <p className="text-green-600 text-sm mb-4 text-center">✓ Email verified!</p>}
 
             <button
               onClick={handleVerifyEmail}
-              disabled={loading || emailCode.length < 4}
+              disabled={loading || emailOtp.join("").length < 6}
               className="w-full bg-[#0061ff] hover:bg-blue-700 disabled:bg-gray-300 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-3 transition-all text-lg"
             >
               {loading ? (
@@ -352,7 +473,7 @@ const InitialVerification = ({ onSuccess }) => {
           </div>
         );
 
-      // ── Step 2: Phone ─────────────────────────────────────────────────────────
+      // ── Boxed Step 2 Flow: Phone Input ─────────────────────────────────────────
       case 2:
         return (
           <div className="w-full max-w-sm">
@@ -382,27 +503,43 @@ const InitialVerification = ({ onSuccess }) => {
               </>
             ) : (
               <>
-                <p className="text-gray-400 mb-8">
+                <p className="text-gray-400 mb-6">
                   Enter the OTP sent to <span className="text-gray-700 font-semibold">{phoneNumber}</span>
                 </p>
-                <div className="flex gap-2 mb-8 justify-center" onPaste={handleOtpPaste}>
-                  {otp.map((digit, idx) => (
+
+                <div className="flex gap-2 mb-4 justify-center" onPaste={(e) => handleMatrixPaste(e, "phone")}>
+                  {phoneOtp.map((digit, idx) => (
                     <input
                       key={idx}
+                      ref={(el) => (phoneRefs.current[idx] = el)}
                       type="text"
                       inputMode="numeric"
                       maxLength={1}
-                      className="w-12 h-14 text-center border border-gray-200 rounded-xl bg-[#f8fafc] text-xl font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
+                      className="w-12 h-14 text-center border border-gray-200 rounded-xl bg-[#f8fafc] text-xl font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
                       value={digit}
-                      onChange={(e) => handleOtpInput(e, idx)}
-                      onKeyDown={(e) => handleOtpKeyDown(e, idx)}
+                      onChange={(e) => handleMatrixInput(e, idx, "phone")}
+                      onKeyDown={(e) => handleMatrixKeyDown(e, idx, "phone")}
                     />
                   ))}
                 </div>
+
+                {/* Countdown Display & Resend Trigger */}
+                <div className="text-center mb-6">
+                  {phoneTimer > 0 ? (
+                    <p className="text-sm text-gray-400">
+                      Resend OTP available in <span className="text-blue-600 font-semibold">{formatTime(phoneTimer)}</span>
+                    </p>
+                  ) : (
+                    <button type="button" onClick={() => handleSendOtp(phoneNumber)} className="text-sm text-blue-600 font-semibold hover:underline">
+                      Resend OTP Code
+                    </button>
+                  )}
+                </div>
+
                 {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
                 <button
                   onClick={handleVerifyPhoneOtp}
-                  disabled={loading || otp.join("").length < 6}
+                  disabled={loading || phoneOtp.join("").length < 6}
                   className="w-full bg-[#0061ff] hover:bg-blue-700 disabled:bg-gray-300 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 transition-all"
                 >
                   {loading ? <Loader2 className="animate-spin" size={22} /> : "Verify OTP"}
@@ -410,7 +547,7 @@ const InitialVerification = ({ onSuccess }) => {
                 <button
                   onClick={() => {
                     setShowOtpView(false);
-                    setOtp(["", "", "", "", "", ""]);
+                    setPhoneOtp(["", "", "", "", "", ""]);
                     setError("");
                   }}
                   className="w-full text-blue-600 mt-4 text-sm font-medium hover:underline"
@@ -427,7 +564,6 @@ const InitialVerification = ({ onSuccess }) => {
           <div className="w-full max-w-xl">
             <h2 className="text-2xl font-bold text-[#0f172a] mb-6">Address Entry</h2>
 
-            {/* Current Address Group */}
             <div className="bg-[#f8fafc] border border-gray-100 rounded-[32px] p-6 mb-6">
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 block">Current Address</label>
               <textarea
@@ -480,7 +616,6 @@ const InitialVerification = ({ onSuccess }) => {
               </div>
             </div>
 
-            {/* Permanent Address Group */}
             <div className="bg-[#f8fafc] border border-gray-100 rounded-[32px] p-6 mb-6">
               <div className="flex justify-between items-center mb-4">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Permanent Address</label>
@@ -554,9 +689,7 @@ const InitialVerification = ({ onSuccess }) => {
           </div>
         );
 
-      // ── Step 4: KYC ───────────────────────────────────────────────────────────
-      // Inside renderStepContent -> case 4
-      case 4: {
+      case 4:
         return (
           <div className="w-full max-w-sm">
             <h2 className="text-3xl font-bold text-[#0f172a] mb-2">KYC Verification</h2>
@@ -564,18 +697,16 @@ const InitialVerification = ({ onSuccess }) => {
 
             <div className="space-y-4 mb-8 mt-6">
               {[
-                { id: "front", label: "NID Front Side", backendKey: "nid_front_img" },
-                { id: "back", label: "NID Back Side", backendKey: "nid_back_img" },
-                { id: "photo", label: "Profile Photo", backendKey: "img" },
+                { id: "front", label: "NID Front Side" },
+                { id: "back", label: "NID Back Side" },
+                { id: "photo", label: "Profile Photo" },
               ].map((item) => (
                 <label
                   key={item.id}
                   className="border-2 border-dashed border-gray-200 rounded-2xl p-5 flex items-center gap-4 cursor-pointer hover:border-blue-400 transition-colors"
                 >
                   <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      kycFiles[item.id] ? "bg-green-100 text-green-600" : "bg-gray-50 text-gray-400"
-                    }`}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center ${kycFiles[item.id] ? "bg-green-100 text-green-600" : "bg-gray-50 text-gray-400"}`}
                   >
                     {kycFiles[item.id] ? <Check size={20} /> : <IoDocumentTextOutline size={20} />}
                   </div>
@@ -598,23 +729,21 @@ const InitialVerification = ({ onSuccess }) => {
               {loading ? <Loader2 className="animate-spin mx-auto" /> : "Complete Registration"}
             </button>
 
-            <button onClick={() => handleSkipKyc()} className="w-full text-gray-400 text-sm font-medium hover:text-blue-600">
+            <button onClick={handleSkipKyc} className="w-full text-gray-400 text-sm font-medium hover:text-blue-600">
               Skip for now →
             </button>
           </div>
         );
-      }
 
       default:
         return null;
     }
   };
 
-  // ── Layout ────────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#f1f5f9] flex items-center justify-center p-4">
       <div className="w-full max-w-5xl bg-white rounded-[40px] shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[620px]">
-        {/* Sidebar */}
+        {/* Sidebar Status Matrix */}
         <div className="w-full md:w-[35%] bg-[#0b1221] p-10 flex flex-col">
           <div className="mb-12">
             <div className="w-12 h-12 bg-[#0062ffcc] rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(0,97,255,0.5)]">
@@ -628,9 +757,7 @@ const InitialVerification = ({ onSuccess }) => {
               return (
                 <div key={s.id} className="flex items-center gap-5">
                   <div
-                    className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 border ${
-                      isActive ? "bg-[#0062ffcc] border-transparent shadow-lg" : isCompleted ? "bg-green-500 border-green-500" : "border-gray-700"
-                    }`}
+                    className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 border ${isActive ? "bg-[#0062ffcc] border-transparent shadow-lg" : isCompleted ? "bg-green-500 border-green-500" : "border-gray-700"}`}
                   >
                     {isCompleted ? (
                       <Check size={20} className="text-white" />
@@ -648,7 +775,7 @@ const InitialVerification = ({ onSuccess }) => {
           </div>
         </div>
 
-        {/* Content */}
+        {/* Content Panel Box */}
         <div className="flex-1 flex items-center justify-center p-8 md:p-12">{renderStepContent()}</div>
       </div>
     </div>
