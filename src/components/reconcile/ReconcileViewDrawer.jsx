@@ -122,6 +122,8 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     return initialSubmitted;
   };
 
+  console.log({ user });
+
   useEffect(() => {
     if (reconcileId && isOpen) {
       setLoading(true);
@@ -278,6 +280,10 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   };
 
   const scheduleStatus = getScheduleStatus();
+
+
+
+  const canSubmitReconcileButton = isAllowedToEnd && isAuditReadyForFinalSubmit();
 
   return (
     <Drawer
@@ -542,10 +548,10 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                       Cancel
                     </button>
                     <button
-                      disabled={!isAuditReadyForFinalSubmit() && !isAllowedToEnd}
+                      disabled={!canSubmitReconcileButton}
                       onClick={handleFinalSubmit}
                       className={`flex-1 font-medium py-2.5 px-4 rounded-lg transition-all ${
-                        isAuditReadyForFinalSubmit() && isAllowedToEnd 
+                        canSubmitReconcileButton
                           ? "bg-green-600 hover:bg-green-700 text-white shadow-md cursor-pointer"
                           : "bg-gray-200 text-gray-400 cursor-not-allowed"
                       }`}

@@ -1,77 +1,16 @@
-import { ArrowDownCircle, ArrowUpCircle, ChevronDown, Download, History, Package } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, ChevronDown, History, Package } from "lucide-react";
 import Drawer from "../global/drawer/Drawer";
 import { AnimatePresence, motion } from "framer-motion";
 import dayjs from "dayjs";
 import { useState } from "react";
-import toast from "react-hot-toast";
 
 const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vaultBagsDetails, loadingBags }) => {
   const [expandedBag, setExpandedBag] = useState(null);
   const [historyBag, setHistoryBag] = useState(null);
 
+  console.log({ historyBag });
+
   const toggleBagExpand = (barcode) => setExpandedBag(expandedBag === barcode ? null : barcode);
-
-  const downloadBagBarcode = (bag) => {
-    const run = () => {
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-
-      try {
-        if (typeof window.JsBarcode === "undefined") {
-          if (!document.querySelector("script[data-jsbarcode]")) {
-            const s = document.createElement("script");
-            s.src = "https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js";
-            s.setAttribute("data-jsbarcode", "true");
-            s.onload = () => downloadBagBarcode(bag);
-            document.head.appendChild(s);
-          } else {
-            toast.error("Barcode library loading… please try again in a moment.");
-          }
-          return;
-        }
-
-        window.JsBarcode(svg, bag.bag_identifier_barcode, {
-          format: "CODE128",
-          width: 3,
-          height: 110,
-          displayValue: true,
-          fontSize: 24,
-          textMargin: 12,
-          margin: 10,
-        });
-
-        const svgData = new XMLSerializer().serializeToString(svg);
-        const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-        const url = URL.createObjectURL(svgBlob);
-
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          canvas.width = img.width || 400;
-          canvas.height = img.height || 150;
-          const ctx = canvas.getContext("2d");
-          ctx.fillStyle = "#ffffff";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0);
-          URL.revokeObjectURL(url);
-
-          canvas.toBlob((blob) => {
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = `${bag.barcode}_barcode.png`;
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-          }, "image/png");
-        };
-        img.src = url;
-      } catch (err) {
-        console.error("Barcode generation failed:", err);
-        toast.error("Failed to generate barcode.");
-      }
-    };
-
-    run();
-  };
 
   return (
     <Drawer
@@ -90,7 +29,6 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
       }
     >
       <div className="p-6 pt-0 max-h-[calc(100vh-120px)] overflow-y-auto scrollbar-thin">
-        
         {/* Dynamic Context Header Stats Panel */}
         <div className="mb-6 mt-4 p-4 bg-slate-50/60 border border-slate-200/50 rounded-2xl flex items-center justify-between shadow-2xs">
           <div>
@@ -147,15 +85,23 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
                           <span className="px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase rounded-md bg-slate-100 text-slate-600 border border-slate-200/40">
                             Rack {bag.rack_number}
                           </span>
-                          {bag.is_sealed && <span className="px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-purple-50 text-purple-600 border border-purple-100/50 rounded-md">Sealed</span>}
-                          {!bag.is_active && <span className="px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-rose-50 text-rose-600 border border-rose-100/50 rounded-md">Inactive</span>}
+                          {bag.is_sealed && (
+                            <span className="px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-purple-50 text-purple-600 border border-purple-100/50 rounded-md">
+                              Sealed
+                            </span>
+                          )}
+                          {!bag.is_active && (
+                            <span className="px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-rose-50 text-rose-600 border border-rose-100/50 rounded-md">
+                              Inactive
+                            </span>
+                          )}
                         </div>
-                        
+
                         <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 mt-2">
                           <span className="text-base font-extrabold text-slate-800">
                             ৳{parseFloat(bag.current_amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                           </span>
-                          
+
                           <div className="flex items-center gap-3 text-slate-400 text-xs font-medium">
                             {bag.last_cash_in_at && (
                               <span className="flex items-center gap-1">
@@ -176,19 +122,6 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
 
                     {/* Action Triggers Grid Block */}
                     <div className="flex items-center gap-2 self-end sm:self-auto">
-                      {bag.bag_identifier_barcode && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            downloadBagBarcode(bag);
-                          }}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider bg-cyan-50/60 hover:bg-cyan-100/80 text-cyan-700 border border-cyan-100/60 rounded-lg transition"
-                        >
-                          <Download className="w-3 h-3" /> Barcode
-                        </button>
-                      )}
-
                       <button
                         type="button"
                         onClick={(e) => {
@@ -217,7 +150,6 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
                         className="border-t border-slate-100 bg-slate-50/40"
                       >
                         <div className="p-5 grid grid-cols-1 lg:grid-cols-3 gap-6">
-                          
                           {/* Left Panel: Denominations breakdown context */}
                           <div className="lg:col-span-2 space-y-2">
                             <h5 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Denomination Matrix</h5>
@@ -228,11 +160,13 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
                                   .map(([note, count]) => (
                                     <div key={note} className="bg-white p-3.5 rounded-xl border border-slate-200/60 shadow-2xs flex flex-col justify-between">
                                       <div className="flex items-baseline justify-between">
-                                        <span className="text-xs font-bold text-slate-400 font-mono">Face</span>
+                                        <span className="text-xs font-bold text-slate-400 font-mono">Note</span>
                                         <span className="text-sm font-black text-slate-800">৳{note}</span>
                                       </div>
                                       <div className="flex items-baseline justify-between mt-2 pt-1.5 border-t border-slate-100">
-                                        <span className="text-[10px] text-slate-400">Qty: <strong className="text-slate-700 font-semibold">{count}</strong></span>
+                                        <span className="text-[10px] text-slate-400">
+                                          Qty: <strong className="text-slate-700 font-semibold">{count}</strong>
+                                        </span>
                                         <span className="text-xs font-extrabold text-emerald-600">৳{(parseInt(note) * count).toLocaleString()}</span>
                                       </div>
                                     </div>
@@ -248,34 +182,32 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
                           <div className="space-y-2">
                             <h5 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Activity Metrics</h5>
                             <div className="bg-white p-4 rounded-xl border border-slate-200/60 shadow-2xs space-y-3.5 text-xs font-semibold">
-                              <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
-                                <div>
-                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Settled Sets</p>
-                                  <p className="text-sm font-extrabold text-emerald-600 mt-0.5">{bag.total_successful_deposits}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Attempts</p>
-                                  <p className="text-sm font-bold text-slate-700 mt-0.5">{bag.total_cash_in_attempts}</p>
-                                </div>
-                              </div>
-                              
+                            
                               {bag.last_cash_in_amount && (
                                 <div className="space-y-1">
-                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Latest Input Entry</p>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Last cashIn Entry</p>
                                   <p className="text-base font-black text-emerald-600">+ ৳{parseFloat(bag.last_cash_in_amount).toLocaleString()}</p>
                                   <p className="text-[10px] text-slate-400 font-medium font-mono">{dayjs(bag.last_cash_in_at).format("DD MMM YYYY, h:mm A")}</p>
                                 </div>
                               )}
-                              
+                              {bag.last_cash_out_amount && (
+                                <div className="space-y-1">
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Last Cashout Entry</p>
+                                  <p className="text-base font-black text-red-600">+ ৳{parseFloat(bag.last_cash_out_amount).toLocaleString()}</p>
+                                  <p className="text-[10px] text-slate-400 font-medium font-mono">{dayjs(bag.last_cash_out_at).format("DD MMM YYYY, h:mm A")}</p>
+                                </div>
+                              )}
+
                               {bag.notes && (
                                 <div className="pt-2 border-t border-slate-100">
                                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Notes Ledger</p>
-                                  <p className="text-slate-600 font-medium mt-1 leading-relaxed text-[11px] bg-slate-50 p-2 border border-slate-100 rounded-lg">{bag.notes}</p>
+                                  <p className="text-slate-600 font-medium mt-1 leading-relaxed text-[11px] bg-slate-50 p-2 border border-slate-100 rounded-lg">
+                                    {bag.notes}
+                                  </p>
                                 </div>
                               )}
                             </div>
                           </div>
-
                         </div>
                       </motion.div>
                     )}

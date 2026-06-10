@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import DataTable from "../../components/global/dataTable/DataTable";
 import { CreateVault, DeleteVault, GetVault, GetVaults, UpdateVault } from "../../services/Vault";
 import dayjs from "dayjs";
@@ -97,6 +97,11 @@ const Vault = () => {
       .slice(0, 4)
       .join("");
   };
+
+  const bagsRef = useRef(bags);
+  useEffect(() => {
+    bagsRef.current = bags;
+  }, [bags]);
 
   // ── Bag actions ───────────────────────────────────────────────────────────────
   const addBag = () => {
@@ -272,6 +277,8 @@ const Vault = () => {
 
   // ── Submit ────────────────────────────────────────────────────────────────────
   const onSubmit = async (data) => {
+    const currentBags = bagsRef.current;
+
     const limit = data.bag_limit ? parseInt(data.bag_limit, 10) : null;
 
     if (limit !== null) {
@@ -289,7 +296,7 @@ const Vault = () => {
     const maxRacks = data.total_racks ? parseInt(data.total_racks, 10) : null;
     const isTotalRacksEmpty = !maxRacks || maxRacks <= 0;
 
-    const processedBags = bags.map((bag) => ({
+    const processedBags = currentBags.map((bag) => ({
       ...bag,
       rack_number: isTotalRacksEmpty ? "1" : (bag.rack_number || "").trim(),
     }));
@@ -310,7 +317,6 @@ const Vault = () => {
       addToast({ type: "error", message: "Please fix rack number errors before submitting." });
       return;
     }
-    // ───────────────────────────────────────────────────────────────
 
     if (Object.keys(rackErrors).length > 0) {
       addToast({ type: "error", message: "Please fix rack number errors before submitting." });
@@ -334,7 +340,7 @@ const Vault = () => {
       total_racks: data.total_racks ? Number(data.total_racks) : null,
       current_amount: validBags.reduce((s, b) => s + Number(b.current_amount), 0),
       total_bags: validBags.length,
-      bags: validBags.length > 0 ? validBags : undefined,
+      bags: validBags,
       bag_limit: data.bag_limit ? Number(data.bag_limit) : null,
     };
 

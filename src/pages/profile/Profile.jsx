@@ -104,7 +104,7 @@ const Profile = () => {
 
   const handleUpdateProfile = async () => {
     if (!name || !email) {
-      alert("Name and Email are required!");
+      addToast({ type: "error", message: "All fields are required." });
       return;
     }
 
@@ -120,11 +120,19 @@ const Profile = () => {
 
     try {
       const response = await UpdateUser(user.id, formData);
-      setSuccessMessage("Profile architecture updated successfully!");
 
-      if (response?.data?.data?.img) {
-        setAvatar(response.data.data.img);
+      if (response.success && !response.success) {
+        addToast({ type: "error", message: response?.message || "Failed to update profile." });
       }
+
+      const updatedImg = response?.data?.img;
+
+      if (updatedImg) {
+        setAvatar(updatedImg);
+      }
+
+      addToast({ type: "success", message: "Profile updated successfully." });
+      await dispatch(fetchAuthUser());
 
       setSelectedFile(null);
       setImagePreviewUrl("");
@@ -145,11 +153,11 @@ const Profile = () => {
 
   const handleChangePassword = async (data) => {
     if (data.confirmPassword !== data.newPassword) {
-      alert("New passwords do not match!");
+      addToast({ type: "error", message: "Passwords do not match." });
       return;
     }
     if (data.newPassword.length < 6) {
-      alert("New password must be at least 6 characters long!");
+      addToast({ type: "error", message: "Password must be at least 6 characters." });
       return;
     }
 
@@ -167,7 +175,7 @@ const Profile = () => {
         setServerError(res?.message || "Failed to reset authentication credentials.");
       }
 
-      setSuccessMessage("Credentials reset successfully! Relogging...");
+      addToast({ type: "success", message: "Password reset successfully." });
       setTimeout(() => {
         localStorage.clear();
         navigate("/login");
@@ -204,7 +212,9 @@ const Profile = () => {
     ? imagePreviewUrl
     : avatar
       ? `${baseStorageUrl}/${avatar}`
-      : "https://images.unsplash.com/photo-1633332755192-727a05c4013d?auto=format&fit=crop&w=500&q=80";
+      : user?.img
+        ? `${baseStorageUrl}/${user.img}`
+        : "https://images.unsplash.com/photo-1633332755192-727a05c4013d?auto=format&fit=crop&w=500&q=80";
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-6 font-sans relative overflow-x-hidden">
@@ -222,7 +232,7 @@ const Profile = () => {
         </div>
 
         {/* Global Alert Notices System */}
-        <AnimatePresence>
+        {/* <AnimatePresence>
           {successMessage && (
             <motion.div
               initial={{ opacity: 0, h: 0 }}
@@ -243,7 +253,7 @@ const Profile = () => {
               <X className="w-4 h-4" /> {serverError}
             </motion.div>
           )}
-        </AnimatePresence>
+        </AnimatePresence> */}
 
         {/* Dynamic Glassmorphic Navigation Tabs Matrix */}
         <div className="flex flex-wrap gap-1.5 bg-white/80 backdrop-blur-xl border border-slate-200/80 rounded-2xl p-1.5 ">
@@ -315,31 +325,17 @@ const Profile = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Primary Email Link</label>
-                    {isEditing ? (
-                      <input
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full px-4 py-3 text-sm text-black bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500/50 focus:bg-white outline-none font-semibold transition-all"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-slate-50 border border-transparent text-sm text-slate-700 font-medium rounded-xl font-mono">{email}</div>
-                    )}
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Primary Email</label>
+
+                    <div className="px-4 py-3 bg-slate-50 border border-transparent text-sm text-slate-700 font-medium rounded-xl font-mono">{email}</div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mobile Number</label>
-                    {isEditing ? (
-                      <input
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="w-full px-4 py-3 text-black text-sm bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500/50 focus:bg-white outline-none font-semibold transition-all"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-slate-50 border border-transparent text-sm text-slate-700 font-medium rounded-xl">
-                        {phone || "Not configured"}
-                      </div>
-                    )}
+
+                    <div className="px-4 py-3 bg-slate-50 border border-transparent text-sm text-slate-700 font-medium rounded-xl">
+                      {phone || "Not configured"}
+                    </div>
                   </div>
                 </div>
 
@@ -352,7 +348,7 @@ const Profile = () => {
                         className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-xs flex items-center gap-2 transition disabled:opacity-50"
                       >
                         <Save className="w-4 h-4" />
-                        {isSubmitting ? "Syncing..." : "Update"}
+                        {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update"}
                       </button>
                       <button
                         onClick={() => {
@@ -368,9 +364,9 @@ const Profile = () => {
                   ) : (
                     <button
                       onClick={() => setIsEditing(true)}
-                      className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-xs transition"
+                      className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold uppercase tracking-wider rounded-md shadow-xs transition"
                     >
-                      Update
+                      Click to Update
                     </button>
                   )}
                 </div>
