@@ -303,60 +303,65 @@ const ActivityLog = () => {
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        {loading ? (
-          <div className="flex justify-center py-20">
-            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-indigo-500" />
-          </div>
-        ) : logs.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">
-            <Activity className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>No activity logs found.</p>
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                {["Event", "Module", "Description", "User", "IP", "Time", ""].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y text-xs divide-gray-100">
-              {logs.map((log) => {
-                const meta = getEventMeta(log.event);
-                return (
-                  <motion.tr key={log.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-gray-50 transition">
-                    <td className="px-4 py-3">
-                      <span className={`text-xs font-semibold px-2 py-1 rounded-full border flex items-center gap-1 w-fit ${meta.color}`}>
-                        {meta.icon} {meta.label}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-md capitalize">{log.module}</span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-700 max-w-xs ">{log.description}</td>
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col max-h-[calc(100vh-240px)]">
+        
+        {/* Scrollable Wrapper for Data Body */}
+        <div className="overflow-y-auto flex-1 min-h-0">
+          {loading ? (
+            <div className="flex justify-center py-20">
+              <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-indigo-500" />
+            </div>
+          ) : logs.length === 0 ? (
+            <div className="text-center py-20 text-gray-400">
+              <Activity className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p>No activity logs found.</p>
+            </div>
+          ) : (
+            <table className="w-full text-sm table-auto">
+              {/* Sticky Table Header */}
+              <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+                <tr>
+                  {["Event", "Module", "Description", "User", "IP", "Time", ""].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y text-xs divide-gray-100 bg-white">
+                {logs.map((log) => {
+                  const meta = getEventMeta(log.event);
+                  return (
+                    <motion.tr key={log.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-gray-50 transition">
+                      <td className="px-4 py-3">
+                        <span className={`text-xs font-semibold px-2 py-1 rounded-full border flex items-center gap-1 w-fit ${meta.color}`}>
+                          {meta.icon} {meta.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-md capitalize">{log.module}</span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-700 max-w-xs truncate">{log.description}</td>
 
-                    <td className="px-4 py-3 text-gray-600">{log.user_name || "System"}</td>
-                    <td className="px-4 py-3 text-gray-400 font-mono text-xs">{log.ip_address || "—"}</td>
-                    <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{dayjs(log.created_at).format("DD MMM YY, h:mm A")}</td>
-                    <td className="px-4 py-3">
-                      <button onClick={() => setSelectedLog(log)} className="p-1.5 hover:bg-gray-100 rounded-lg transition text-gray-400 hover:text-gray-700">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </motion.tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
+                      <td className="px-4 py-3 text-gray-600">{log.user_name || "System"}</td>
+                      <td className="px-4 py-3 text-gray-400 font-mono text-xs">{log.ip_address || "—"}</td>
+                      <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{dayjs(log.created_at).format("DD MMM YY, h:mm A")}</td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => setSelectedLog(log)} className="p-1.5 hover:bg-gray-100 rounded-lg transition text-gray-400 hover:text-gray-700">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </motion.tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
 
-        {/* Pagination */}
+        {/* Pagination - Anchored to Bottom */}
         {!loading && logs.length > 0 && (
-          <div className="border-t border-gray-100 px-4 py-3 flex items-center justify-between">
+          <div className="border-t border-gray-100 px-4 py-3 flex items-center justify-between bg-white rounded-b-xl shrink-0 z-20">
             <p className="text-xs text-gray-500">
               Page {pagination.current_page} of {pagination.last_page} — {pagination.total.toLocaleString()} total
             </p>
