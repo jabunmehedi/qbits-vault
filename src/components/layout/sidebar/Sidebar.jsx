@@ -100,7 +100,6 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
         <nav className="flex-1 space-y-1.5">
           {menuItems
             .filter((item) => {
-              // If user is Superadmin, skip permission verification
               if (isSuperAdmin) return true;
               if (item.permission && !hasPermission(item.permission)) return false;
 
@@ -149,9 +148,8 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
                         >
                           {item?.children
                             ?.filter((subItem) => {
-                              // If user is Superadmin, skip permission verification for submenu as well
                               if (isSuperAdmin) return true;
-                              return !subItem.permission || hasPermission(subItem.permission);
+                              !subItem.permission || hasPermission(subItem.permission);
                             })
                             .map((subItem) => {
                               const subActive = isActive(subItem.path);
