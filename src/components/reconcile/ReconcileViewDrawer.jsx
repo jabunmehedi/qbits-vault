@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Drawer from "../global/drawer/Drawer";
+import AppButton from "../global/AppButton";
 import { CompleteReconciliation, EndReconciliation, StartReconciliation, ViewReconcile } from "../../services/Reconcile";
 import { useToast } from "../../hooks/useToast";
 import { useSelector } from "react-redux";
@@ -11,7 +12,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const [racks, setRacks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [submittingRackId, setSubmittingRackId] = useState(null);
-  const [validateBy, setValidateBy] = useState({ amount: true, weight: false });
+  const [validateBy, setValidateBy] = useState({ amount: true /*, weight: false */ });
   const [reconcileVerified, setReconcileVerified] = useState();
   const [reconclieStatus, setReconcileStatus] = useState();
   const [targetVaultId, setTargetVaultId] = useState(null);
@@ -96,9 +97,9 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
         id: bag?.id,
         bagNo: bag?.barcode || "N/A",
         expectedAmount: Number(bag?.current_amount) || 0,
-        expectedWeight: 0.5,
+        // expectedWeight: 0.5,
         amount: initialAmount,
-        weight: bag?.user_weight !== undefined && bag?.user_weight !== null ? bag.user_weight : "",
+        // weight: bag?.user_weight !== undefined && bag?.user_weight !== null ? bag.user_weight : "",
       });
 
       return acc;
@@ -175,18 +176,18 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
 
   const isBagMismatched = (bag) => {
     const amountVal = bag.amount === "" ? 0 : Number(bag.amount);
-    const weightVal = bag.weight === "" ? 0 : Number(bag.weight);
+    // const weightVal = bag.weight === "" ? 0 : Number(bag.weight);
 
     const amountMismatch = validateBy.amount && amountVal !== bag.expectedAmount;
-    const weightMismatch = validateBy.weight && weightVal !== bag.expectedWeight;
-    return amountMismatch || weightMismatch;
+    // const weightMismatch = validateBy.weight && weightVal !== bag.expectedWeight;
+    return amountMismatch; // || weightMismatch;
   };
 
   const isAllBagsTypedInRack = (rack) => {
     return rack.bags.every((bag) => {
       const isAmountFilled = !validateBy.amount || bag.amount !== "";
-      const isWeightFilled = !validateBy.weight || bag.weight !== "";
-      return isAmountFilled && isWeightFilled;
+      // const isWeightFilled = !validateBy.weight || bag.weight !== "";
+      return isAmountFilled; // && isWeightFilled;
     });
   };
 
@@ -339,19 +340,15 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                     Authenticating vault security metrics...
                   </div>
                 ) : canStartAudit() ? (
-                  <button
+                  <AppButton
                     disabled={scheduleStatus !== "active"}
                     onClick={handleStartAuditSession}
-                    className={`font-medium py-2.5 px-6 rounded-lg transition-all ${
-                      scheduleStatus === "active"
-                        ? "bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer shadow-md"
-                        : "bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300"
-                    }`}
+                    variant={scheduleStatus === "active" ? "primary" : "secondary"}
                   >
                     {scheduleStatus === "active" && "Start Audit Session"}
                     {scheduleStatus === "pending" && "Locking Until Scheduled Time"}
                     {scheduleStatus === "expired" && "Audit Window Expired"}
-                  </button>
+                  </AppButton>
                 ) : (
                   <div className="text-xs font-semibold bg-red-50 text-red-500 px-4 py-2.5 rounded-lg border border-red-100">
                     ⚠️ Only authorized Audit Initiators can begin sessions for this vault.
@@ -387,6 +384,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                       />
                       <span>Amount</span>
                     </label>
+                    {/* Weight validation temporarily disabled
                     <label className="flex items-center space-x-2 text-sm text-gray-600 font-medium cursor-pointer">
                       <input
                         type="checkbox"
@@ -397,6 +395,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                       />
                       <span>Weight</span>
                     </label>
+                    */}
                   </div>
 
                   {racks.map((rack, rackIndex) => {
@@ -470,10 +469,10 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                         <div className="p-4 space-y-4">
                           {rack.bags.map((bag, bagIndex) => {
                             const amountError = allBagsTyped && validateBy.amount && bag.amount !== bag.expectedAmount;
-                            const weightError = allBagsTyped && validateBy.weight && bag.weight !== bag.expectedWeight;
+                            // const weightError = allBagsTyped && validateBy.weight && bag.weight !== bag.expectedWeight;
 
                             return (
-                              <div key={bag.id} className="grid grid-cols-3 gap-4">
+                              <div key={bag.id} className="grid grid-cols-2 gap-4">
                                 <div>
                                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Bag No</label>
                                   <input
@@ -505,6 +504,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                                   />
                                 </div>
 
+                                {/* Weight input temporarily disabled
                                 <div>
                                   <div className="flex justify-between items-center mb-1">
                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Weight</label>
@@ -526,6 +526,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                                     }`}
                                   />
                                 </div>
+                                */}
                               </div>
                             );
                           })}
@@ -540,19 +541,19 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                     <p className="text-green-600 font-semibold text-center text-sm">Reconciliation completed successfully</p>
                   </div>
                 ) : (
-                  <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 flex space-x-3 z-10">
+                  <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 flex gap-3 z-10">
                     <button
                       onClick={onClose}
-                      className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium py-2.5 px-4 rounded-lg transition-colors cursor-pointer"
+                      className="flex-1 py-2.5 px-4 border border-gray-200 text-gray-600 hover:text-red-400 hover:bg-gray-50 font-bold text-sm rounded-xl transition-colors cursor-pointer"
                     >
                       Cancel
                     </button>
                     <button
                       disabled={!canSubmitReconcileButton}
                       onClick={handleFinalSubmit}
-                      className={`flex-1 font-medium py-2.5 px-4 rounded-lg transition-all ${
+                      className={`flex-1 py-2.5 px-4 font-bold text-sm rounded-xl transition-all ${
                         canSubmitReconcileButton
-                          ? "bg-green-600 hover:bg-green-700 text-white shadow-md cursor-pointer"
+                          ? "bg-[#1a73e8] hover:bg-blue-600 text-white shadow-lg shadow-blue-200 cursor-pointer"
                           : "bg-gray-200 text-gray-400 cursor-not-allowed"
                       }`}
                     >

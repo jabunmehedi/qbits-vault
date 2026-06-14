@@ -80,7 +80,7 @@ const UserMigrationModal = ({
       <div className="px-5 py-3.5 flex items-center justify-end gap-2.5">
         <button
           onClick={onClose}
-          className="px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-slate-700 rounded-xl text-xs font-bold transition active:scale-98"
+          className="px-6 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 hover:text-red-400 rounded-xl text-sm font-bold transition"
         >
           Cancel
         </button>
@@ -89,7 +89,7 @@ const UserMigrationModal = ({
           <button
             onClick={onExecuteMigration}
             disabled={isMigrating || !selectedTargetUser}
-            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl text-xs font-bold tracking-wide transition shadow-sm active:scale-98"
+            className="flex items-center gap-1.5 px-6 py-2.5 bg-[#1a73e8] hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold transition shadow-lg shadow-blue-200"
           >
             {isMigrating ? (
               <Loader2 size={12} className="animate-spin" />

@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { GetReconciles, VerifyReconcile } from "../../services/Reconcile";
 import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 import VaultBagsDrawer from "../../components/reconcile/VaultBagsDrawer";
 import { useSelector } from "react-redux";
 import ReconcileViewDrawer from "../../components/reconcile/ReconcileViewDrawer";
@@ -33,6 +33,7 @@ const Reconcile = () => {
   const [verifyLoading, setVerifyLoading] = useState(null);
   const [activeVerifyId, setActiveVerifyId] = useState(null);
   const [editReconcileId, setEditReconcileId] = useState(null);
+  const [varianceNotesModal, setVarianceNotesModal] = useState(null);
   const [paginationData, setPaginationData] = useState({});
   const currentPage = parseInt(searchParams.get("page") || "1");
   const step = parseInt(searchParams.get("step") || "0");
@@ -112,37 +113,48 @@ const Reconcile = () => {
     {
       title: "Vault",
       key: "vault_id",
-      className: "w-14",
+      className: "w-[7%]",
       render: (row) => <span className="font-mono">{row.vault?.name}</span>,
     },
     {
       title: "Reconcile Id",
       key: "reconcile_tran_id",
-      className: "w-40",
-      render: (row) => <span className="font-mono text-indigo-400">{row.reconcile_tran_id}</span>,
+      className: "w-[14%]",
+      render: (row) => <span className="block truncate font-mono text-indigo-400">{row.reconcile_tran_id}</span>,
     },
     {
       title: "Expected",
       key: "expected_balance",
-      className: "w-18",
+      className: "w-[8%]",
       render: (row) => <span className="">{row?.expected_balance}</span>,
     },
     {
       title: "Counted",
       key: "counted_balance",
-      className: "w-14",
+      className: "w-[7%]",
       render: (row) => <span className="">{row?.counted_balance}</span>,
     },
     {
       title: "Variance",
       key: "variance",
-      className: "w-18",
-      render: (row) => <span className={`${row?.variance < 0 ? "text-red-500" : "text-green-500"}`}>{row?.variance}</span>,
+      className: "w-[7%]",
+      render: (row) => {
+        const bagsWithNotes = (row?.variance_bags || []).filter((b) => b?.pivot?.note);
+        const hasNotes = bagsWithNotes.length > 0;
+        return (
+          <span
+            onClick={hasNotes ? () => setVarianceNotesModal({ bags: bagsWithNotes, reconcileTranId: row.reconcile_tran_id }) : undefined}
+            className={`${row?.variance < 0 ? "text-red-500" : "text-green-500"} ${hasNotes ? "underline decoration-dotted cursor-pointer" : ""}`}
+          >
+            {row?.variance}
+          </span>
+        );
+      },
     },
     {
       title: "Bags",
       key: "total_bags",
-      className: "w-26",
+      className: "w-[8%]",
       render: (row) => {
         return (
           <>
@@ -159,30 +171,44 @@ const Reconcile = () => {
     {
       title: "Audit Date",
       key: "from_date",
-      className: "w-34",
-      render: (row) => <span className="">{dayjs.utc(row.from_date).format("DD MMM, YYYY")}</span>,
-    },
-    {
-      title: "Audit Time",
-      key: "audit_time",
-      className: "w-34",
+      className: "w-[10%]",
       render: (row) => {
         const timeStr = row?.audit_time;
         const formattedTime = timeStr ? dayjs(timeStr, "HH:mm:ss").format("hh:mm A") : "N/A";
-        return <span className="text-gray-600 font-medium capitalize">{formattedTime}</span>;
+        return (
+          <div className="flex flex-col">
+            <span>{dayjs.utc(row.from_date).format("DD MMM, YYYY")}</span>
+            <span className="text-gray-400 text-xs">{formattedTime}</span>
+          </div>
+        );
       },
     },
     {
-      title: "Verifiers",
+      title: "Audit End",
+      key: "expected_completion_at",
+      className: "w-[10%]",
+      render: (row) => {
+        if (!row?.expected_completion_at) return <span className="text-gray-300 text-xs">—</span>;
+        return (
+          <div className="flex flex-col">
+            <span>{dayjs.utc(row.expected_completion_at).format("DD MMM, YYYY")}</span>
+            <span className="text-gray-400 text-xs">{dayjs.utc(row.expected_completion_at).format("hh:mm A")}</span>
+          </div>
+        );
+      },
+    },
+    {
+      title: "Reconciler",
       key: "created_at",
-      className: "w-20 text-center",
+      className: "w-[14%] text-center",
       render: (row) => {
         const isVerifierShowButton = row?.required_verifiers?.some((verifier) => verifier?.user_id === user?.id && !verifier?.verified);
         const isAuditCountingDone = row?.started_by && row?.status === "counted";
+        const isRejected = row?.verifier_status === "rejected";
         return (
-          <div className="flex flex-col items-center gap-2">
-            <VerifierAvatars requiredVerifiers={row.required_verifiers || []} />
-            {isVerifierShowButton && isAuditCountingDone && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <VerifierAvatars requiredVerifiers={row.required_verifiers || []} isRejected={isRejected} />
+            {isVerifierShowButton && isAuditCountingDone && !isRejected && (
               <VerifyButton
                 handleSubmit={() => handleVerifyClick(row.id)}
                 isOpen={activeVerifyId === row.id}
@@ -194,8 +220,12 @@ const Reconcile = () => {
               </VerifyButton>
             )}
             <span
-              className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
-                row?.verifier_status === "pending" ? "bg-yellow-50 border-yellow-200 text-yellow-600" : "bg-green-50 border-green-200 text-green-500"
+              className={`capitalize text-xs px-2 py-0.5 rounded-full border ${
+                row?.verifier_status === "pending"
+                  ? "bg-yellow-50 border-yellow-200 text-yellow-600"
+                  : row?.verifier_status === "rejected"
+                    ? "bg-red-50 border-red-200 text-red-500"
+                    : "bg-green-50 border-green-200 text-green-500"
               }`}
             >
               {row?.verifier_status}
@@ -207,7 +237,7 @@ const Reconcile = () => {
     {
       title: "Status",
       key: "status",
-      className: "w-32",
+      className: "w-[9%]",
       render: (row) => (
         <span
           className={`capitalize text-xs ${
@@ -229,7 +259,7 @@ const Reconcile = () => {
     {
       title: "Action",
       key: "actions",
-      className: "w-24",
+      className: "w-[9%]",
       render: (row) => {
         // ─── Calculate Leftover Time Window ─────────────────
         const cleanDateStr = row?.from_date ? row.from_date.split("T")[0] : null;
@@ -292,9 +322,9 @@ const Reconcile = () => {
         </div>
         {hasPermission("reconciliation.create") && (
           <div className="flex items-center gap-4">
-            <div onClick={handleOpenCreateModal} className="cursor-pointer transition-all px-4 py-2 hover:bg-black rounded text-white bg-[#424242]">
-              <p>Request Reconcile</p>
-            </div>
+            <button onClick={handleOpenCreateModal} className="flex items-center gap-2 px-6 py-2.5 bg-[#1a73e8] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-200 hover:bg-blue-600 transition-all">
+              <Plus className="w-5 h-5" /> Request Reconcile
+            </button>
           </div>
         )}
       </div>
@@ -303,6 +333,34 @@ const Reconcile = () => {
       )}
 
       {drawerOpen && <VaultBagsDrawer selectedReconcile={selectedReconcile} setDrawerOpen={setDrawerOpen} />}
+
+      {varianceNotesModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 mx-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-gray-800">Variance Notes</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{varianceNotesModal.reconcileTranId}</p>
+              </div>
+              <button onClick={() => setVarianceNotesModal(null)} className="text-gray-400 hover:text-gray-600 cursor-pointer text-lg leading-none">✕</button>
+            </div>
+            <div className="space-y-3 max-h-72 overflow-y-auto">
+              {varianceNotesModal.bags.map((bag) => (
+                <div key={bag.id} className="bg-gray-50 border border-gray-100 rounded-lg p-3 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs font-semibold text-gray-500">
+                    <span className="font-mono">{bag.barcode} · RN-{bag.rack_number}</span>
+                    <span className="text-red-500">Diff: {bag.pivot.difference}</span>
+                  </div>
+                  <p className="text-sm text-gray-700">{bag.pivot.note}</p>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setVarianceNotesModal(null)} className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold text-sm rounded-lg transition-colors cursor-pointer">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {openReconcileModel && <ReconcileModal reconcileId={editReconcileId} isClose={() => setOpenReconcileModel(false)} refetch={refetch} />}
       {openReconcileViewDrawer && (

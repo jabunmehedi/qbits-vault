@@ -115,7 +115,7 @@ const ForgetPasswordModel = ({ isOpen, onClose }) => {
               type="button"
               disabled={loading}
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 hover:bg-gray-100/80 rounded-xl transition-all"
+              className="px-6 py-2.5 text-sm font-bold text-gray-600 border border-gray-200 rounded-xl hover:text-red-400 hover:bg-gray-50 transition-all"
             >
               Cancel
             </button>
@@ -123,7 +123,7 @@ const ForgetPasswordModel = ({ isOpen, onClose }) => {
             <button
               type="submit"
               disabled={loading || !email.trim()}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow-md transition-all active:scale-98 disabled:opacity-50 disabled:pointer-events-none min-w-[110px]"
+              className="flex items-center justify-center gap-2 px-6 py-2.5 bg-[#1a73e8] hover:bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-200 transition-all disabled:opacity-50 disabled:pointer-events-none min-w-[140px]"
             >
               {loading ? (
                 <>

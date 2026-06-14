@@ -36,7 +36,7 @@ const Drawer = ({ isOpen, onClose, children, title = "Drawer", className }) => {
             className={cn("fixed right-0 top-0 h-full w-[40%] bg-white z-[70] shadow-2xl overflow-hidden flex flex-col", className)}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6">
+            <div className="flex items-center justify-between px-6 py-4">
               <h2 className="text-xl font-semibold text-white">{title}</h2>
               <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
                 <AiOutlineClose className="w-4 h-4 text-gray-400 hover:text-red-500" />

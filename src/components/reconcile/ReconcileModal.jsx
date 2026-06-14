@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import CustomModal from "../global/modal/CustomModal";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { Building2, ChevronDown, Loader2 } from "lucide-react";
 import { GetLatestReconcile, StartReconcile, UpdateReconcile, ViewReconcile } from "../../services/Reconcile";
 import dayjs from "dayjs";
 import { useToast } from "../../hooks/useToast";
@@ -13,33 +14,29 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
   const [latestReconcileData, setLatestReconcileData] = useState([]);
   const [vaults, setVaults] = useState([]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
   const [modalLoading, setModalLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addToast } = useToast();
 
+  const buttonRef = useRef(null);
+  const dropdownRef = useRef(null);
   const user = useSelector(selectAuthUser);
 
   const getCurrentTime = () => {
     const now = new Date();
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    return `${hours}:${minutes}`;
+    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
   };
   const [selectedTime, setSelectedTime] = useState(getCurrentTime());
+  const [auditDate, setAuditDate] = useState(() => new Date().toISOString().split("T")[0]);
 
-  const getTodayDate = () => new Date().toISOString().split("T")[0];
-  const [auditDate, setAuditDate] = useState(getTodayDate());
-
-  // 1. Initial configuration pulling
   useEffect(() => {
     if (user?.vault_assignments?.length === 0) return;
-
     const assignVaults = user?.vault_assignments?.filter((assign) => assign.status === "active");
     setVaults(assignVaults);
     GetLatestReconcile().then((res) => setLatestReconcileData(res?.data || []));
   }, []);
 
-  // 2. Load and edit mode hook checks
   useEffect(() => {
     if (reconcileId) {
       setModalLoading(true);
@@ -48,49 +45,64 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
           const targetData = res?.data || res;
           if (targetData) {
             setSelectedVaultId(targetData.vault_id);
-            if (targetData.from_date) {
-              setAuditDate(dayjs(targetData.from_date).format("YYYY-MM-DD"));
-            }
+            if (targetData.from_date) setAuditDate(dayjs(targetData.from_date).format("YYYY-MM-DD"));
             if (targetData.audit_time) {
-              const timeParts = targetData.audit_time.split(":");
-              setSelectedTime(`${timeParts[0]}:${timeParts[1]}`);
+              const [h, m] = targetData.audit_time.split(":");
+              setSelectedTime(`${h}:${m}`);
             }
           }
         })
-        .catch((err) => console.error("Error retrieving target single reconcile element:", err))
+        .catch((err) => console.error("Error retrieving reconcile:", err))
         .finally(() => setModalLoading(false));
     }
   }, [reconcileId]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handler = (e) => {
+      if (buttonRef.current && !buttonRef.current.contains(e.target) && dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [dropdownOpen]);
+
+  const openDropdown = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + 8, left: rect.left, width: rect.width });
+    }
+    setDropdownOpen(true);
+  };
 
   const handleVaultSelect = (vaultId) => {
     setSelectedVaultId(vaultId);
     setDropdownOpen(false);
   };
 
+  const selectedVaultName = vaults.find((v) => v.vault_id === selectedVaultId)?.vault?.name;
+
   const handleSubmitRequest = async () => {
     try {
       setIsSubmitting(true);
-      const combinedToDateTime = `${selectedTime}:00`;
-
       const payload = {
         vault_id: selectedVaultId,
         from_date: auditDate,
-        audit_time: combinedToDateTime,
+        audit_time: `${selectedTime}:00`,
       };
 
       if (reconcileId) {
         await UpdateReconcile(reconcileId, payload);
+        addToast({ type: "success", message: "Reconciliation rescheduled successfully" });
       } else {
         const res = await StartReconcile({
           ...payload,
           from_date: latestReconcileData?.to_date || auditDate,
         });
-
         if (!res?.success) {
-          addToast({
-            type: "error",
-            message: res?.message || "Failed to start reconciliation. Please try again.",
-          });
+          addToast({ type: "error", message: res?.message || "Failed to start reconciliation. Please try again." });
           return;
         }
       }
@@ -98,102 +110,119 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
       await refetch();
       isClose();
     } catch (error) {
-      console.error("Failed to save or update reconciliation form processing parameters:", error);
+      console.error("Failed to save reconciliation:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <CustomModal isCloseModal={isClose}>
+    <CustomModal isCloseModal={isClose} title={reconcileId ? "Reschedule Reconciliation" : "Setup Reconciliation"}>
       <div className="flex flex-col">
-        {/* Header */}
-        <div className="mb-6">
-          <p className="text-center text-2xl font-bold text-gray-800">{reconcileId ? "Reschedule Reconciliation" : "Setup Reconciliation"}</p>
-        </div>
-
         {modalLoading ? (
           <div className="flex items-center justify-center h-48">
             <span className="text-sm font-medium text-gray-400 animate-pulse">Loading Configuration...</span>
           </div>
         ) : (
           <>
-            {/* Content */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-              {/* Audit Date Input Field */}
+            {/* Date & Time */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Set audit Date</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 tracking-wide">Set Audit Date</label>
                 <input
                   type="date"
                   value={auditDate}
                   onChange={(e) => setAuditDate(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all font-medium"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:border-blue-400 transition-colors text-sm font-medium"
                 />
               </div>
-
-              {/* Time Selector Block Input Element */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Set audit Time</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 tracking-wide">Set Audit Time</label>
                 <input
                   type="time"
                   value={selectedTime}
                   onChange={(e) => setSelectedTime(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all font-medium"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:border-blue-400 transition-colors text-sm font-medium"
                 />
               </div>
             </div>
 
-            <p className="mb-3 font-medium text-gray-800">Select Vault</p>
-
-            <div className="relative overflow-visible">
+            {/* Vault Selector */}
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1 tracking-wide">Select Vault</label>
               <button
-                disabled={reconcileId ? true : false}
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg flex justify-between items-center text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
+                ref={buttonRef}
+                type="button"
+                disabled={!!reconcileId}
+                onClick={() => (dropdownOpen ? setDropdownOpen(false) : openDropdown())}
+                className="w-full px-4 py-2.5 rounded-xl text-left text-sm flex justify-between items-center min-h-[42px] transition-colors bg-gray-50 border border-gray-200 hover:border-blue-300 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {selectedVaultId ? vaults.find((v) => v.vault_id === selectedVaultId)?.vault?.name || "Unknown Vault" : "Choose a Vault"}
-                <ChevronDown className={`w-5 h-5 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <Building2 size={15} className="shrink-0 text-gray-400" />
+                  <span className={selectedVaultId ? "text-gray-900 font-medium" : "text-gray-400"}>
+                    {selectedVaultName ?? "Choose a vault..."}
+                  </span>
+                </div>
+                <ChevronDown size={15} className={`ml-2 shrink-0 text-gray-400 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
               </button>
-
-              <AnimatePresence>
-                {dropdownOpen && (
-                  <motion.ul
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="absolute z-[100] w-full bg-white border border-gray-200 rounded-lg mt-1 max-h-64 overflow-y-auto shadow-xl divide-y divide-gray-100"
-                  >
-                    {vaults?.map((vault) => (
-                      <li
-                        key={vault.vault_id}
-                        onClick={() => handleVaultSelect(vault.vault_id)}
-                        className="px-4 py-2.5 text-gray-500 gap-2 hover:bg-cyan-50 cursor-pointer transition-colors flex items-center"
-                      >
-                        <span>{vault?.vault?.name}</span>
-                      </li>
-                    ))}
-                  </motion.ul>
-                )}
-              </AnimatePresence>
             </div>
           </>
         )}
 
         {/* Footer */}
         <div className="flex gap-3 justify-end mt-8 pt-4 border-t border-gray-100">
-          <button onClick={isClose} className="px-6 py-2.5 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition font-medium">
+          <button onClick={isClose} className="px-6 py-2.5 text-gray-600 border border-gray-200 rounded-xl font-bold text-sm hover:text-red-400 hover:bg-gray-50 transition-colors">
             Cancel
           </button>
-
           <button
             onClick={handleSubmitRequest}
             disabled={!selectedVaultId || modalLoading || isSubmitting}
-            className="min-w-[160px] flex justify-center px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg font-semibold shadow-md hover:shadow-lg hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            className="min-w-[160px] flex justify-center px-6 py-2.5 bg-[#1a73e8] hover:bg-blue-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {modalLoading || isSubmitting ? <Loader2 className="animate-spin" /> : reconcileId ? "Update Changes" : "Save"}
+            {modalLoading || isSubmitting ? <Loader2 className="animate-spin w-4 h-4" /> : reconcileId ? "Update Changes" : "Save"}
           </button>
         </div>
       </div>
+
+      {/* Portal dropdown — renders above all modal layers */}
+      {createPortal(
+        <AnimatePresence>
+          {dropdownOpen && (
+            <motion.div
+              ref={dropdownRef}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
+              style={{ position: "fixed", top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 99999 }}
+              className="bg-white border border-gray-200 shadow-2xl rounded-xl p-2"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div className="max-h-48 overflow-y-auto">
+                {vaults?.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-3">No vaults assigned</p>
+                ) : (
+                  vaults?.map((vault) => (
+                    <div
+                      key={vault.vault_id}
+                      onClick={() => handleVaultSelect(vault.vault_id)}
+                      className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-colors ${
+                        selectedVaultId === vault.vault_id ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50 text-gray-700"
+                      }`}
+                    >
+                      <span className="text-sm font-medium">{vault?.vault?.name}</span>
+                      {selectedVaultId === vault.vault_id && (
+                        <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </CustomModal>
   );
 };

@@ -636,7 +636,7 @@ const Vault = () => {
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div>
-      <div className="mb-6 flex justify-between">
+      <div className="mb-6 flex items-center justify-between">
         <div>
           <p className="text-[#424242] text-lg font-medium">Vault Management</p>
           <span className="text-gray-400 text-sm capitalize">Monitor and manage all vault assets and bags</span>
@@ -657,7 +657,7 @@ const Vault = () => {
                 total_racks: "",
               });
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-[#1a73e8] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-200 hover:bg-blue-600 transition-all"
+            className="flex items-center gap-2 px-6 py-2.5 bg-[#1a73e8] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-200 hover:bg-blue-600 transition-all"
           >
             <Plus className="w-5 h-5" /> Create Vault
           </button>

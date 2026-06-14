@@ -84,14 +84,14 @@ const UserChangePasswordModal = ({
                   type="button"
                   disabled={passwordMutation.isPending}
                   onClick={() => setShowPasswordModal(false)}
-                  className="px-4 py-2 text-xs font-bold text-gray-500 hover:bg-gray-200/60 rounded-xl transition"
+                  className="px-6 py-2.5 text-sm font-bold text-gray-600 border border-gray-200 rounded-xl hover:text-red-400 hover:bg-gray-50 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={passwordMutation.isPending || !newPassword.trim()}
-                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl text-xs font-bold transition shadow-xs disabled:opacity-50"
+                  className="flex items-center gap-1.5 bg-[#1a73e8] hover:bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition shadow-lg shadow-blue-200 disabled:opacity-50"
                 >
                   {passwordMutation.isPending ? (
                     <>

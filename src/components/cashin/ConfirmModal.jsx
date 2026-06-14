@@ -63,7 +63,7 @@ const ConfirmModal = ({ grandTotal, onCancel, onConfirm, loading, isDepositError
           <div className="flex justify-between items-center gap-4 px-4 pb-4">
             <button
               onClick={onCancel}
-              className="flex-1 py-3 px-4 rounded-2xl text-sm border border-slate-200 font-bold text-slate-500 hover:bg-slate-50 transition-colors"
+              className="flex-1 py-2.5 px-4 rounded-xl text-sm border border-gray-200 font-bold text-gray-600 hover:text-red-400 hover:bg-gray-50 transition-colors"
             >
               {bagSuccess ? "Close" : "Cancel"}
             </button>
@@ -71,7 +71,7 @@ const ConfirmModal = ({ grandTotal, onCancel, onConfirm, loading, isDepositError
               <button
                 onClick={handleCreateBag}
                 disabled={bagLoading || !rackNumber.trim()}
-                className="py-3 px-4 flex-1 rounded-2xl bg-blue-600 shadow-lg shadow-blue-100 hover:bg-blue-700 text-sm font-bold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="py-2.5 px-4 flex-1 rounded-xl bg-[#1a73e8] shadow-lg shadow-blue-200 hover:bg-blue-600 text-sm font-bold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {bagLoading ? <Loader2 className="animate-spin w-4 h-4" /> : "Create Bag"}
               </button>
@@ -96,14 +96,14 @@ const ConfirmModal = ({ grandTotal, onCancel, onConfirm, loading, isDepositError
             <button
               onClick={onCancel}
               disabled={loading}
-              className="flex-1 px-4 py-3 rounded-2xl text-sm border border-slate-200 font-bold text-slate-500 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm border border-gray-200 font-bold text-gray-600 hover:text-red-400 hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={onConfirm}
               disabled={loading || grandTotal === 0}
-              className="px-4 flex-1 py-3 rounded-2xl bg-blue-600 shadow-lg shadow-blue-100 hover:bg-blue-700 text-sm font-bold text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="px-4 flex-1 py-2.5 rounded-xl bg-[#1a73e8] shadow-lg shadow-blue-200 hover:bg-blue-600 text-sm font-bold text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? <Loader2 className="animate-spin w-4 h-4" /> : "Confirm & Submit"}
             </button>

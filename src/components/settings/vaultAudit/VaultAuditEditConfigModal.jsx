@@ -111,13 +111,13 @@ const VaultAuditEditConfigModal = ({ auditConfig, setIsModalOpen, refetchData })
           <button
             type="button"
             onClick={() => setIsModalOpen(false)}
-            className="px-5 py-2.5 text-sm font-semibold text-slate-600 hover:text-slate-800 transition-colors cursor-pointer"
+            className="px-6 py-2.5 text-sm font-bold text-gray-600 border border-gray-200 rounded-xl hover:text-red-400 hover:bg-gray-50 transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="px-6 py-2.5 text-sm font-semibold text-white bg-[#0256EB] hover:bg-[#0149C7] rounded-xl shadow-[0_4px_12px_rgba(2,86,235,0.2)] transition-all cursor-pointer"
+            className="px-6 py-2.5 text-sm font-bold text-white bg-[#1a73e8] hover:bg-blue-600 rounded-xl shadow-lg shadow-blue-200 transition-all cursor-pointer"
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
           </button>

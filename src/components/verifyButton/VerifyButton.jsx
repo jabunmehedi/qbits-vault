@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../../utils/cn";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 
 const VerifyButton = ({ children, isOpen, setOpen, className, handleSubmit, handleReject, isLoading, title = "Verify" }) => {
   const [rejectMode, setRejectMode] = useState(false);
@@ -44,9 +44,9 @@ const VerifyButton = ({ children, isOpen, setOpen, className, handleSubmit, hand
         whileTap={{ scale: 0.95 }}
         onClick={handleToggle}
         className={cn(
-          "relative px-5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all z-10",
-          "bg-indigo-600 text-white shadow-lg hover:bg-indigo-700",
-          isOpen && "ring-4 ring-indigo-200",
+          "relative px-5 py-1.5 rounded-xl text-xs font-bold transition-all z-10",
+          "bg-[#1a73e8] text-white shadow-lg shadow-blue-200 hover:bg-blue-600",
+          isOpen && "ring-4 ring-blue-200",
         )}
       >
         {title}
@@ -78,6 +78,14 @@ const VerifyButton = ({ children, isOpen, setOpen, className, handleSubmit, hand
                 )}
               >
                 <div className="relative z-10">
+                  <button
+                    type="button"
+                    onClick={() => rejectMode ? setRejectMode(false) : setOpen(false)}
+                    className="absolute top-0 right-0 p-1 rounded-full transition-colors group"
+                  >
+                    <X className="w-4 h-4 text-gray-400 group-hover:text-red-400 cursor-pointer" />
+                  </button>
+
                   {rejectMode ? (
                     <div className="space-y-4">
                       <div className="text-center">
@@ -104,7 +112,7 @@ const VerifyButton = ({ children, isOpen, setOpen, className, handleSubmit, hand
                   <div className="flex items-center gap-3 mt-6">
                     <button
                       onClick={() => rejectMode ? setRejectMode(false) : setOpen(false)}
-                      className="flex-1 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+                      className="flex-1 py-2.5 text-sm font-bold border border-gray-200 text-gray-600 hover:text-red-400 hover:bg-gray-50 rounded-xl transition-colors"
                     >
                       {rejectMode ? "Back" : "Cancel"}
                     </button>
@@ -113,7 +121,7 @@ const VerifyButton = ({ children, isOpen, setOpen, className, handleSubmit, hand
                       <button
                         onClick={() => setRejectMode(true)}
                         disabled={isLoading}
-                        className="flex-1 py-3 text-[11px] font-bold uppercase tracking-widest bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl transition-all disabled:opacity-50"
+                        className="flex-1 py-2.5 text-sm font-bold bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 rounded-xl transition-all disabled:opacity-50"
                       >
                         Reject
                       </button>
@@ -123,7 +131,7 @@ const VerifyButton = ({ children, isOpen, setOpen, className, handleSubmit, hand
                       <button
                         disabled={isLoading}
                         onClick={handleRejectConfirm}
-                        className="flex-1 py-3 text-[11px] flex items-center justify-center font-bold uppercase tracking-widest bg-red-600 hover:bg-red-700 text-white rounded-2xl transition-all disabled:opacity-50"
+                        className="flex-1 py-2.5 text-sm flex items-center justify-center font-bold bg-red-600 hover:bg-red-700 text-white rounded-xl transition-all disabled:opacity-50"
                       >
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm Reject"}
                       </button>
@@ -131,9 +139,9 @@ const VerifyButton = ({ children, isOpen, setOpen, className, handleSubmit, hand
                       <button
                         disabled={isLoading}
                         onClick={() => handleSubmit()}
-                        className={`flex-1 py-3 text-[11px] flex items-center justify-center font-bold uppercase tracking-widest ${isLoading ? "bg-blue-50 cursor-not-allowed border border-blue-200" : "bg-blue-600 shadow-xl shadow-blue-100 hover:bg-blue-700"} text-white rounded-2xl active:scale-95 transition-all`}
+                        className={`flex-1 py-2.5 text-sm flex items-center justify-center font-bold rounded-xl transition-all ${isLoading ? "bg-gray-100 cursor-not-allowed text-gray-400" : "bg-[#1a73e8] hover:bg-blue-600 text-white shadow-lg shadow-blue-200"}`}
                       >
-                        {isLoading ? <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" /> : "Confirm"}
+                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm"}
                       </button>
                     )}
                   </div>

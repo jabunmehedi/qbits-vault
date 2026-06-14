@@ -378,17 +378,17 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
                 />
               </div>
 
-              <div className="flex items-center bg-[#FDFDFE] border-t border-slate-200 py-6 px-6 gap-4 justify-between">
+              <div className="flex items-center bg-[#FDFDFE] border-t border-slate-200 py-4 px-6 gap-3 justify-end">
                 <button
                   onClick={handleClose}
-                  className="px-6 py-3 w-[35%] text-center justify-center cursor-pointer bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold text-sm rounded-xl transition-all"
+                  className="min-w-[160px] px-6 py-2.5 text-center justify-center cursor-pointer bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold text-sm rounded-xl transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleGenerateDeposit}
                   disabled={depositLoading}
-                  className="px-6 w-[65%] py-3 cursor-pointer justify-center bg-blue-600 shadow-lg shadow-blue-100 hover:bg-blue-700 text-white font-bold text-sm rounded-xl transition-all disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none flex items-center justify-center gap-2"
+                  className="min-w-[160px] px-6 py-2.5 cursor-pointer justify-center bg-[#1a73e8] shadow-lg shadow-blue-200 hover:bg-blue-600 text-white font-bold text-sm rounded-xl transition-all disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none flex items-center justify-center gap-2"
                 >
                   {depositLoading ? (
                     <Loader2 className="animate-spin w-4 h-4" />
@@ -535,17 +535,17 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
               </div>
 
               {/* Step 2 Bottom Sticky Action Footer layout */}
-              <div className="flex items-center bg-slate-50 border-t border-slate-100 p-6 gap-4 justify-between shadow-lg">
+              <div className="flex items-center bg-slate-50 border-t border-slate-100 px-6 py-4 gap-3 justify-end shadow-lg">
                 <button
                   onClick={() => setStep(1)}
-                  className="px-6 py-3 w-[30%] flex items-center gap-2 text-center justify-center cursor-pointer  border border-gray-200 bg-slate-50 text-slate-600 hover:bg-slate-100 font-semibold text-sm rounded-xl transition-all"
+                  className="min-w-[160px] px-6 py-2.5 flex items-center gap-2 text-center justify-center cursor-pointer border border-gray-200 bg-slate-50 text-slate-600 hover:bg-slate-100 font-semibold text-sm rounded-xl transition-all"
                 >
                   <ArrowLeft className="w-4 h-4" /> Back
                 </button>
                 <button
                   onClick={handleConfirmSubmit}
                   disabled={submitLoading || (isCustodianRequire && !selectedCustodian)}
-                  className="px-6 w-[70%] py-3 cursor-pointer justify-center bg-blue-600 shadow-lg shadow-blue-100 hover:bg-blue-700 text-white font-bold text-sm rounded-xl transition-all disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none flex items-center justify-center gap-2"
+                  className="min-w-[160px] px-6 py-2.5 cursor-pointer justify-center bg-[#1a73e8] shadow-lg shadow-blue-200 hover:bg-blue-600 text-white font-bold text-sm rounded-xl transition-all disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none flex items-center justify-center gap-2"
                 >
                   {submitLoading ? (
                     <Loader2 className="animate-spin w-4 h-4" />

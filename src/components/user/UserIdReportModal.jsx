@@ -103,8 +103,8 @@ const UserIdReportModal = ({ isOpen, onClose, userId, user, currentAddress, isDo
               </div>
             </div>
             <div className="bg-zinc-900 border-t border-zinc-700 p-3 flex gap-2 justify-end">
-              <button onClick={onClose} className="px-3 py-1.5 bg-zinc-800 border border-zinc-600 text-zinc-300 hover:bg-zinc-700 text-xs font-semibold rounded-md transition">Cancel</button>
-              <button onClick={onDownload} disabled={isDownloading} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-xs font-semibold transition shadow-md disabled:opacity-75">
+              <button onClick={onClose} className="px-3 py-3 bg-zinc-800 border border-zinc-600 text-zinc-300 hover:bg-zinc-700 text-xs font-semibold rounded-md transition">Cancel</button>
+              <button onClick={onDownload} disabled={isDownloading} className="flex items-center gap-1.5 bg-[#1a73e8] hover:bg-blue-600 text-white px-4 py-3 rounded-md text-xs font-semibold transition shadow-md shadow-blue-200 disabled:opacity-75">
                 {isDownloading ? <Loader2 size={14} className="animate-spin" /> : "Download"}
               </button>
             </div>

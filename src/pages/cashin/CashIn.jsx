@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Plus } from "lucide-react";
 import DataTable from "../../components/global/dataTable/DataTable";
 import dayjs from "dayjs";
 import { useSearchParams } from "react-router-dom";
@@ -119,261 +120,309 @@ const fetchCashInsData = useCallback(() => {
       const response = await GetCashInLedger(cashIn.id);
       if (!response.success) throw new Error(response.message || "Failed to fetch ledger data");
 
-      const { vault, is_approved, verifiers, approvers } = response.data;
-
+      const { vault, verifiers, approvers } = response.data;
       const cashInAmount = parseFloat(cashIn.cash_in_amount || 0);
-      const vaultBalance = parseFloat(vault.current_balance || 0);
 
-      // Opening = balance before this cash-in
-      // If already approved the vault balance already includes cashInAmount, so subtract it back.
-      // If still pending the vault hasn't changed, so opening = current vault balance.
-      const openingBalance = is_approved ? vaultBalance - cashInAmount : vaultBalance;
+      const amountFmt = (n) => parseFloat(n).toLocaleString("en-US", { minimumFractionDigits: 2 });
 
-      const closingBalance = is_approved ? openingBalance + cashInAmount : openingBalance;
+      const numberToWords = (amount) => {
+        const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+          "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+        const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+        const convert = (n) => {
+          if (n === 0) return "";
+          if (n < 20) return ones[n];
+          if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
+          if (n < 1000) return ones[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + convert(n % 100) : "");
+          if (n < 100000) return convert(Math.floor(n / 1000)) + " Thousand" + (n % 1000 ? " " + convert(n % 1000) : "");
+          if (n < 10000000) return convert(Math.floor(n / 100000)) + " Lakh" + (n % 100000 ? " " + convert(n % 100000) : "");
+          return convert(Math.floor(n / 10000000)) + " Crore" + (n % 10000000 ? " " + convert(n % 10000000) : "");
+        };
+        const intPart = Math.floor(amount);
+        const decPart = Math.round((amount - intPart) * 100);
+        let result = convert(intPart) || "Zero";
+        result += " Taka";
+        if (decPart > 0) result += " and " + convert(decPart) + " Paisa";
+        return result + " Only";
+      };
 
-      const fmt = (n) => `৳${parseFloat(n).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
+      const DENOM_NOTES = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
 
-      // Build ledger rows
-      const rows = [];
-
-      // Opening row
-      rows.push({
-        sl: "Opening",
-        date: dayjs(cashIn.created_at).format("DD MMM YYYY"),
-        debit: "",
-        credit: "",
-        balance: fmt(openingBalance),
-        note: "Opening Balance",
-        cls: "opening",
-      });
-
-      // Transaction row — only if approved
-      if (is_approved) {
-        rows.push({
-          sl: 1,
-          date: dayjs(cashIn.updated_at || cashIn.created_at).format("DD MMM YYYY"),
-          debit: "",
-          credit: fmt(cashInAmount),
-          balance: fmt(openingBalance + cashInAmount),
-          note: `Cash-In credited · Tran ID: ${cashIn.tran_id}`,
-          cls: "",
-        });
-      } else {
-        // Pending row — show the requested amount but mark as pending, no balance change
-        rows.push({
-          sl: 1,
-          date: dayjs(cashIn.created_at).format("DD MMM YYYY"),
-          debit: "",
-          credit: `${fmt(cashInAmount)} (Pending)`,
-          balance: fmt(openingBalance),
-          note: `Cash-In Requested · Tran ID: ${cashIn.tran_id} · Awaiting Approval`,
-          cls: "pending",
+      // Build a safe number-keyed map so string/number key mismatch doesn't cause [object Object]
+      const denomMap = {};
+      if (cashIn.denominations) {
+        Object.entries(cashIn.denominations).forEach(([k, v]) => {
+          denomMap[parseInt(k)] = parseInt(v) || 0;
         });
       }
 
-      // Closing row
-      rows.push({
-        sl: "Closing",
-        date: dayjs().format("DD MMM YYYY"),
-        debit: "",
-        credit: "",
-        balance: fmt(closingBalance),
-        note: is_approved ? "Closing Balance" : "Closing Balance (Pending — no change)",
-        cls: "closing",
-      });
+      const statusList = ["Pending", "Verified", "Approved", "Rejected"];
 
-      const signatureBlock = (people, title, approvedKey, approvedAtKey) =>
-        people?.length > 0
-          ? `
-    <div class="section-title">${title}</div>
-    <div class="sig-grid">
-      ${people
-        .map(
-          (p) => `
-        <div class="sig-box">
-          <div class="sig-name">${p.name}
-            <span class="${p[approvedKey] ? "verified-yes" : "verified-no"}">
-              ${p[approvedKey] ? "&#10003; Done" : "Pending"}
-            </span>
-          </div>
-          <div class="sig-email">${p.email}</div>
-          ${p[approvedKey] && p[approvedAtKey] ? `<div class="verified-date">Confirmed: ${p[approvedAtKey]}</div>` : ""}
-          <div class="sig-line">Signature &amp; Date</div>
-        </div>
-      `,
-        )
-        .join("")}
-    </div>
-  `
-          : "";
+      const derivedStatus = (() => {
+        if (cashIn.status) return cashIn.status.toLowerCase();
+        const vs = cashIn.verifier_status?.toLowerCase();
+        const as = cashIn.approver_status?.toLowerCase();
+        if (vs === "rejected" || as === "rejected") return "rejected";
+        if (as === "approved") return "approved";
+        if (vs === "verified") return "verified";
+        return "pending";
+      })();
 
       const printWindow = window.open("", "_blank");
-      if (!printWindow) {
-        alert("Please allow popups for printing.");
-        return;
-      }
+      if (!printWindow) { alert("Please allow popups for printing."); return; }
 
-      printWindow.document.write(`
-  <!DOCTYPE html>
-  <html>
-  <head>
-    <meta charset="utf-8">
-    <title>Cash-In Ledger — ${cashIn.tran_id}</title>
-    <style>
-      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: Arial, sans-serif; font-size: 13px; color: #1f2937; background: #fff; padding: 32px 28px; }
+      printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
+  <title>Cash-In Ledger — ${cashIn.tran_id}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 13px; color: #1e293b; background: #f8fafc; }
+    .page { max-width: 820px; margin: 24px auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); min-height: 277mm; display: flex; flex-direction: column; }
+    .content { flex: 1; }
 
-      .ledger-header { text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 16px; margin-bottom: 20px; }
-      .ledger-header h1 { font-size: 22px; font-weight: 700; letter-spacing: 3px; color: #1e3a8a; margin-bottom: 4px; }
-      .ledger-header p { font-size: 11px; color: #6b7280; margin-bottom: 8px; }
-      .badge { display: inline-block; padding: 3px 12px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: .5px; }
-      .badge-approved { background: #dcfce7; color: #166534; }
-      .badge-pending  { background: #fef3c7; color: #92400e; }
+    /* ── Header ── */
+    .ledger-header { background: #1a73e8; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-icon { width: 32px; height: 32px; background: rgba(255,255,255,0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .header-title { font-size: 17px; font-weight: 800; letter-spacing: 2.5px; }
+    .print-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.35); color: #fff; padding: 7px 16px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .print-btn:hover { background: rgba(255,255,255,0.25); }
 
-      .warn-bar { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; font-size: 12px; color: #92400e; }
+    /* ── Content ── */
+    .content { padding: 14px 16px; }
 
-      .meta-grid { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden; margin-bottom: 20px; }
-      .meta-cell { padding: 8px 12px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; }
-      .meta-cell:nth-child(even) { border-right: none; }
-      .meta-cell.full { grid-column: span 2; border-right: none; }
-      .meta-label { color: #6b7280; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
-      .meta-value { font-weight: 700; color: #111827; font-size: 13px; }
+    /* ── Info grid ── */
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; margin-bottom: 12px; }
+    .info-item { padding: 2px 0 5px; }
+    .info-label { font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 2px; }
+    .info-value { font-size: 13px; font-weight: 600; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; display: flex; align-items: center; gap: 5px; min-height: 18px; }
 
-      .section-title { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; color: #1e3a8a; text-transform: uppercase; margin: 22px 0 10px; }
-      .section-title::before { content: ''; width: 4px; height: 14px; background: #1e3a8a; border-radius: 2px; display: inline-block; }
+    /* ── Sections ── */
+    .section { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 8px; page-break-inside: avoid; break-inside: avoid; }
+    .section-hd { background: #EFF6FF; border-bottom: 1px solid #BFDBFE; padding: 7px 14px; display: flex; align-items: center; justify-content: space-between; }
+    .section-hd-left { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; color: #1a73e8; text-transform: uppercase; }
+    .section-body { padding: 8px 14px; }
 
-      table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 4px; }
-      th { background: #1e3a8a; color: #fff; padding: 8px 10px; text-align: center; font-size: 11px; font-weight: 600; letter-spacing: .5px; }
-      th.left { text-align: left; }
-      td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: right; }
-      td.left { text-align: left; }
-      td.center { text-align: center; }
-      tr.opening td { background: #dbeafe; font-weight: 700; }
-      tr.closing td { background: #dcfce7; font-weight: 700; }
-      tr.pending  td { background: #fef9c3; }
+    /* ── Denomination table ── */
+    .denom-table { width: 100%; border-collapse: collapse; }
+    .denom-table th { background: #1a73e8; color: #fff; padding: 6px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
+    .denom-table th:first-child { text-align: left; }
+    .denom-table th:nth-child(2) { text-align: center; }
+    .denom-table th:last-child { text-align: right; }
+    .denom-table td { padding: 4px 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; color: #1e293b; }
+    .denom-table td:first-child { text-align: left; color: #1e293b; }
+    .denom-table td:nth-child(2) { text-align: center; color: #1e293b; }
+    .denom-table td:last-child { text-align: right; font-weight: 600; color: #1e293b; }
+    .denom-table tr:last-child td { border-bottom: none; }
+    .grand-total-val { font-size: 14px; font-weight: 800; color: #1a73e8; }
 
-      .grand-total-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #f3f4f6; border-radius: 6px; margin-top: 8px; border: 1px solid #e5e7eb; }
-      .section-header { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
-       .section-bar { width: 14px; height: 14px; background: #1e3a8a; border-radius: 2px; flex-shrink: 0; }
-       .section-label { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #1e3a8a; }
+    /* ── Field rows ── */
+    .field-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+    .field-row:last-child { margin-bottom: 0; }
+    .field-label { font-size: 12px; font-weight: 600; color: #475569; white-space: nowrap; min-width: 120px; }
+    .field-line { flex: 1; border-bottom: 1px solid #cbd5e1; padding-bottom: 2px; min-height: 18px; font-size: 12px; color: #1e293b; }
+    .field-area { flex: 1; border: 1px solid #e2e8f0; border-radius: 4px; min-height: 36px; padding: 4px 8px; font-size: 12px; color: #1e293b; }
 
-      .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
-      .sig-box { border: 1px solid #d1d5db; border-radius: 6px; padding: 14px; background: #fafafa; min-height: 120px; }
-      .sig-name { font-weight: 700; font-size: 13px; color: #111827; margin-bottom: 2px; }
-      .sig-email { font-size: 11px; color: #6b7280; margin-bottom: 10px; }
-      .sig-line { border-top: 1.5px solid #374151; margin-top: 40px; padding-top: 6px; text-align: center; font-size: 10px; color: #9ca3af; }
-      .verified-yes { display: inline-block; background: #dcfce7; color: #166534; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 3px; margin-left: 6px; }
-      .verified-no  { display: inline-block; background: #fee2e2; color: #991b1b; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 3px; margin-left: 6px; }
-      .verified-date { font-size: 10px; color: #059669; font-style: italic; margin-top: 3px; }
+    /* ── Verification ── */
+    .verify-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; }
 
-      .status-bar { display: flex; gap: 20px; align-items: center; padding: 12px 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; margin-top: 20px; flex-wrap: wrap; }
-      .status-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #6b7280; }
-      .status-dot { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid #9ca3af; background: #fff; display: inline-block; }
-      .status-dot.active { background: #1e3a8a; border-color: #1e3a8a; }
+    /* ── Approvals ── */
+    .approval-row { display: grid; grid-template-columns: 22px 1fr 1fr; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid #f1f5f9; page-break-inside: avoid; break-inside: avoid; }
+    .approval-row:last-child { border-bottom: none; }
+    .approval-num { font-size: 12px; font-weight: 700; color: #64748b; }
 
-      .footer { text-align: center; margin-top: 24px; padding-top: 14px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; }
+    /* ── Status ── */
+    .status-bar { display: flex; align-items: center; gap: 18px; padding: 8px 14px; flex-wrap: wrap; }
+    .status-label { font-size: 12px; font-weight: 800; color: #1e293b; }
+    .status-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #64748b; }
+    .cb { width: 13px; height: 13px; border: 1.5px solid #94a3b8; border-radius: 2px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .cb.active { background: #1a73e8; border-color: #1a73e8; }
+    .cb.active::after { content: ''; display: block; width: 7px; height: 4px; border-left: 1.5px solid #fff; border-bottom: 1.5px solid #fff; transform: rotate(-45deg) translateY(-1px); }
 
-      @media print {
-        @page { size: A4; margin: 15mm; }
-        body { padding: 0; }
-        .no-print { display: none; }
-      }
-    </style>
-  </head>
-  <body>
+    /* ── Footer ── */
+    .footer { text-align: center; padding: 8px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; }
 
-    <div class="ledger-header">
-      <h1>CASH IN LEDGER</h1>
-      <p>Official Vault Transaction Record</p>
-      <div>
-        <span class="badge ${is_approved ? "badge-approved" : "badge-pending"}">
-          ${is_approved ? "APPROVED" : "PENDING"}
-        </span>
+    @media print {
+      @page { size: A4; margin: 10mm; }
+      body { background: #fff; }
+      .page { margin: 0; border-radius: 0; box-shadow: none; max-width: 100%; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <div class="ledger-header">
+    <div class="header-left">
+      <div class="header-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/>
+        </svg>
+      </div>
+      <span class="header-title">CASH IN LEDGER</span>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+      </svg>
+      Print / Save PDF
+    </button>
+  </div>
+
+  <div class="content">
+
+    <!-- Info Grid -->
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">Vault Name:</div>
+        <div class="info-value">${cashIn.vault?.name || vault.vault_code || "—"}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Cash In Transaction ID:</div>
+        <div class="info-value" style="font-family:monospace">${cashIn.tran_id || "—"}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Vault Code:</div>
+        <div class="info-value">${vault.vault_code || "—"}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Date:</div>
+        <div class="info-value">
+          ${dayjs(cashIn.created_at).format("DD/MM/YYYY")}
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Bag Number:</div>
+        <div class="info-value">${cashIn.bags?.barcode || "—"}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Generated Time:</div>
+        <div class="info-value">
+          ${dayjs().format("HH:mm")}
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+      </div>
+      <div class="info-item" style="grid-column: span 2">
+        <div class="info-label">Prepared By:</div>
+        <div class="info-value">${cashIn.user?.name || "—"}</div>
       </div>
     </div>
 
-
-    <div class="meta-grid">
-      <div class="meta-cell"><div class="meta-label">Vault Name</div><div class="meta-value">${vault.name || "—"}</div></div>
-      <div class="meta-cell"><div class="meta-label">Vault Code</div><div class="meta-value">${vault.vault_code || "—"}</div></div>
-      <div class="meta-cell"><div class="meta-label">Bag Barcode</div><div class="meta-value">${cashIn.bags?.barcode || "—"}</div></div>
-      <div class="meta-cell"><div class="meta-label">Rack Number</div><div class="meta-value">RN-${cashIn.bags?.rack_number || "—"}</div></div>
-      <div class="meta-cell"><div class="meta-label">Transaction ID</div><div class="meta-value" style="font-family:monospace">${cashIn.tran_id}</div></div>
-      <div class="meta-cell"><div class="meta-label">Date</div><div class="meta-value">${dayjs(cashIn.created_at).format("DD MMM YYYY")}</div></div>
-      <div class="meta-cell"><div class="meta-label">Opening Balance</div><div class="meta-value">${fmt(openingBalance)}</div></div>
-      <div class="meta-cell"><div class="meta-label">Generated Time</div><div class="meta-value">${dayjs().format("hh:mm A")}</div></div>
-      <div class="meta-cell full"><div class="meta-label">Prepared By</div><div class="meta-value">${cashIn.user?.name || "—"}</div></div>
+    <!-- Denomination Breakdown -->
+    <div class="section">
+      <div class="section-hd">
+        <div class="section-hd-left">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><circle cx="12" cy="15" r="2"/></svg>
+          Denomination Breakdown
+        </div>
+        <div style="font-size:11px;font-weight:700;color:#475569;">
+          GRAND TOTAL (BDT): <span class="grand-total-val">${amountFmt(cashInAmount)}</span>
+        </div>
+      </div>
+      <table class="denom-table">
+        <thead>
+          <tr><th>Denomination (BDT)</th><th>Count</th><th>Total (BDT)</th></tr>
+        </thead>
+        <tbody>
+          ${DENOM_NOTES.map((note) => {
+            const cnt = denomMap[note] || 0;
+            return `<tr>
+              <td>${note.toLocaleString("en-US")}</td>
+              <td>${cnt}</td>
+              <td>${amountFmt(note * cnt)}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
     </div>
 
-    ${
-      cashIn.denominations && Object.values(cashIn.denominations).some((v) => v > 0)
-        ? `
-    <div class="section-title">Denomination Breakdown</div>
-    <table>
-      <thead><tr><th class="left">Denomination</th><th>Count</th><th>Total (৳)</th></tr></thead>
-      <tbody>
-        ${Object.entries(cashIn.denominations)
-          .filter(([, cnt]) => cnt > 0)
-          .sort(([a], [b]) => b - a)
-          .map(
-            ([note, cnt]) => `
-            <tr>
-              <td class="left">৳${parseInt(note).toLocaleString()}</td>
-              <td class="center">${cnt}</td>
-              <td>${(note * cnt).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
-            </tr>
-          `,
-          )
-          .join("")}
-      </tbody>
-    </table>
-    <div class="grand-total-row">
-      <span style="font-weight:700">Grand Total</span>
-      <span style="font-weight:700;font-size:15px;color:#1e3a8a">${fmt(cashInAmount)}</span>
-    </div>`
-        : ""
-    }
-
-    <p></p>
-    <p></p>
-    <hr>
-
-   <div class="section-header section-title">
-      <div class="section-bar"></div>
-      <span class="section-label">Bag Summary</span>
-    </div>
-    <div class="field-row">
-      <span class="label">Bag Amount:</span>
-      <span class="field-line">${fmt(cashInAmount)}</span>
+    <!-- Bag Summary -->
+    <div class="section">
+      <div class="section-hd">
+        <div class="section-hd-left">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+          Bag Summary
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="field-row">
+          <span class="field-label">Bag Amount (BDT) in words:</span>
+          <span class="field-line">${numberToWords(cashInAmount)}</span>
+        </div>
+      </div>
     </div>
 
-    <hr>
-
-
-    ${signatureBlock(verifiers, "Verifiers", "verified", "verified_at")}
-    ${signatureBlock(approvers, "Cashers", "approved", "approved_at")}
-
-    <div class="status-bar">
-      <span style="font-size:12px;font-weight:700;color:#374151;margin-right:4px">Status:</span>
-      ${["Pending", "Verified", "Approved", "Completed", "Rejected"]
-        .map(
-          (s) => `
-        <span class="status-item">
-          <span class="status-dot ${cashIn.status?.toLowerCase() === s.toLowerCase() ? "active" : ""}"></span>${s}
-        </span>
-      `,
-        )
-        .join("")}
+    <!-- Verification -->
+    <div class="section">
+      <div class="section-hd">
+        <div class="section-hd-left">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Verifiers
+        </div>
+      </div>
+      <div class="section-body">
+        ${verifiers?.length > 0 ? verifiers.map((v, i) => `
+          <div class="verify-grid" style="${i < verifiers.length - 1 ? "margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #f1f5f9;" : ""}">
+            <div class="field-row"><span class="field-label">Verified By:</span><span class="field-line">${v.name || ""}</span></div>
+            <div class="field-row"><span class="field-label">Date:</span><span class="field-line">${v.verified_at || ""}</span></div>
+            <!-- <div class="field-row"><span class="field-label">Signature:</span><span class="field-line" style="min-height:36px;"></span></div> -->
+            <!-- <div class="field-row"><span class="field-label">Remarks:</span><span class="field-area"></span></div> -->
+          </div>`).join("") : `
+          <div class="verify-grid">
+            <div class="field-row"><span class="field-label">Verified By:</span><span class="field-line"></span></div>
+            <div class="field-row"><span class="field-label">Date:</span><span class="field-line"></span></div>
+            <!-- <div class="field-row"><span class="field-label">Signature:</span><span class="field-line" style="min-height:36px;"></span></div> -->
+            <!-- <div class="field-row"><span class="field-label">Remarks:</span><span class="field-area"></span></div> -->
+          </div>`}
+      </div>
     </div>
 
-    <div class="footer">
-      Generated on ${dayjs().format("DD MMM YYYY, hh:mm A")} &middot; QBits Vault Management System
+    <!-- Approvals -->
+    <div class="section">
+      <div class="section-hd">
+        <div class="section-hd-left">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+          Cashiers
+        </div>
+      </div>
+      <div class="section-body">
+        ${approvers?.length > 0
+          ? approvers.map((a, i) => `<div class="approval-row">
+              <span class="approval-num">${i + 1}:</span>
+              <div class="field-row" style="margin-bottom:0"><span class="field-label">Name:</span><span class="field-line">${a?.name || ""}</span></div>
+              <div class="field-row" style="margin-bottom:0"><span class="field-label">Date:</span><span class="field-line">${a?.approved_at || ""}</span></div>
+            </div>`).join("")
+          : `<div class="approval-row">
+              <span class="approval-num">1:</span>
+              <div class="field-row" style="margin-bottom:0"><span class="field-label">Name:</span><span class="field-line"></span></div>
+              <div class="field-row" style="margin-bottom:0"><span class="field-label">Date:</span><span class="field-line"></span></div>
+            </div>`
+        }
+      </div>
     </div>
 
-    <script>window.onload = () => setTimeout(() => window.print(), 500);<\/script>
-  </body>
-  </html>
-`);
+    <!-- Status -->
+    <div class="section">
+      <div class="status-bar">
+        <span class="status-label">STATUS:</span>
+        ${statusList.map((s) => `
+          <span class="status-item">
+            <span class="cb ${derivedStatus === s.toLowerCase() ? "active" : ""}"></span>${s}
+          </span>`).join("")}
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">Generated on ${dayjs().format("DD MMM YYYY, HH:mm")} &middot; QBits Vault Management System</div>
+</div>
+</body>
+</html>`);
       printWindow.document.close();
     } catch (err) {
       console.error("Error generating ledger:", err);
@@ -385,7 +434,7 @@ const fetchCashInsData = useCallback(() => {
     if (!orders || orders.length === 0) return <span className="text-gray-400">—</span>;
 
     return (
-      <div className="flex flex-wrap gap-x-1 gap-y-0.5 w-full max-w-[200px]">
+      <div className="flex flex-wrap gap-x-1 gap-y-0.5 w-full">
         {orders.map((order, i) => (
           <span
             key={order.order_id || `order-${i}`}
@@ -508,13 +557,13 @@ const fetchCashInsData = useCallback(() => {
     {
       title: "Vault",
       key: "name",
-      className: "w-14",
+      className: "w-[6%]",
       render: (row) => <span className="font-mono text-indigo-500 uppercase">{row.vault?.name}</span>,
     },
     {
       title: "Bag",
       key: "bag",
-      className: "w-24",
+      className: "w-[8%]",
       render: (row) => (
         <span>
           {/* {row?.bags?.barcode}-RN{row?.bags?.rack_number} */}
@@ -525,13 +574,13 @@ const fetchCashInsData = useCallback(() => {
     {
       title: "Tran Id",
       key: "tran_id",
-      className: "w-24",
-      render: (row) => <span>{row?.tran_id}</span>,
+      className: "w-[15%]",
+      render: (row) => <span className="block truncate font-mono">{row?.tran_id}</span>,
     },
     {
       title: "Order Ids",
       key: "orders",
-      className: "w-[200px]",
+      className: "w-[31%]",
       render: (row) => (
         <ExpandableOrderIds
           orders={row?.orders}
@@ -542,19 +591,19 @@ const fetchCashInsData = useCallback(() => {
     {
       title: "Amount",
       key: "cash_in_amount",
-      className: "w-10",
+      className: "w-[6%]",
       render: (row) => <span>{row?.cash_in_amount}</span>,
     },
     {
       title: "Req at",
       key: "created_at",
-      className: "w-24",
-      render: (row) => <span>{dayjs(row.created_at).format("DD MMM, YYYY")}</span>,
+      className: "w-[8%]",
+      render: (row) => <span className="whitespace-nowrap">{dayjs(row.created_at).format("DD MMM, YYYY")}</span>,
     },
     {
       title: "Verifiers",
       key: "required_verifiers",
-      className: "w-20 text-center",
+      className: "w-[10%] text-center",
       render: (row) => {
         const isVerifierShowButton = row?.required_verifiers?.some((verifier) => verifier?.user_id === user?.id && !verifier?.verified);
         const isRejected = row.verifier_status === "rejected" || row.approver_status === "rejected";
@@ -581,7 +630,7 @@ const fetchCashInsData = useCallback(() => {
     {
       title: "Cashers",
       key: "required_approvers",
-      className: "w-20 text-center",
+      className: "w-[10%] text-center",
       render: (row) => (
         <ApprovalCell
           row={row}
@@ -597,7 +646,8 @@ const fetchCashInsData = useCallback(() => {
     {
       title: "Action",
       key: "actions",
-      className: "w-14 relative",
+      noClip: true,
+      className: "w-[6%] relative",
       render: (row) => {
         const isLocked = row?.required_verifiers?.some((v) => v?.verified)
           || row?.verifier_status === "rejected"
@@ -718,15 +768,15 @@ const fetchCashInsData = useCallback(() => {
         </div>
         <div className="flex items-center gap-4">
           {hasPermission("cash-in.request") && (
-            <div
+            <button
               onClick={() => {
                 setEditCashInData(null);
                 setOpenCashInReqDrawer(true);
               }}
-              className="cursor-pointer transition-all px-4 py-2 hover:bg-black rounded text-white bg-[#424242]"
+              className="flex items-center gap-2 px-6 py-2.5 bg-[#1a73e8] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-200 hover:bg-blue-600 transition-all"
             >
-              Cash In Request
-            </div>
+              <Plus className="w-5 h-5" /> Cash In Request
+            </button>
           )}
         </div>
       </div>

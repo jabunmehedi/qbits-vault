@@ -3,8 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AiOutlineWarning } from "react-icons/ai";
 import { GetVaultBagById, GetVaults } from "../../services/Vault";
 import { useNavigate } from "react-router-dom";
-import { Hash, Package } from "lucide-react";
+import { Hash, Package, X } from "lucide-react";
 import { CreateCashOut } from "../../services/Cash";
+import AppButton from "../global/AppButton";
 
 export default function CashOutConfirmationModal({ amounts, selectedRows, selectedVaultId, showConfirmModal, setShowConfirmModal, refetch }) {
   const [selectedVault, setSelectedVault] = useState(null);
@@ -129,6 +130,13 @@ export default function CashOutConfirmationModal({ amounts, selectedRows, select
           className="relative bg-white border border-[#353857] rounded-2xl p-10 max-w-2xl w-full mx-4 shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
+          <button
+            type="button"
+            onClick={() => setShowConfirmModal(false)}
+            className="absolute top-4 right-4 p-1 rounded-full transition-colors group"
+          >
+            <X className="w-4 h-4 text-gray-400 group-hover:text-red-400 cursor-pointer" />
+          </button>
           <h3 className="text-3xl font-bold text-gray-600 mb-8 text-center">Confirm Cash Out Request</h3>
 
           <div className="max-h-96 overflow-y-auto">
@@ -229,19 +237,12 @@ export default function CashOutConfirmationModal({ amounts, selectedRows, select
 
           {/* Buttons */}
           <div className="flex gap-4 justify-end">
-            <button
-              onClick={() => setShowConfirmModal(false)}
-              className="px-8 py-3 text-red-400 border border-red-400/50 rounded-xl hover:bg-red-400/10 transition font-medium"
-            >
+            <AppButton variant="secondary" onClick={() => setShowConfirmModal(false)}>
               Cancel
-            </button>
-            <button
-              onClick={handleFirstConfirm}
-              //   disabled={!selectedVault || !selectedBag}
-              className="px-10 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-cyan-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition"
-            >
-              Confirm Deposit
-            </button>
+            </AppButton>
+            <AppButton onClick={handleFirstConfirm}>
+              Confirm Cash Out
+            </AppButton>
           </div>
         </motion.div>
       </div>
@@ -266,6 +267,13 @@ export default function CashOutConfirmationModal({ amounts, selectedRows, select
               className="relative bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
+              <button
+                type="button"
+                onClick={() => setShowReconfirm(false)}
+                className="absolute top-4 right-4 p-1 rounded-full transition-colors group"
+              >
+                <X className="w-4 h-4 text-gray-400 group-hover:text-red-400 cursor-pointer" />
+              </button>
               <div className="text-center">
                 <AiOutlineWarning className="w-20 h-20 text-yellow-500 mx-auto mb-6" />
                 <h4 className="text-2xl font-bold text-gray-800 mb-4">Are You Sure?</h4>
@@ -284,18 +292,12 @@ export default function CashOutConfirmationModal({ amounts, selectedRows, select
                 </p>
 
                 <div className="flex gap-4 justify-center">
-                  <button
-                    onClick={() => setShowReconfirm(false)}
-                    className="px-8 py-3 text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-100 transition font-medium"
-                  >
+                  <AppButton variant="secondary" onClick={() => setShowReconfirm(false)}>
                     Cancel
-                  </button>
-                  <button
-                    onClick={handleFinalConfirm}
-                    className="px-10 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-green-500/30 transition"
-                  >
+                  </AppButton>
+                  <AppButton onClick={handleFinalConfirm}>
                     Yes, Cash Out
-                  </button>
+                  </AppButton>
                 </div>
               </div>
             </motion.div>

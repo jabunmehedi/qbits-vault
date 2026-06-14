@@ -73,18 +73,24 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
         <div className="flex items-center justify-between mb-8 px-2 min-h-[40px]">
           <AnimatePresence mode="wait">
             {showLabel ? (
-              <motion.h1
+              <motion.img
+                key="logo-full"
+                src="/logo.png"
+                alt="QBits Vault"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="text-lg font-extrabold text-center w-full tracking-tight bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent truncate"
-              >
-                QBits Vault
-              </motion.h1>
+                className="h-8 w-auto object-contain mx-auto"
+              />
             ) : (
-              <motion.h1 initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-lg font-black text-center w-full text-cyan-600">
-                QBV
-              </motion.h1>
+              <motion.img
+                key="logo-mini"
+                src="/logo.png"
+                alt="QBits Vault"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="h-7 w-auto object-contain mx-auto"
+              />
             )}
           </AnimatePresence>
 

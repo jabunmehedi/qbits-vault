@@ -192,17 +192,17 @@ const SystemPreferences = () => {
                               type="button"
                               onClick={() => handleSaveThreshold(vault)}
                               disabled={isSaving !== null}
-                              className={`inline-flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition shadow-2xs border ${
+                              className={`inline-flex items-center gap-1.5 px-6 py-2.5 text-sm font-bold rounded-xl transition shadow-lg ${
                                 isSaving === vault.id
-                                  ? "bg-slate-50 text-slate-400 border-slate-200"
-                                  : "bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border-cyan-100"
+                                  ? "bg-gray-100 text-gray-400 shadow-none cursor-not-allowed"
+                                  : "bg-[#1a73e8] hover:bg-blue-600 text-white shadow-blue-200"
                               }`}
                             >
                               {isSaving === vault.id ? (
-                                <div className="w-3 h-3 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
+                                <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin" />
                               ) : (
                                 <>
-                                  <Save className="w-3 h-3" /> Update
+                                  <Save className="w-4 h-4" /> Update
                                 </>
                               )}
                             </button>

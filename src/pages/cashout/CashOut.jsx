@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Plus } from "lucide-react";
 import DataTable from "../../components/global/dataTable/DataTable";
 import { AnimatePresence, motion } from "framer-motion";
 import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
@@ -228,19 +229,19 @@ const CashOut = () => {
     {
       title: "Vault name",
       key: "name",
-      className: "w-24",
+      className: "w-[7%]",
       render: (row) => <span className="text-indigo-600 font-semibold">{row?.vault?.name}</span>,
     },
     {
       title: "Tran ID",
       key: "tran_id",
-      className: "w-32",
-      render: (row) => <span className="text-gray-400 ">{row?.tran_id}</span>,
+      className: "w-[14%]",
+      render: (row) => <span className="block truncate font-mono text-gray-400">{row?.tran_id}</span>,
     },
     {
       title: "Bags ID",
       key: "customer.name",
-      className: "w-50",
+      className: "w-[22%]",
       render: (row) => (
         <ExpandableBagIds bags={row} onIdClick={(bag) => handleOpenDetails(bag)} isExpanded={!!expandedRows[row.id]} onToggle={(e) => toggleRow(row.id, e)} />
       ),
@@ -248,26 +249,26 @@ const CashOut = () => {
     {
       title: "req Amount",
       key: "current_amount",
-      className: "w-26",
+      className: "w-[7%]",
       render: (row) => <span className="">{row?.request_amount}</span>,
     },
     {
       title: "bag Amount",
       key: "current_amount",
-      className: "w-20",
+      className: "w-[7%]",
       render: (row) => <span className="">{row?.cash_out_amount}</span>,
     },
 
     {
       title: "Req at",
       key: "created_at",
-      className: "w-34",
-      render: (row) => <span className="">{dayjs(row.created_at).format("DD MMM, YYYY")}</span>,
+      className: "w-[8%]",
+      render: (row) => <span className="whitespace-nowrap">{dayjs(row.created_at).format("DD MMM, YYYY")}</span>,
     },
     {
       title: "Verifications",
       key: "required_verifiers",
-      className: "w-32 text-center",
+      className: "w-[11%] text-center",
       render: (row) => {
         const isVerifierShowButton = row?.required_verifiers?.some((verifier) => verifier?.user_id === user?.id && !verifier?.verified);
         const isRejected = row?.verifier_status === "rejected" || row?.approver_status === "rejected";
@@ -293,7 +294,7 @@ const CashOut = () => {
     {
       title: "Custodian",
       key: "current_amount",
-      className: "w-20 text-center",
+      className: "w-[9%] text-center",
       render: (row) => {
         const isVerifierShowButton = row?.custodian?.custodian_id === user?.id && row?.custodian?.status === "pending";
         const isVerified = row?.verifier_status === "verified";
@@ -325,7 +326,7 @@ const CashOut = () => {
     {
       title: "Approvals",
       key: "required_verifiers",
-      className: "w-32 text-center",
+      className: "w-[11%] text-center",
       render: (row) => {
         const isApproverShowButton = row?.required_approvers?.some((approver) => approver?.user_id === user?.id && !approver?.approved);
         const isVerified = row?.verifier_status === "verified";
@@ -354,7 +355,8 @@ const CashOut = () => {
     {
       title: "Action",
       key: "actions",
-      className: "w-14 relative",
+      noClip: true,
+      className: "w-[4%] relative",
       render: (row) => {
         const isMenuOpen = activeActionMenuId === row.id;
         const isConfirmingDelete = deleteConfirmId === row.id;
@@ -506,15 +508,15 @@ const CashOut = () => {
         </div>
         <div className="flex items-center gap-4">
           {(isSuperAdmin || hasPermission("cash-out.create")) && (
-            <div
+            <button
               onClick={() => {
                 setEditCashOutData(null);
                 setOpenCashOutReqDrawer(true);
               }}
-              className="cursor-pointer transition-all px-4 py-2 hover:bg-black rounded text-white bg-[#424242]"
+              className="flex items-center gap-2 px-6 py-2.5 bg-[#1a73e8] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-200 hover:bg-blue-600 transition-all"
             >
-              Cash Out Request
-            </div>
+              <Plus className="w-5 h-5" /> Cash Out Request
+            </button>
           )}
         </div>
       </div>

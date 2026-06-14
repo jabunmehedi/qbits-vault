@@ -218,14 +218,14 @@ const CreateUpdateVault = ({
           <button
             type="button"
             onClick={isCloseModal}
-            className="flex-1 text-black py-3 border border-gray-200 rounded-xl  hover:text-red-400 hover:bg-gray-50 transition"
+            className="flex-1 text-gray-600 py-2.5 border border-gray-200 rounded-xl font-bold text-sm hover:text-red-400 hover:bg-gray-50 transition"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isLoading}
-            className={`flex-1 py-3 flex justify-center items-center  text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition ${isLoading ? "cursor-not-allowed bg-[#f7fbff] border border-blue-100" : " bg-gradient-to-r from-blue-600 to-purple-600"}`}
+            className={`flex-1 py-2.5 flex justify-center items-center font-bold text-sm text-white rounded-xl transition ${isLoading ? "cursor-not-allowed bg-[#f7fbff] border border-blue-100" : "bg-[#1a73e8] hover:bg-blue-600 shadow-lg shadow-blue-200"}`}
           >
             {isLoading ? <Loader2 size={18} className="animate-spin text-blue-400" /> : isEditMode ? "Save Changes" : "Create Vault"}
           </button>

@@ -45,13 +45,13 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
       <div className="flex-1 overflow-hidden relative">
         {/* FIXED: Removed individual component border to eliminate conflicting background edge overlap */}
         <div className="h-full overflow-y-auto scrollbar-custom relative">
-          <table className="w-full border-collapse">
+          <table className="w-full border-collapse table-fixed">
             <thead>
               <tr className="text-gray-800 border-b border-slate-200">
                 {columns.map((column, index) => (
                   <th
                     key={index}
-                    className={`px-6 py-3.5 text-[10px] font-bold uppercase tracking-wider sticky top-0 z-20 bg-[#F9FBFD] text-slate-500 ${
+                    className={`px-4 py-2 text-[10px] font-bold uppercase tracking-wider sticky top-0 z-20 bg-[#F9FBFD] text-slate-500 ${
                       column?.className?.includes("text-") ? column.className : `text-start ${column?.className ?? ""}`
                     }`}
                     onClick={() => column.iconClickAction?.()}
@@ -94,8 +94,8 @@ const DataTable = ({ columns, data, paginationData, changePage, onSearch, classN
                       className="border-b border-slate-100 last:border-b-0 bg-white hover:bg-slate-50/40 transition-colors"
                     >
                       {columns.map((column, colIndex) => (
-                        <td key={colIndex} className={`px-6 py-3 text-slate-600 text-start text-xs transition-all duration-300 ${column?.className ?? ""}`}>
-                          <motion.div>{column.render ? column.render(row, row, data.length) : row[column.key] || <span className="text-slate-300">-</span>}</motion.div>
+                        <td key={colIndex} className={`px-4 py-1.5 text-slate-600 text-start text-xs transition-all duration-300 ${column?.noClip ? "overflow-visible" : "overflow-hidden max-w-0"} ${column?.className ?? ""}`}>
+                          <motion.div className="w-full">{column.render ? column.render(row, row, data.length) : row[column.key] || <span className="text-slate-300">-</span>}</motion.div>
                         </td>
                       ))}
                     </motion.tr>

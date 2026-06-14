@@ -402,7 +402,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
               exit={{ opacity: 0, x: -20 }}
               className="flex flex-col h-full"
             >
-              <div className="p-6 bg-white">
+              <div className="px-6 pt-3 pb-6 bg-white">
                 <div className="flex items-end justify-between">
                   <VaultSelect
                     vaults={user?.vault_assignments}
@@ -454,17 +454,17 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                 />
               </div>
 
-              <div className="flex items-center bg-[#FDFDFE] border-t border-slate-200 mt-2 py-7 px-6 gap-4 justify-between">
+              <div className="flex items-center bg-[#FDFDFE] border-t border-slate-200 mt-2 py-4 px-6 gap-3 justify-end">
                 <button
                   onClick={handleClose}
-                  className="px-6 py-3 w-[35%] text-center justify-center cursor-pointer bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold text-sm rounded-xl transition-all flex items-center gap-2"
+                  className="min-w-[160px] px-6 py-2.5 text-center justify-center cursor-pointer bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold text-sm rounded-xl transition-all flex items-center gap-2"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleGenerateDeposit}
                   disabled={depositLoading || !isCashInVaultMinMaxAmountAllowed}
-                  className="px-6 w-[65%] py-3 cursor-pointer justify-center bg-blue-600 shadow-lg shadow-blue-100 hover:bg-blue-700 text-white font-bold text-sm rounded-xl transition-all disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none flex items-center gap-2"
+                  className="min-w-[160px] px-6 py-2.5 cursor-pointer justify-center bg-[#1a73e8] shadow-lg shadow-blue-200 hover:bg-blue-600 text-white font-bold text-sm rounded-xl transition-all disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none flex items-center gap-2"
                 >
                   {depositLoading ? (
                     <Loader2 className="animate-spin w-4 h-4" />
@@ -607,7 +607,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                   <button
                     onClick={handleDoneClick}
                     disabled={grandTotal === 0 || difference !== 0}
-                    className="mt-6 w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-100"
+                    className="mt-6 w-full py-2.5 bg-[#1a73e8] hover:bg-blue-600 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-200"
                   >
                     <motion.span whileTap={{ scale: 0.95 }} className="flex items-center gap-2">
                       <div className="w-5 h-5 rounded-full border-2 border-white/30 flex items-center justify-center">

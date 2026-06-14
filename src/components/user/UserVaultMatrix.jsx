@@ -30,7 +30,7 @@ const UserVaultMatrix = ({
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" checked={isActive} onChange={() => onToggleVaultAccess(vault.id)} className="sr-only peer" />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1a73e8]"></div>
                   </label>
                 </div>
               );
@@ -68,7 +68,7 @@ const UserVaultMatrix = ({
               .map((role) => {
                 const isEnabled = activeRoles.includes(role.id);
                 return (
-                  <div key={role.id} onClick={() => onToggleRole(role)} className={`rounded-3xl p-4 flex items-center capitalize justify-between cursor-pointer transition-all border ${isEnabled ? "bg-blue-600 text-white border-blue-600" : "bg-white border-gray-200 hover:border-gray-300"}`}>
+                  <div key={role.id} onClick={() => onToggleRole(role)} className={`rounded-3xl p-4 flex items-center capitalize justify-between cursor-pointer transition-all border ${isEnabled ? "bg-[#1a73e8] text-white border-[#1a73e8]" : "bg-white border-gray-200 hover:border-gray-300"}`}>
                     <div>
                       <p className="font-bold">{role?.name}</p>
                       <p className="text-xs opacity-75">{isEnabled ? "Enabled" : "Disabled"}</p>
