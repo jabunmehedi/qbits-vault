@@ -7,7 +7,7 @@ import { CiInboxOut, CiVault as VaultIcon } from "react-icons/ci";
 import { Logout } from "../../../services/Auth";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { useSelector } from "react-redux";
-import { selectAuthUser } from "../../../store/authSlice";
+import { selectAuthUser, selectIsSuperAdmin } from "../../../store/authSlice";
 
 const baseStorageUrl = import.meta.env.VITE_REACT_APP_STORAGE_URL;
 
@@ -41,6 +41,7 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
   const user = useSelector(selectAuthUser);
   const showLabel = !isMinimized || isMobile;
   const { hasPermission } = usePermissions();
+  const isSuperAdmin = useSelector(selectIsSuperAdmin);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -99,6 +100,8 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
         <nav className="flex-1 space-y-1.5">
           {menuItems
             .filter((item) => {
+              // If user is Superadmin, skip permission verification
+              if (isSuperAdmin) return true;
               if (item.permission && !hasPermission(item.permission)) return false;
 
               return true;
@@ -145,7 +148,11 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
                           className="pl-6 mt-1 space-y-1 border-l border-slate-100 ml-5 overflow-hidden"
                         >
                           {item?.children
-                            ?.filter((subItem) => !subItem.permission || hasPermission(subItem.permission))
+                            ?.filter((subItem) => {
+                              // If user is Superadmin, skip permission verification for submenu as well
+                              if (isSuperAdmin) return true;
+                              return !subItem.permission || hasPermission(subItem.permission);
+                            })
                             .map((subItem) => {
                               const subActive = isActive(subItem.path);
                               return (
