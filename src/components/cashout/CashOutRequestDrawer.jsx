@@ -3,8 +3,8 @@ import Drawer from "../global/drawer/Drawer";
 import { MdArrowOutward } from "react-icons/md";
 import { useCallback, useEffect, useState } from "react";
 import { CreateCashOut, GetCashInsByVaultId } from "../../services/Cash";
-import { useSelector } from "react-redux";
-import { selectAuthUser } from "../../store/authSlice";
+import { useSelector, useDispatch } from "react-redux";
+import { fetchAuthUser, selectAuthUser } from "../../store/authSlice";
 import { useToast } from "../../hooks/useToast";
 import DataTable from "../global/dataTable/DataTable";
 import VaultSelect from "../cashin/VaultSelect";
@@ -44,7 +44,14 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
   //   const perPage = parseInt(searchParams.get("per_page") || "10");
 
   const user = useSelector(selectAuthUser);
+  const dispatch = useDispatch();
   const { addToast } = useToast();
+
+  useEffect(() => {
+    if (isOpen) {
+      dispatch(fetchAuthUser());
+    }
+  }, [isOpen, dispatch]);
 
   // ── Reset on close ──
   const handleClose = useCallback(() => {
@@ -63,14 +70,18 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
     onClose();
   }, [onClose]);
 
-  // ── Seed default vault for create mode ──
+  // ── Seed vault for create mode ──
   useEffect(() => {
     if (isEditMode) return;
-    if (user?.default_vault_id) {
-      const defaultV = user.vault_assignments?.find((v) => v.vault.id == user.default_vault_id);
-      setSelectedVault(defaultV || null);
+    if (!user?.vault_assignments) return;
+
+    const active = user.vault_assignments.filter((v) => v.status === "active");
+    if (active.length === 1) {
+      setSelectedVault(active[0]);
+    } else {
+      setSelectedVault(null);
     }
-  }, [isEditMode, user?.default_vault_id, user?.vault_assignments]);
+  }, [isEditMode, user?.vault_assignments]);
 
   // ── Seed selected rows ──
   useEffect(() => {
@@ -144,6 +155,10 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
       return addToast({ type: "error", message: "Please select at least one cash out bag." });
     }
 
+    if (!isCustodianRequire) {
+      setSelectedCustodian(null);
+    }
+
     setDepositLoading(true);
     setTimeout(() => {
       setDepositLoading(false);
@@ -158,6 +173,7 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
       });
     }
   }, [selectedVault?.vault?.id]);
+
 
   const handleConfirmSubmit = async () => {
     if (!selectedCustodian && isCustodianRequire) {
@@ -372,7 +388,7 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
                 <button
                   onClick={handleGenerateDeposit}
                   disabled={depositLoading}
-                  className="px-6 w-[65%] py-3 cursor-pointer justify-center bg-[#1e293b] shadow-md hover:bg-black text-white font-semibold text-sm rounded-xl transition-all disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none flex items-center justify-center gap-2"
+                  className="px-6 w-[65%] py-3 cursor-pointer justify-center bg-blue-600 shadow-lg shadow-blue-100 hover:bg-blue-700 text-white font-bold text-sm rounded-xl transition-all disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none flex items-center justify-center gap-2"
                 >
                   {depositLoading ? (
                     <Loader2 className="animate-spin w-4 h-4" />
@@ -396,6 +412,22 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
               className="flex flex-col h-full"
             >
               <div className="flex-1 p-6 overflow-y-auto space-y-6">
+                {/* 0. Request Summary */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 grid grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1">Vault</p>
+                    <p className="text-sm font-bold text-slate-700 truncate">{selectedVault?.vault?.name || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1">Total Bag Amount</p>
+                    <p className="text-sm font-bold text-slate-700">৳{totalSelectedBagAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1">Requested Amount</p>
+                    <p className="text-sm font-bold text-cyan-600">৳{parseFloat(requestedAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+
                 {/* 1. Excess Cash Custodian Label Row */}
                 {calculatedExcessAmount && (
                   <>
@@ -430,7 +462,7 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
                           <p className="text-[12px] font-medium text-[#9A3412]">Difference from selected bags</p>
                         </div>
                       </div>
-                      <div className="text-xl font-black text-[#9A3412] ">BDT {totalSelectedBagAmount.toFixed(2) - parseFloat(requestedAmount)}</div>
+                      <div className="text-xl font-black text-[#9A3412] ">BDT {(totalSelectedBagAmount - parseFloat(requestedAmount)).toFixed(2)}</div>
                     </div>
 
                     <div className="">
@@ -491,15 +523,15 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
                 </div>
 
                 {/* 5. Verification Notice Block Section */}
-                <div className="bg-[#FFFDF5] border border-[#FEF3C7] rounded-xl p-4 flex gap-3">
+                {calculatedExcessAmount && <div className="bg-[#FFFDF5] border border-[#FEF3C7] rounded-xl p-4 flex gap-3">
                   <Info className="w-5 h-5 text-[#D97706] shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <h5 className="text-xs font-bold text-[#9A3412]">Verification Notice</h5>
                     <p className="text-xs text-[#ad5d01] ">
-                      A surplus of BDT {totalSelectedBagAmount.toFixed(2)} will remain. You must select a custodian to take responsibility for this excess cash.
+                      A surplus of BDT {(totalSelectedBagAmount - parseFloat(requestedAmount)).toFixed(2)} will remain. You must select a custodian to take responsibility for this excess cash.
                     </p>
                   </div>
-                </div>
+                </div>}
               </div>
 
               {/* Step 2 Bottom Sticky Action Footer layout */}
@@ -513,7 +545,7 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
                 <button
                   onClick={handleConfirmSubmit}
                   disabled={submitLoading || (isCustodianRequire && !selectedCustodian)}
-                  className="px-6 w-[70%] py-3 cursor-pointer justify-center bg-[#2563EB] shadow-md hover:bg-[#1D4ED8] text-white font-bold text-sm rounded-xl transition-all disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none flex items-center justify-center gap-2"
+                  className="px-6 w-[70%] py-3 cursor-pointer justify-center bg-blue-600 shadow-lg shadow-blue-100 hover:bg-blue-700 text-white font-bold text-sm rounded-xl transition-all disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none flex items-center justify-center gap-2"
                 >
                   {submitLoading ? (
                     <Loader2 className="animate-spin w-4 h-4" />

@@ -270,10 +270,11 @@ const CashOut = () => {
       className: "w-32 text-center",
       render: (row) => {
         const isVerifierShowButton = row?.required_verifiers?.some((verifier) => verifier?.user_id === user?.id && !verifier?.verified);
+        const isRejected = row?.verifier_status === "rejected" || row?.approver_status === "rejected";
         return (
-          <div className="flex flex-col items-center gap-2">
-            <VerifierAvatars requiredVerifiers={row.required_verifiers || []} />
-            {isVerifierShowButton && (
+          <div className="flex items-center gap-2">
+            <VerifierAvatars requiredVerifiers={row.required_verifiers || []} isRejected={isRejected} />
+            {isVerifierShowButton && !isRejected && (
               <VerifyButton
                 handleSubmit={() => handleVerify(row.id)}
                 isOpen={activeVerifyId === row.id}
@@ -285,13 +286,6 @@ const CashOut = () => {
                 <CashOutDetails cashOut={row} />
               </VerifyButton>
             )}
-            <span
-              className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
-                row?.verifier_status === "pending" ? "bg-yellow-50 border-yellow-200 text-yellow-600" : "bg-green-50 border-green-200 text-green-500"
-              }`}
-            >
-              {row?.verifier_status}
-            </span>
           </div>
         );
       },
@@ -306,9 +300,8 @@ const CashOut = () => {
         return (
           <>
             {row?.custodian ? (
-              <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-2">
                 <CustodianAvatar custodian={row?.custodian || []} />
-
                 {isVerifierShowButton && isVerified && (
                   <VerifyButton
                     handleSubmit={() => handleCustodianVerify(row.id)}
@@ -321,16 +314,9 @@ const CashOut = () => {
                     <CashOutCustodianModal cashOut={row} />
                   </VerifyButton>
                 )}
-                <span
-                  className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
-                    row?.custodian?.status === "pending" ? "bg-yellow-50 border-yellow-200 text-yellow-600" : "bg-green-50 border-green-200 text-green-500"
-                  }`}
-                >
-                  {row?.custodian?.status}
-                </span>
               </div>
             ) : (
-              ""
+              <span className="text-gray-300 text-xs">—</span>
             )}
           </>
         );
@@ -347,9 +333,8 @@ const CashOut = () => {
         const isCustodianConditionMet = !row?.custodian || row?.custodian?.status === "verified";
 
         return (
-          <div className="flex flex-col items-center gap-2">
-            <VerifierAvatars requiredVerifiers={row.required_approvers || []} />
-
+          <div className="flex items-center gap-2">
+            <VerifierAvatars requiredVerifiers={row.required_approvers || []} isRejected={row?.approver_status === "rejected"} />
             {isApproverShowButton && isVerified && isCustodianConditionMet && (
               <VerifyButton
                 handleSubmit={() => handleApprove(row.id)}
@@ -362,14 +347,6 @@ const CashOut = () => {
                 <CashOutDetails cashOut={row} />
               </VerifyButton>
             )}
-
-            <span
-              className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
-                row?.approver_status === "pending" ? "bg-yellow-50 border-yellow-200 text-yellow-600" : "bg-green-50 border-green-200 text-green-500"
-              }`}
-            >
-              {row?.approver_status}
-            </span>
           </div>
         );
       },

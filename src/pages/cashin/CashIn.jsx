@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import DataTable from "../../components/global/dataTable/DataTable";
 import dayjs from "dayjs";
-import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ApproveCashIn, DeleteCashIn, GetCashIn, GetCashIns, VerifyCashIn } from "../../services/Cash";
+import { ApproveCashIn, DeleteCashIn, GetCashIn, GetCashIns, RejectCashIn, VerifyCashIn } from "../../services/Cash";
 import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
 import { GetCashInLedger } from "../../services/Ledger";
 import { HiDotsHorizontal } from "react-icons/hi";
@@ -33,29 +32,23 @@ const CashIn = () => {
   const [denominations, setDenominations] = useState(INITIAL_DENOMINATIONS);
   const [transactionId, setTransactionId] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [expandedRows, setExpandedRows] = useState({});
+
   const [openCashInReqDrawer, setOpenCashInReqDrawer] = useState(false);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [openOrderDetailsDrawer, setOpenOrderDetailsDrawer] = useState(false);
   const [editLoading, setEditLoading] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
-  const [deleteCoords, setDeleteCoords] = useState({ top: 0, left: 0 });
-  const deleteButtonRef = useRef(null);
   const [activeVerifyId, setActiveVerifyId] = useState(null);
   const [activeApproveId, setActiveApproveId] = useState(null);
   const [verifyLoading, setVerifyLoading] = useState(null);
+  const [activeActionMenuId, setActiveActionMenuId] = useState(null);
 
   const { hasPermission } = usePermissions();
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const user = useSelector(selectAuthUser);
   const { addToast } = useToast();
 
-  const toggleRow = (rowId, e) => {
-    e.stopPropagation();
-    setExpandedRows((prev) => ({ ...prev, [rowId]: !prev[rowId] }));
-  };
-
-  const fetchCashInsData = useCallback(() => {
+const fetchCashInsData = useCallback(() => {
     setLoading(true);
     GetCashIns()
       .then((res) => {
@@ -75,6 +68,17 @@ const CashIn = () => {
   useEffect(() => {
     fetchCashInsData();
   }, []);
+
+  useEffect(() => {
+    const handleOutsideClick = () => {
+      setActiveActionMenuId(null);
+      setDeleteConfirmId(null);
+    };
+    if (activeActionMenuId !== null) {
+      window.addEventListener("click", handleOutsideClick);
+    }
+    return () => window.removeEventListener("click", handleOutsideClick);
+  }, [activeActionMenuId]);
 
   const handlePageChange = (page) => {
     setSearchParams((prev) => {
@@ -346,8 +350,8 @@ const CashIn = () => {
     <hr>
 
 
-    ${signatureBlock(verifiers, "Verification", "verified", "verified_at")}
-    ${signatureBlock(approvers, "Approvals", "approved", "approved_at")}
+    ${signatureBlock(verifiers, "Verifiers", "verified", "verified_at")}
+    ${signatureBlock(approvers, "Cashers", "approved", "approved_at")}
 
     <div class="status-bar">
       <span style="font-size:12px;font-weight:700;color:#374151;margin-right:4px">Status:</span>
@@ -377,71 +381,21 @@ const CashIn = () => {
     }
   };
 
-  const ExpandableOrderIds = ({ orders, isExpanded, onToggle, onIdClick }) => {
+  const ExpandableOrderIds = ({ orders, onIdClick }) => {
     if (!orders || orders.length === 0) return <span className="text-gray-400">—</span>;
 
-    const previewOrders = orders.slice(0, 2);
-    const extraOrders = orders.slice(2);
-    const hasMore = extraOrders.length > 0;
-
     return (
-      <div className="flex flex-col w-full max-w-[200px]">
-        <div className="flex flex-wrap gap-x-1 items-center">
-          {previewOrders.map((order, i) => (
-            <span
-              // FIX: Pass the specific order object here
-              onClick={() => onIdClick(order)}
-              key={order.order_id || `preview-${i}`}
-              className="whitespace-nowrap hover:text-indigo-600 hover:underline cursor-pointer"
-            >
-              {order?.order_id}
-              {i === previewOrders.length - 1 && !hasMore ? "" : ","}
-            </span>
-          ))}
-          {hasMore && !isExpanded && (
-            <button
-              type="button"
-              onClick={onToggle}
-              className="text-blue-500 bg-slate-200 py-1 cursor-pointer rounded-sm hover:text-blue-700 text-[11px] font-bold px-1 transition-all active:scale-95"
-            >
-              <HiDotsHorizontal className="text-slate-500" />
-            </button>
-          )}
-        </div>
-
-        <motion.div
-          initial={false}
-          animate={{
-            height: isExpanded ? "auto" : "0px", // Use "0px" for better layout stability
-            opacity: isExpanded ? 1 : 0,
-          }}
-          transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-          className="overflow-hidden"
-        >
-          <div className="flex flex-wrap gap-x-1 pt-1">
-            {extraOrders.map((order, i) => (
-              <span
-                key={order.order_id || `extra-${i}`}
-                // FIX: Add onClick to extra orders so they are clickable too
-                onClick={() => onIdClick(order)}
-                className="whitespace-nowrap hover:text-indigo-600 hover:underline cursor-pointer"
-              >
-                {order?.order_id}
-                {i === extraOrders.length - 1 ? "" : ","}
-              </span>
-            ))}
-            <button
-              type="button"
-              onClick={onToggle}
-              className="text-[10px] text-blue-400 underline hover:text-red-600 font-medium flex items-center gap-1 w-full mt-1 transition-colors"
-            >
-              less
-              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-              </svg>
-            </button>
-          </div>
-        </motion.div>
+      <div className="flex flex-wrap gap-x-1 gap-y-0.5 w-full max-w-[200px]">
+        {orders.map((order, i) => (
+          <span
+            key={order.order_id || `order-${i}`}
+            onClick={() => onIdClick(order)}
+            className="whitespace-nowrap hover:text-indigo-600 hover:underline cursor-pointer"
+          >
+            {order?.order_id}
+            {i < orders.length - 1 ? "," : ""}
+          </span>
+        ))}
       </div>
     );
   };
@@ -483,32 +437,66 @@ const CashIn = () => {
     setVerifyLoading(id);
     try {
       const res = await VerifyCashIn(id);
-
       if (!res?.success) {
         addToast({ message: res?.message, type: "error" });
         return;
       }
-
       fetchCashInsData();
       addToast({ message: "Cash-in verified successfully", type: "success" });
     } catch (err) {
       console.error("Failed to verify cash-in:", err);
     } finally {
       setVerifyLoading(null);
+      setActiveVerifyId(null);
     }
   };
-  const handleApprovedClick = async (id) => {
+
+  const handleRejectVerifyClick = async (id, note) => {
     setVerifyLoading(id);
     try {
-      const res = await ApproveCashIn(id);
-
+      const res = await RejectCashIn(id, note, "verifier");
       if (!res?.success) {
         addToast({ message: res?.message, type: "error" });
         return;
       }
-
       fetchCashInsData();
-      addToast({ message: "Cash-in verified successfully", type: "success" });
+      addToast({ message: "Cash-in rejected", type: "success" });
+    } catch (err) {
+      console.error("Failed to reject cash-in:", err);
+    } finally {
+      setVerifyLoading(null);
+      setActiveVerifyId(null);
+    }
+  };
+
+  const handleRejectApproveClick = async (id, note) => {
+    setVerifyLoading(id);
+    try {
+      const res = await RejectCashIn(id, note, "approver");
+      if (!res?.success) {
+        addToast({ message: res?.message, type: "error" });
+        return;
+      }
+      fetchCashInsData();
+      addToast({ message: "Cash-in rejected", type: "success" });
+    } catch (err) {
+      console.error("Failed to reject cash-in:", err);
+    } finally {
+      setVerifyLoading(null);
+      setActiveApproveId(null);
+    }
+  };
+
+  const handleApprovedClick = async (id) => {
+    setVerifyLoading(id);
+    try {
+      const res = await ApproveCashIn(id);
+      if (!res?.success) {
+        addToast({ message: res?.message, type: "error" });
+        return;
+      }
+      fetchCashInsData();
+      addToast({ message: "Cash-in approved successfully", type: "success" });
     } catch (err) {
       console.error("Failed to verify cash-in:", err);
     } finally {
@@ -543,13 +531,11 @@ const CashIn = () => {
     {
       title: "Order Ids",
       key: "orders",
-      className: "w-[150px]",
+      className: "w-[200px]",
       render: (row) => (
         <ExpandableOrderIds
           orders={row?.orders}
           onIdClick={(order) => handleOpenDetails(order)}
-          isExpanded={!!expandedRows[row.id]}
-          onToggle={(e) => toggleRow(row.id, e)}
         />
       ),
     },
@@ -563,20 +549,22 @@ const CashIn = () => {
       title: "Req at",
       key: "created_at",
       className: "w-24",
-      render: (row) => <span>{dayjs(row.created_at).format("DD MMM, YYYY hh:mm A")}</span>,
+      render: (row) => <span>{dayjs(row.created_at).format("DD MMM, YYYY")}</span>,
     },
     {
-      title: "Verification",
+      title: "Verifiers",
       key: "required_verifiers",
       className: "w-20 text-center",
       render: (row) => {
         const isVerifierShowButton = row?.required_verifiers?.some((verifier) => verifier?.user_id === user?.id && !verifier?.verified);
+        const isRejected = row.verifier_status === "rejected" || row.approver_status === "rejected";
         return (
-          <div className="flex flex-col items-center gap-2">
-            <VerifierAvatars requiredVerifiers={row.required_verifiers || []} />
-            {isVerifierShowButton && (
+          <div className="flex items-center gap-2">
+            <VerifierAvatars requiredVerifiers={row.required_verifiers || []} isRejected={isRejected} />
+            {isVerifierShowButton && !isRejected && (
               <VerifyButton
                 handleSubmit={() => handleVerifyClick(row.id)}
+                handleReject={(note) => handleRejectVerifyClick(row.id, note)}
                 isOpen={activeVerifyId === row.id}
                 isLoading={verifyLoading}
                 setOpen={(isOpen) => setActiveVerifyId(isOpen ? row.id : null)}
@@ -586,19 +574,12 @@ const CashIn = () => {
                 <CashInDetails cashIn={row} />
               </VerifyButton>
             )}
-            <span
-              className={`capitalize text-xs px-2.5 py-1 rounded-full border ${
-                row?.verifier_status === "pending" ? "bg-yellow-50 border-yellow-200 text-yellow-600" : "bg-green-50 border-green-200 text-green-500"
-              }`}
-            >
-              {row?.verifier_status}
-            </span>
           </div>
         );
       },
     },
     {
-      title: "Approvals",
+      title: "Cashers",
       key: "required_approvers",
       className: "w-20 text-center",
       render: (row) => (
@@ -609,83 +590,119 @@ const CashIn = () => {
           setActiveApproveId={setActiveApproveId}
           verifyLoading={verifyLoading}
           handleApprovedClick={handleApprovedClick}
+          handleRejectClick={(note) => handleRejectApproveClick(row.id, note)}
         />
       ),
     },
     {
       title: "Action",
       key: "actions",
-      className: "w-24",
+      className: "w-14 relative",
       render: (row) => {
-        const isOneVerified = row?.required_verifiers?.some((v) => v?.verified);
+        const isLocked = row?.required_verifiers?.some((v) => v?.verified)
+          || row?.verifier_status === "rejected"
+          || row?.approver_status === "rejected";
+        const isMenuOpen = activeActionMenuId === row.id;
+        const isConfirmingDelete = deleteConfirmId === row.id;
+
+        const toggleMenu = (e) => {
+          e.stopPropagation();
+          setActiveActionMenuId(isMenuOpen ? null : row.id);
+          setDeleteConfirmId(null);
+        };
+
+        const handleDeleteClick = (e) => {
+          e.stopPropagation();
+          setDeleteConfirmId(row.id);
+        };
+
+        const handleCancelDelete = (e) => {
+          e.stopPropagation();
+          setDeleteConfirmId(null);
+        };
+
         return (
-          <div className="flex items-center gap-3 py-2">
-            {(isSuperAdmin || hasPermission("cash-in.edit")) && (
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleEditClick(row.id);
-                }}
-                className={`p-2 rounded-lg ${isOneVerified ? "hidden" : ""} bg-blue-500/10 cursor-pointer hover:bg-blue-500/20 text-blue-600 border border-blue-400/20 transition-all`}
+          <div className="relative inline-block text-left">
+            <button
+              onClick={toggleMenu}
+              className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 focus:outline-none transition-colors cursor-pointer"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 12c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+              </svg>
+            </button>
+
+            {isMenuOpen && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: -5 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -5 }}
+                transition={{ duration: 0.15 }}
+                className={`absolute right-0 mt-1 bg-white border border-gray-200 divide-y divide-gray-100 rounded-lg shadow-xl z-50 overflow-hidden ${isConfirmingDelete ? "w-44" : "w-36"}`}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                  />
-                </svg>
-              </motion.button>
+                <AnimatePresence mode="wait">
+                  {!isConfirmingDelete ? (
+                    <motion.div key="options" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                      {!isLocked && (isSuperAdmin || hasPermission("cash-in.edit")) && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setActiveActionMenuId(null); handleEditClick(row.id); }}
+                          className="flex items-center w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors gap-2 font-medium cursor-pointer"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Edit
+                        </button>
+                      )}
+                      {!isLocked && (isSuperAdmin || hasPermission("cash-in.delete")) && (
+                        <button
+                          onClick={handleDeleteClick}
+                          className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors gap-2 font-medium cursor-pointer"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setActiveActionMenuId(null); downloadCashInLedger(row); }}
+                        className="flex items-center w-full px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors gap-2 font-medium cursor-pointer"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Ledger
+                      </button>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="confirm"
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      className="py-4 text-center"
+                    >
+                      <p className="text-xs text-gray-500 font-medium mb-2">Are you sure?</p>
+                      <div className="flex justify-center gap-2">
+                        <button
+                          onClick={handleCancelDelete}
+                          className="px-2 py-1 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteCashIn(row.id); }}
+                          className="px-2 py-1 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded transition-colors cursor-pointer"
+                        >
+                          Confirm
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
             )}
-            {(isSuperAdmin || hasPermission("cash-in.delete")) && (
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setDeleteCoords({ top: rect.top, left: rect.left + rect.width / 2 });
-                  setDeleteConfirmId(row.id);
-                }}
-                className={`p-2 rounded-lg ${isOneVerified ? "hidden" : ""} bg-red-500/10 cursor-pointer hover:bg-red-500/20 text-red-600 border border-red-400/20 transition-all`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-              </motion.button>
-            )}
-            <div className="relative group">
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  downloadCashInLedger(row);
-                }}
-                className="p-2 cursor-pointer rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 border border-emerald-400/20 transition-all"
-                title="Ledger Statement"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-              </motion.button>
-              <div className="absolute bottom-full z-100 left-1/2 -translate-x-1/2 mb-2 px-3 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                Ledger Statement
-              </div>
-            </div>
           </div>
         );
       },
@@ -744,52 +761,6 @@ const CashIn = () => {
         <OrderDetailsDrawer orderId={selectedOrderDetails?.order_id} isOpen={openOrderDetailsDrawer} onClose={() => setOpenOrderDetailsDrawer(false)} />
       )}
 
-      {deleteConfirmId &&
-        createPortal(
-          <AnimatePresence>
-            {/* Backdrop */}
-            <div className="fixed inset-0" style={{ zIndex: 999998 }} onClick={() => setDeleteConfirmId(null)} />
-
-            {/* Tooltip */}
-            <motion.div
-              key="delete-backdrop"
-              initial={{ opacity: 0, scale: 0.9, y: 6 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 6 }}
-              transition={{ duration: 0.15 }}
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                position: "fixed",
-                top: `${deleteCoords.top - 125}px`,
-                left: `${deleteCoords.left - 97}px`,
-                transform: "translate(-50%, -100%)",
-                zIndex: 999999,
-              }}
-              className="w-48 bg-[#0B1120] text-white rounded-xl shadow-2xl p-4 border border-slate-700"
-            >
-              {/* Arrow */}
-              <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0B1120] border-r border-b border-slate-700 rotate-45" />
-
-              <p className="text-xs font-semibold text-white text-center mb-3">Delete this cash-in?</p>
-              <p className="text-[10px] text-slate-400 text-center mb-3">This action cannot be undone.</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setDeleteConfirmId(null)}
-                  className="flex-1 py-1.5 text-xs font-semibold rounded-lg border border-slate-600 text-slate-400 hover:bg-slate-800 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleDeleteCashIn(deleteConfirmId)}
-                  className="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
-            </motion.div>
-          </AnimatePresence>,
-          document.body,
-        )}
     </div>
   );
 };

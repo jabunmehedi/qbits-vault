@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Drawer from "../global/drawer/Drawer";
 import { MdArrowOutward, MdOutlineCalculate, MdRestartAlt } from "react-icons/md";
 import DataTable from "../global/dataTable/DataTable";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CreateCashIn, UpdateCashIn } from "../../services/Cash";
 import { GetOrders } from "../../services/Orders";
@@ -14,7 +14,7 @@ import ConfirmModal from "./ConfirmModal";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchAuthUser, selectAuthUser } from "../../store/authSlice";
 import VaultSelect from "./VaultSelect";
-import { BagCreateRequest } from "../../services/Vault";
+import { AddBagToVault } from "../../services/Vault";
 import { useToast } from "../../hooks/useToast";
 
 const DENOM_NOTES = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
@@ -38,8 +38,6 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
 
-  // Track whether the default vault has been seeded for this drawer session
-  const defaultVaultSeeded = useRef(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const currentPage = parseInt(searchParams.get("page") || "1");
@@ -74,7 +72,6 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     setIsConfirmModalOpen(false);
     setSelectedVault(null);
     setError(null);
-    defaultVaultSeeded.current = false; // reset seed guard so next open seeds default again
     onClose();
   }, [onClose]);
 
@@ -88,15 +85,17 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     setSelectedVault(vault || null);
   }, [isEditMode, editData, user]); // eslint-disable-line
 
-  // ── Seed default vault (create mode only, once per drawer session) ──
+  // ── Seed vault (create mode only) ──
   useEffect(() => {
     if (isEditMode) return;
-    if (defaultVaultSeeded.current) return;
-    if (!user?.default_vault_id) return;
+    if (!user?.vault_assignments) return;
 
-    const defaultV = user.vault_assignments?.find((v) => v.vault.id == user.default_vault_id);
-    setSelectedVault(defaultV || null);
-    defaultVaultSeeded.current = true; // mark as seeded
+    const active = user.vault_assignments.filter((v) => v.status === "active");
+    if (active.length === 1) {
+      setSelectedVault(active[0]);
+    } else {
+      setSelectedVault(null);
+    }
   }, [isEditMode, user]);
 
   // ── Pre-select edit orders once orders list is loaded ──
@@ -278,36 +277,16 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     setIsConfirmModalOpen(false);
   };
 
-  const handleCreateBagRedirect = async () => {
-    const vault_id = depositError?.vault_id ?? depositError?.message?.vault_id;
-
-    if (depositError?.message?.bag_create_role) {
-      window.open(`/vault?vault_edit_id=${vault_id}`, "_blank");
-      setIsConfirmModalOpen(false);
-      return;
-    }
-
-    const res = await BagCreateRequest({
-      vault_id,
-      requester_id: user?.id,
-    });
-
-    setIsConfirmModalOpen(false);
-    setIsDepositError(false)
+  const handleBagCreated = async (rackNumber) => {
+    const vaultId = depositError?.vault_id ?? depositError?.message?.vault_id;
+    const res = await AddBagToVault(vaultId, { rack_number: rackNumber });
 
     if (!res?.success) {
-      addToast({
-        type: "error",
-        message: res?.message || "Bag creation request failed",
-      });
-      setDepositError(res?.message);
-      return;
+      addToast({ type: "error", message: res?.message || "Failed to create bag" });
+      throw new Error(res?.message);
     }
 
-    addToast({
-      type: "success",
-      message: res?.message || "Bag creation request sent successfully",
-    });
+    addToast({ type: "success", message: "Bag created successfully! You can now retry your cash-in." });
   };
 
   // ── Columns ──
@@ -315,7 +294,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     {
       title: "Select",
       key: "selection",
-      className: "!w-10 text-center",
+      className: "!w-10 text-center whitespace-nowrap",
       render: (row) => {
         const isSelected = selectedRows.some((s) => s.id === row.id);
         return (
@@ -358,31 +337,37 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     {
       title: "Order ID",
       key: "order_id",
+      className: "whitespace-nowrap",
       render: (row) => <span className="font-mono font-medium text-cyan-600">{row.order_id}</span>,
     },
     {
       title: "Total",
       key: "payable_amount",
+      className: "whitespace-nowrap",
       render: (row) => <span>{row?.payable_amount}</span>,
     },
     {
       title: "Cash to Deposit",
       key: "received_st",
+      className: "whitespace-nowrap",
       render: (row) => <span>{row?.total_cash_to_deposit}</span>,
     },
     {
       title: "Customer",
       key: "customer",
+      className: "whitespace-nowrap",
       render: (row) => <span>{row?.customer_name}</span>,
     },
     {
       title: "Status",
       key: "status",
+      className: "whitespace-nowrap",
       render: () => <span className="bg-cyan-50 px-2 py-1 rounded text-xs text-cyan-500">Received By AT</span>,
     },
     {
       title: "Received Date",
       key: "received_date",
+      className: "whitespace-nowrap",
       render: (row) => <span>{dayjs(row.created_at).format("DD MMM, YYYY hh:mm A")}</span>,
     },
   ];
@@ -392,7 +377,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
       <Drawer
         isOpen={isOpen}
         onClose={handleClose}
-        className="max-w-4xl"
+        className="w-[70%]"
         title={
           <div className="flex items-center gap-3 mb-1">
             <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
@@ -472,14 +457,14 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
               <div className="flex items-center bg-[#FDFDFE] border-t border-slate-200 mt-2 py-7 px-6 gap-4 justify-between">
                 <button
                   onClick={handleClose}
-                  className="px-6 py-3 w-[35%] text-center justify-center cursor-pointer bg-[#fdfdfe] border border-slate-200 text-black hover:bg-blue-600 hover:text-white font-semibold text-sm rounded-xl transition-all flex items-center gap-2"
+                  className="px-6 py-3 w-[35%] text-center justify-center cursor-pointer bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold text-sm rounded-xl transition-all flex items-center gap-2"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleGenerateDeposit}
                   disabled={depositLoading || !isCashInVaultMinMaxAmountAllowed}
-                  className="px-6 w-[65%] py-3 cursor-pointer justify-center bg-[#1e293b] shadow-lg hover:bg-black text-white font-semibold text-sm rounded-xl transition-all disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none flex items-center gap-2"
+                  className="px-6 w-[65%] py-3 cursor-pointer justify-center bg-blue-600 shadow-lg shadow-blue-100 hover:bg-blue-700 text-white font-bold text-sm rounded-xl transition-all disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none flex items-center gap-2"
                 >
                   {depositLoading ? (
                     <Loader2 className="animate-spin w-4 h-4" />
@@ -622,7 +607,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                   <button
                     onClick={handleDoneClick}
                     disabled={grandTotal === 0 || difference !== 0}
-                    className="mt-6 w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-100"
+                    className="mt-6 w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-100"
                   >
                     <motion.span whileTap={{ scale: 0.95 }} className="flex items-center gap-2">
                       <div className="w-5 h-5 rounded-full border-2 border-white/30 flex items-center justify-center">
@@ -648,7 +633,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
           loading={submitLoading}
           isDepositError={isDepositError}
           message={depositError}
-          onCreate={handleCreateBagRedirect}
+          onBagCreated={handleBagCreated}
         />
       )}
     </>
