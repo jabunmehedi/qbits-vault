@@ -8,6 +8,7 @@ import { Logout } from "../../../services/Auth";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { useSelector } from "react-redux";
 import { selectAuthUser, selectIsSuperAdmin } from "../../../store/authSlice";
+import { UserIcon } from "lucide-react";
 
 const baseStorageUrl = import.meta.env.VITE_REACT_APP_STORAGE_URL;
 
@@ -59,9 +60,7 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
        ${isDrawerOpen ? "translate-x-0" : "-translate-x-full"}`
     : `relative z-30 bg-white/70 backdrop-blur-xl border-r border-slate-200/80  ${sidebarWidthClass}`;
 
-  const resolvedAvatarSrc = user?.img
-    ? `${baseStorageUrl}/${user.img}`
-    : "https://images.unsplash.com/photo-1633332755192-727a05c4013d?auto=format&fit=crop&w=500&q=80";
+  const resolvedAvatarSrc = user?.img ? `${baseStorageUrl}/${user.img}` : null;
 
   return (
     <motion.aside
@@ -212,8 +211,11 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
               ${!showLabel && "justify-center px-1"}
             `}
           >
-            <div className="w-8 h-8 rounded-full border border-slate-200 shadow-sm overflow-hidden flex-shrink-0">
-              <img src={resolvedAvatarSrc} alt="Avatar" className="w-full h-full object-cover" />
+            <div className="w-8 h-8 rounded-full border border-slate-200 shadow-sm overflow-hidden flex-shrink-0 bg-white flex items-center justify-center">
+              {resolvedAvatarSrc
+                ? <img src={resolvedAvatarSrc} alt="Avatar" className="w-full h-full object-cover" />
+                : <UserIcon className="w-4 h-4 text-gray-400" />
+              }
             </div>
             {showLabel && (
               <div className="truncate flex flex-col">

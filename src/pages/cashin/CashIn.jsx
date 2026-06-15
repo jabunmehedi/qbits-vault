@@ -762,9 +762,12 @@ const fetchCashInsData = useCallback(() => {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-lg font-semibold text-gray-600 uppercase">Cash In List</h1>
-          <p className="text-xs text-gray-400">Manage Your All Cash In</p>
+        <div className="flex items-center gap-3">
+          <div className="w-1.5 h-10 bg-[#1a2b4b] rounded-full" />
+          <div>
+            <h1 className="xl:text-2xl font-black text-[#1a2b4b] uppercase">Cash In List</h1>
+            <p className="text-[8px] xl:text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase">Cash In Management</p>
+          </div>
         </div>
         <div className="flex items-center gap-4">
           {hasPermission("cash-in.request") && (

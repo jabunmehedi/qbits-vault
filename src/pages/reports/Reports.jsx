@@ -109,7 +109,7 @@ const Reports = () => {
       key: "debit",
       className: "w-28 text-end font-bold !text-red-500",
       render: (row) => (
-        <span className="text-red-400">{row.debit ? `$${Number(row.debit).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
+        <span className="text-red-400">{row.debit ? `৳${Number(row.debit).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
       ),
     },
     {
@@ -117,22 +117,25 @@ const Reports = () => {
       key: "credit",
       className: "w-28 text-end font-bold !text-green-600",
       render: (row) => (
-        <span className="text-green-600">{row.credit ? `$${Number(row.credit).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
+        <span className="text-green-600">{row.credit ? `৳${Number(row.credit).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
       ),
     }
   ];
 
   return (
-    <div className="w-full bg-slate-50 p-6 min-h-screen font-sans text-slate-800">
+    <div>
       {/* Upper Controls / Breadcrumb Panel */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 pb-4 py-4 px-4 rounded-2xl bg-white border-b border-gray-200">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Vault Ledger Audit Reports</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Review cash inflows and outflows structured in bookkeeping format</p>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-1.5 h-10 bg-[#1a2b4b] rounded-full" />
+          <div>
+            <h1 className="xl:text-2xl font-black text-[#1a2b4b] uppercase">Vault Ledger Reports</h1>
+            <p className="text-[8px] xl:text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase">Audit Reports</p>
+          </div>
         </div>
 
         {/* Filters Matrix Row */}
-        <div className="flex flex-wrap items-center gap-3 mt-4 md:mt-0">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Dynamic Transaction ID Text Search Input */}
           {/* <div className="flex items-center gap-1.5 bg-white border rounded-xl px-3 py-1.5 shadow-2xs">
             <Search size={14} className="text-slate-400" />
@@ -149,7 +152,7 @@ const Reports = () => {
           </div> */}
 
           {/* Timeline Dropdown Control */}
-          <div className="flex items-center gap-1.5 bg-white rounded-xl px-3 py-1.5 ">
+          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm">
             <Calendar size={14} className="text-slate-400" />
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Timeline:</span>
             <select
@@ -167,7 +170,7 @@ const Reports = () => {
           </div>
 
           {/* Vault ID Select Filter Constraint */}
-          <div className="flex items-center gap-1.5 bg-white  rounded-xl px-3 py-1.5 ">
+          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm">
             <Layers size={14} className="text-slate-400" />
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vault:</span>
             <select
@@ -195,7 +198,7 @@ const Reports = () => {
         {/* Aggregate Status Summary Header Strip */}
         <div className="bg-slate-50/50 border-b border-slate-100 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="bg-cyan-100 text-cyan-800 text-[10px] font-black px-2 py-0.5 rounded-md uppercase">Live</span>
+            <span className="bg-[#1a2b4b] text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase">Live</span>
             <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide">Unified Balance Sheet</h3>
           </div>
 
@@ -203,20 +206,20 @@ const Reports = () => {
             <div>
               <span className="text-emerald-600">Total Credits (Cash In): </span>
               <span className="text-emerald-600 font-bold">
-                ${Number(reportSummary?.total_credits || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                ৳{Number(reportSummary?.total_credits || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
             <div className="border-l border-slate-200 h-4" />
             <div>
               <span className="text-rose-600">Total Debits (Cash Out): </span>
               <span className="text-rose-600 font-bold">
-                ${Number(reportSummary?.total_debits || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                ৳{Number(reportSummary?.total_debits || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
             <div className="border-l border-slate-200 h-4" />
             <div className="px-3 py-1.5 rounded-lg flex gap-2">
               <span>Ending Net Balance:</span>
-              <span className="font-bold">${Number(reportSummary?.net_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              <span className="font-bold">৳{Number(reportSummary?.net_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             </div>
           </div>
         </div>

@@ -74,9 +74,12 @@ const SystemPreferences = () => {
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6">
       {/* Component Title Context Metadata Summary Segment */}
-      <div>
-        <h1 className="text-xl font-semibold  text-slate-800 tracking-tight">System Preferences</h1>
-        <p className="text-xs text-slate-400 font-medium mt-0.5">Configure compliance thresholds, system rules, and vault limits.</p>
+      <div className="flex items-center gap-3">
+        <div className="w-1.5 h-10 bg-[#1a2b4b] rounded-full" />
+        <div>
+          <h1 className="xl:text-2xl font-black text-[#1a2b4b] uppercase">System Preferences</h1>
+          <p className="text-[8px] xl:text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase">System Configuration</p>
+        </div>
       </div>
 
       {/* Dynamic Navigation Sub-tab Header Pills Row */}

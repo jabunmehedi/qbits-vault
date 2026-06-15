@@ -315,10 +315,13 @@ const Reconcile = () => {
 
   return (
     <>
-      <div className="flex items-center justify-between p-2">
-        <div>
-          <h1 className="text-lg font-semibold text-gray-600 uppercase">Reconcile List</h1>
-          <p className="text-xs text-gray-400">Manage Your All Reconcile</p>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-1.5 h-10 bg-[#1a2b4b] rounded-full" />
+          <div>
+            <h1 className="xl:text-2xl font-black text-[#1a2b4b] uppercase">Reconcile List</h1>
+            <p className="text-[8px] xl:text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase">Reconciliation Management</p>
+          </div>
         </div>
         {hasPermission("reconciliation.create") && (
           <div className="flex items-center gap-4">

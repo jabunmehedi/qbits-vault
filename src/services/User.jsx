@@ -29,7 +29,9 @@ export const GetUser = async (id) => {
 };
 export const UpdateUser = async (id, data) => {
   try {
-    const response = await axios.put(`/users/${id}`, data, {
+    // Laravel/PHP only parses multipart file uploads from POST — use method spoofing
+    data.append("_method", "PUT");
+    const response = await axios.post(`/users/${id}`, data, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
@@ -41,13 +43,8 @@ export const UpdateUser = async (id, data) => {
   }
 };
 export const ChangePassword = async (id, data) => {
-  try {
-    const response = await axios.post(`/users/change-password/${id}`, data);
-    return response?.data;
-  } catch (error) {
-    console.error(error?.response?.data?.message);
-    return error?.response?.data;
-  }
+  const response = await axios.post(`/users/change-password/${id}`, data);
+  return response?.data;
 };
 export const UserNewPassword = async (id, data) => {
   try {
@@ -154,6 +151,6 @@ export const ResendEmailOtp = async () => {
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);
-    return error?.response;
+    return error?.response?.data;
   }
 };

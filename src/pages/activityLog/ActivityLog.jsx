@@ -200,11 +200,12 @@ const ActivityLog = () => {
   return (
     <div className=" space-y-2">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="ml-1">
-            <p className="text-[#424242] text-lg font-medium">Activity Log</p>
-            <span className="text-gray-400 text-sm">Full system audit trail — {pagination.total.toLocaleString()} total events</span>
+          <div className="w-1.5 h-10 bg-[#1a2b4b] rounded-full" />
+          <div>
+            <h1 className="xl:text-2xl font-black text-[#1a2b4b] uppercase">Activity Log</h1>
+            <p className="text-[8px] xl:text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase">System Audit Trail</p>
           </div>
         </div>
         <button onClick={fetchLogs} className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm rounded-lg transition">

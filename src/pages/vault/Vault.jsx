@@ -637,9 +637,12 @@ const Vault = () => {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <div>
-          <p className="text-[#424242] text-lg font-medium">Vault Management</p>
-          <span className="text-gray-400 text-sm capitalize">Monitor and manage all vault assets and bags</span>
+        <div className="flex items-center gap-3">
+          <div className="w-1.5 h-10 bg-[#1a2b4b] rounded-full" />
+          <div>
+            <h1 className="xl:text-2xl font-black text-[#1a2b4b] uppercase">Vault Management</h1>
+            <p className="text-[8px] xl:text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase">Vault Management</p>
+          </div>
         </div>
         {(isSuperAdmin || hasPermission("vault.create")) && (
           <button

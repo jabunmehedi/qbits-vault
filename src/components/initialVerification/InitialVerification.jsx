@@ -171,7 +171,7 @@ const InitialVerification = ({ onSuccess }) => {
       const res = await ResendEmailOtp();
 
       if (!res?.success) {
-        addToast({ message: res?.message, type: "error" });
+        setError(res?.message || "Failed to send verification code. Please try again.");
         return;
       }
       const expiryTimestamp = Math.floor(Date.now() / 1000) + 240;
@@ -201,7 +201,7 @@ const InitialVerification = ({ onSuccess }) => {
       const res = await SendPhoneOtp(phone);
 
       if (!res?.success) {
-        addToast({ message: res?.message, type: "error" });
+        setError(res?.message || "Failed to send OTP. Please try again.");
         return;
       }
       const expiryTimestamp = Math.floor(Date.now() / 1000) + 240;
@@ -234,7 +234,7 @@ const InitialVerification = ({ onSuccess }) => {
       const res = await EmailVerify({ code: fullCode });
 
       if (!res?.success) {
-        addToast({ message: res?.message, type: "error" });
+        setError(res?.message || "Verification failed. Please try again.");
         return;
       }
 
@@ -260,7 +260,7 @@ const InitialVerification = ({ onSuccess }) => {
     try {
       const res = await PhoneVerify(fullOtp, phoneNumber);
       if (!res?.success) {
-        addToast({ message: res?.message, type: "error" });
+        setError(res?.message || "OTP verification failed. Please try again.");
         return;
       }
       dispatch(

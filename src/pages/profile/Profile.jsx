@@ -13,12 +13,12 @@ const baseStorageUrl = import.meta.env.VITE_REACT_APP_STORAGE_URL;
 
 const Profile = () => {
   const [activeTab, setActiveTab] = useState("profile");
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(true);
 
   // Profile states
-  const [name, setName] = useState();
-  const [email, setEmail] = useState();
-  const [phone, setPhone] = useState();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [userRoles, setUserRoles] = useState([]);
   const [userPermissions, setUserPermissions] = useState([]);
   const [avatar, setAvatar] = useState("");
@@ -33,10 +33,8 @@ const Profile = () => {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // Validation & UI feedback states
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [serverError, setServerError] = useState("");
+  const [profileErrors, setProfileErrors] = useState({});
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -45,7 +43,7 @@ const Profile = () => {
   const dispatch = useDispatch();
 
   const navigate = useNavigate();
-  const { handleSubmit, register, reset, watch } = useForm();
+  const { handleSubmit, register, reset, watch, setError, formState: { errors: passwordErrors } } = useForm();
 
   const user = useSelector(selectAuthUser);
 
@@ -78,7 +76,7 @@ const Profile = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const selectedVaultDetails = user?.vault_assignments.find((v) => v?.vault_id === Number(defaultVault));
+  const selectedVaultDetails = user?.vault_assignments?.find((v) => v?.vault_id === Number(defaultVault));
 
   const tabs = [
     { id: "profile", label: "Profile Details", icon: User },
@@ -103,14 +101,15 @@ const Profile = () => {
   }, [user?.id, dispatch]);
 
   const handleUpdateProfile = async () => {
-    if (!name || !email) {
-      addToast({ type: "error", message: "All fields are required." });
+    const errors = {};
+    if (!name?.trim()) errors.name = "Full name is required.";
+    if (Object.keys(errors).length) {
+      setProfileErrors(errors);
       return;
     }
+    setProfileErrors({});
 
     setIsSubmitting(true);
-    setServerError("");
-    setSuccessMessage("");
 
     const formData = new FormData();
     formData.append("name", name);
@@ -121,24 +120,23 @@ const Profile = () => {
     try {
       const response = await UpdateUser(user.id, formData);
 
-      if (response.success && !response.success) {
-        addToast({ type: "error", message: response?.message || "Failed to update profile." });
+      const updatedUser = response?.data;
+      if (!updatedUser?.id) {
+        addToast({ type: "error", message: response?.data?.message || "Failed to update profile." });
+        return;
       }
 
-      const updatedImg = response?.data?.img;
+      if (updatedUser.name) setName(updatedUser.name);
+      if (updatedUser.img) setAvatar(updatedUser.img);
+      if (updatedUser.phone !== undefined) setPhone(updatedUser.phone);
 
-      if (updatedImg) {
-        setAvatar(updatedImg);
-      }
-
-      addToast({ type: "success", message: "Profile updated successfully." });
       await dispatch(fetchAuthUser());
 
+      addToast({ type: "success", message: "Profile updated successfully." });
       setSelectedFile(null);
       setImagePreviewUrl("");
-      setIsEditing(false);
     } catch (error) {
-      setServerError(error?.response?.data?.message || "Failed to update target configurations.");
+      addToast({ type: "error", message: error?.response?.data?.message || "Failed to update profile." });
     } finally {
       setIsSubmitting(false);
     }
@@ -152,18 +150,16 @@ const Profile = () => {
   }, {});
 
   const handleChangePassword = async (data) => {
-    if (data.confirmPassword !== data.newPassword) {
-      addToast({ type: "error", message: "Passwords do not match." });
+    if (data.newPassword !== data.confirmPassword) {
+      setError("confirmPassword", { message: "Passwords do not match." });
       return;
     }
-    if (data.newPassword.length < 6) {
-      addToast({ type: "error", message: "Password must be at least 6 characters." });
+    if (data.newPassword === data.currentPassword) {
+      setError("newPassword", { message: "New password cannot be the same as the current password." });
       return;
     }
 
     setIsSubmitting(true);
-    setServerError("");
-    setSuccessMessage("");
 
     try {
       const res = await ChangePassword(user?.id, {
@@ -171,17 +167,18 @@ const Profile = () => {
         newPassword: data.newPassword,
       });
 
-      if (!res?.success) {
-        setServerError(res?.message || "Failed to reset authentication credentials.");
+      if (res?.success === false || res?.errors) {
+        setError("currentPassword", { message: res?.message || "Current password is incorrect." });
+        return;
       }
 
-      addToast({ type: "success", message: "Password reset successfully." });
+      addToast({ type: "success", message: "Password changed successfully. Logging out..." });
       setTimeout(() => {
         localStorage.clear();
-        navigate("/login");
-      }, 1500);
+        window.location.href = "/login";
+      }, 800);
     } catch (error) {
-      setServerError(error?.response?.data?.message || "Authentication reset rejected.");
+      setError("currentPassword", { message: error?.response?.data?.message || "Failed to change password." });
     } finally {
       setIsSubmitting(false);
     }
@@ -207,53 +204,30 @@ const Profile = () => {
     }
   };
 
-  // Compute the current layout path link string safely
   const resolvedAvatarSrc = imagePreviewUrl
     ? imagePreviewUrl
     : avatar
       ? `${baseStorageUrl}/${avatar}`
       : user?.img
         ? `${baseStorageUrl}/${user.img}`
-        : "https://images.unsplash.com/photo-1633332755192-727a05c4013d?auto=format&fit=crop&w=500&q=80";
+        : null;
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-6 font-sans relative overflow-x-hidden">
       {/* Premium Dashboard Style Ambient Blurs */}
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-cyan-200/20 blur-[100px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-10 left-10 w-80 h-80 bg-indigo-200/20 blur-[90px] rounded-full pointer-events-none" />
+      <div className="absolute top-0 right-1/4 w-96 h-96 bg-blue-200/20 blur-[100px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-10 left-10 w-80 h-80 bg-blue-200/20 blur-[90px] rounded-full pointer-events-none" />
 
       <div className="max-w-5xl mx-auto relative z-10 space-y-6">
         {/* Header Block */}
-        <div className="border-b border-slate-200/80 pb-5">
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            Account Workspace
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">Configure profile signatures, secure tokens, and environment options.</p>
+        <div className="border-b border-slate-200/80 pb-5 flex items-center gap-3">
+          <div className="w-1.5 h-10 bg-[#1a2b4b] rounded-full" />
+          <div>
+            <h1 className="xl:text-2xl font-black text-[#1a2b4b] uppercase">Account Workspace</h1>
+            <p className="text-[8px] xl:text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase">Profile Management</p>
+          </div>
         </div>
 
-        {/* Global Alert Notices System */}
-        {/* <AnimatePresence>
-          {successMessage && (
-            <motion.div
-              initial={{ opacity: 0, h: 0 }}
-              animate={{ opacity: 1, h: "auto" }}
-              exit={{ opacity: 0, h: 0 }}
-              className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-semibold rounded-xl flex items-center gap-2"
-            >
-              <CheckCircle className="w-4 h-4" /> {successMessage}
-            </motion.div>
-          )}
-          {serverError && (
-            <motion.div
-              initial={{ opacity: 0, h: 0 }}
-              animate={{ opacity: 1, h: "auto" }}
-              exit={{ opacity: 0, h: 0 }}
-              className="p-4 bg-rose-50 border border-rose-200 text-rose-700 text-sm font-semibold rounded-xl flex items-center gap-2"
-            >
-              <X className="w-4 h-4" /> {serverError}
-            </motion.div>
-          )}
-        </AnimatePresence> */}
 
         {/* Dynamic Glassmorphic Navigation Tabs Matrix */}
         <div className="flex flex-wrap gap-1.5 bg-white/80 backdrop-blur-xl border border-slate-200/80 rounded-2xl p-1.5 ">
@@ -262,11 +236,10 @@ const Profile = () => {
               key={tab.id}
               onClick={() => {
                 setActiveTab(tab.id);
-                setSuccessMessage("");
-                setServerError("");
+                setProfileErrors({});
               }}
               className={`flex items-center gap-2.5 px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-                activeTab === tab.id ? "bg-cyan-50/70 text-cyan-700 shadow-xs" : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                activeTab === tab.id ? "bg-blue-50 text-[#1a73e8] shadow-xs" : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
               }`}
             >
               <tab.icon className="w-4 h-4" />
@@ -292,14 +265,15 @@ const Profile = () => {
                     whileHover={{ scale: 1.02 }}
                     className="relative w-40 h-40 rounded-full ring-4 ring-slate-100 overflow-hidden shadow-md bg-slate-50"
                   >
-                    <img src={resolvedAvatarSrc} alt="Avatar Graphic" className="w-full h-full object-cover" />
-                    {isEditing && (
-                      <label className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/60 text-white cursor-pointer opacity-100 transition duration-150">
-                        <Camera className="w-6 h-6 text-cyan-400 mb-1" />
-                        <span className="text-[10px] font-bold tracking-wider uppercase">Upload</span>
-                        <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                      </label>
-                    )}
+                    {resolvedAvatarSrc
+                      ? <img src={resolvedAvatarSrc} alt="Avatar Graphic" className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center bg-white"><User className="w-16 h-16 text-gray-300" /></div>
+                    }
+                    <label className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/60 text-white cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                      <Camera className="w-6 h-6 text-white mb-1" />
+                      <span className="text-[10px] font-bold tracking-wider uppercase">Upload</span>
+                      <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                    </label>
                   </motion.div>
                 </div>
                 <div>
@@ -314,11 +288,23 @@ const Profile = () => {
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Full Name</label>
                     {isEditing ? (
-                      <input
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="w-full px-4 py-3 text-sm text-black bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500/50 focus:bg-white outline-none font-semibold transition-all"
-                      />
+                      <>
+                        <input
+                          value={name}
+                          onChange={(e) => {
+                            setName(e.target.value);
+                            if (profileErrors.name) setProfileErrors((prev) => ({ ...prev, name: null }));
+                          }}
+                          className={`w-full px-4 py-3 text-sm rounded-xl outline-none font-semibold transition-all ${
+                            profileErrors.name
+                              ? "bg-red-50 border-2 border-red-400 text-red-900 placeholder:text-red-300 focus:border-red-500"
+                              : "text-black bg-slate-50 border border-slate-200 focus:border-[#1a73e8]/50 focus:bg-white"
+                          }`}
+                        />
+                        {profileErrors.name && (
+                          <p className="text-xs text-red-500 font-semibold mt-1 pl-1">{profileErrors.name}</p>
+                        )}
+                      </>
                     ) : (
                       <div className="px-4 py-3 bg-slate-50 border border-transparent text-sm text-slate-800 font-bold rounded-xl">{name}</div>
                     )}
@@ -340,35 +326,14 @@ const Profile = () => {
                 </div>
 
                 <div className="pt-4 flex gap-3">
-                  {isEditing ? (
-                    <>
-                      <button
-                        onClick={handleUpdateProfile}
-                        disabled={isSubmitting}
-                        className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-xs flex items-center gap-2 transition disabled:opacity-50"
-                      >
-                        <Save className="w-4 h-4" />
-                        {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update"}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsEditing(false);
-                          setSelectedFile(null);
-                          setImagePreviewUrl("");
-                        }}
-                        className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold uppercase tracking-wider rounded-xl transition"
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold uppercase tracking-wider rounded-md shadow-xs transition"
-                    >
-                      Click to Update
-                    </button>
-                  )}
+                  <button
+                    onClick={handleUpdateProfile}
+                    disabled={isSubmitting}
+                    className="px-6 py-2.5 bg-[#1a73e8] hover:bg-blue-600 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-lg shadow-blue-200 flex items-center gap-2 transition disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4" />
+                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update"}
+                  </button>
                 </div>
               </div>
             </div>
@@ -376,7 +341,7 @@ const Profile = () => {
 
           {/* CHANGE PASSWORD VIEW PANEL */}
           {activeTab === "password" && (
-            <form onSubmit={handleSubmit(handleChangePassword)} className="p-8 lg:p-12 max-w-xl mx-auto w-full space-y-5">
+            <form onSubmit={handleSubmit(handleChangePassword)} noValidate className="p-8 lg:p-12 max-w-xl mx-auto w-full space-y-5">
               <div className="text-center mb-4">
                 <h3 className="text-lg font-bold text-slate-800">Credential Rotation Engine</h3>
                 <p className="text-xs text-slate-400 mt-0.5">Enforce high-entropy updates across system entryways.</p>
@@ -387,9 +352,12 @@ const Profile = () => {
                 <div className="relative">
                   <input
                     type={showCurrent ? "text" : "password"}
-                    required
-                    {...register("currentPassword", { required: true })}
-                    className="w-full px-4 py-3 text-slate-500 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500/50 focus:bg-white outline-none tracking-wide transition"
+                    {...register("currentPassword", { required: "Current password is required." })}
+                    className={`w-full px-4 py-3 text-sm rounded-xl outline-none tracking-wide transition pr-10 ${
+                      passwordErrors.currentPassword
+                        ? "bg-red-50 border-2 border-red-400 text-red-900 placeholder:text-red-300 focus:border-red-500"
+                        : "bg-slate-50 border border-slate-200 text-slate-500 focus:border-[#1a73e8]/50 focus:bg-white"
+                    }`}
                     placeholder="••••••••"
                   />
                   <button
@@ -400,6 +368,9 @@ const Profile = () => {
                     {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                {passwordErrors.currentPassword && (
+                  <p className="text-xs text-red-500 font-semibold mt-1 pl-1">{passwordErrors.currentPassword.message}</p>
+                )}
               </div>
 
               <div>
@@ -407,10 +378,16 @@ const Profile = () => {
                 <div className="relative">
                   <input
                     type={showNew ? "text" : "password"}
-                    required
-                    {...register("newPassword", { required: true })}
-                    className="w-full px-4 py-3 text-slate-500 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500/50 focus:bg-white outline-none tracking-wide transition"
-                    placeholder="Minimum 3 characters"
+                    {...register("newPassword", {
+                      required: "New password is required.",
+                      minLength: { value: 6, message: "New password must be at least 6 characters." },
+                    })}
+                    className={`w-full px-4 py-3 text-sm rounded-xl outline-none tracking-wide transition pr-10 ${
+                      passwordErrors.newPassword
+                        ? "bg-red-50 border-2 border-red-400 text-red-900 placeholder:text-red-300 focus:border-red-500"
+                        : "bg-slate-50 border border-slate-200 text-slate-500 focus:border-[#1a73e8]/50 focus:bg-white"
+                    }`}
+                    placeholder="Minimum 6 characters"
                   />
                   <button
                     type="button"
@@ -420,6 +397,9 @@ const Profile = () => {
                     {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                {passwordErrors.newPassword && (
+                  <p className="text-xs text-red-500 font-semibold mt-1 pl-1">{passwordErrors.newPassword.message}</p>
+                )}
               </div>
 
               <div>
@@ -427,9 +407,12 @@ const Profile = () => {
                 <div className="relative">
                   <input
                     type={showConfirm ? "text" : "password"}
-                    required
-                    {...register("confirmPassword", { required: true })}
-                    className="w-full px-4 py-3 text-slate-500 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500/50 focus:bg-white outline-none tracking-wide transition"
+                    {...register("confirmPassword", { required: "Please confirm your new password." })}
+                    className={`w-full px-4 py-3 text-sm rounded-xl outline-none tracking-wide transition pr-10 ${
+                      passwordErrors.confirmPassword
+                        ? "bg-red-50 border-2 border-red-400 text-red-900 placeholder:text-red-300 focus:border-red-500"
+                        : "bg-slate-50 border border-slate-200 text-slate-500 focus:border-[#1a73e8]/50 focus:bg-white"
+                    }`}
                     placeholder="Match exactly"
                   />
                   <button
@@ -440,13 +423,16 @@ const Profile = () => {
                     {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                {passwordErrors.confirmPassword && (
+                  <p className="text-xs text-red-500 font-semibold mt-1 pl-1">{passwordErrors.confirmPassword.message}</p>
+                )}
               </div>
 
               <div className="pt-4 text-center">
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className={`w-full py-3 bg-gradient-to-r flex justify-center  text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-xs  transition ${isSubmitting ? "cursor-not-allowed opacity-70 from-gray-300 to-gray-300" : "from-cyan-600 to-indigo-600 hover:from-cyan-700 hover:to-indigo-700"}`}
+                  className={`w-full py-3 flex justify-center text-white text-xs font-bold uppercase tracking-wider rounded-xl transition ${isSubmitting ? "cursor-not-allowed opacity-70 bg-gray-300" : "bg-[#1a73e8] hover:bg-blue-600 shadow-lg shadow-blue-200"}`}
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Change Password"}
                 </button>
@@ -463,7 +449,7 @@ const Profile = () => {
                   {userRoles?.map((role, idx) => (
                     <span
                       key={idx}
-                      className="px-3 py-1 bg-indigo-50/60 text-indigo-600 border border-indigo-100 text-xs font-bold rounded-lg uppercase tracking-wider"
+                      className="px-3 py-1 bg-blue-50 text-[#1a73e8] border border-blue-100 text-xs font-bold rounded-lg uppercase tracking-wider"
                     >
                       {role?.name}
                     </span>
@@ -474,7 +460,7 @@ const Profile = () => {
               <div className="max-w-4xl mx-auto space-y-8">
                 {Object.entries(groupedPermissions).map(([groupName, perms]) => (
                   <div key={groupName} className="space-y-3">
-                    <h3 className="text-xs font-extrabold text-cyan-600 uppercase tracking-widest border-b border-slate-100 pb-1.5 capitalize">
+                    <h3 className="text-xs font-extrabold text-[#1a2b4b] uppercase tracking-widest border-b border-slate-100 pb-1.5 capitalize">
                       {groupName.replace("-", " ")} Framework
                     </h3>
 
@@ -502,7 +488,7 @@ const Profile = () => {
 
               <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-5 space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-200/40 pb-3">
-                  <Database className="text-cyan-600 w-5 h-5 flex-shrink-0" />
+                  <Database className="text-[#1a73e8] w-5 h-5 flex-shrink-0" />
                   <div>
                     <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Primary Vault Scope</h4>
                     <p className="text-[11px] text-slate-400 mt-0.5">Sets default API routing initialization bindings dynamically.</p>
@@ -517,13 +503,13 @@ const Profile = () => {
                     type="button"
                     onClick={() => setDropdownOpen(!dropdownOpen)}
                     className={`w-full flex items-center justify-between px-4 py-3 text-sm bg-white border rounded-xl text-left font-semibold text-slate-700 shadow-xs transition-all outline-none ${
-                      dropdownOpen ? "border-cyan-500 ring-2 ring-cyan-500/10" : "border-slate-200 hover:border-slate-300"
+                      dropdownOpen ? "border-[#1a73e8] ring-2 ring-[#1a73e8]/10" : "border-slate-200 hover:border-slate-300"
                     }`}
                   >
                     <span className="truncate">{selectedVaultDetails?.vault?.name}</span>
                     <ChevronDown
                       className={`w-4 h-4 text-slate-400 transition-transform duration-200 flex-shrink-0 ml-2 ${
-                        dropdownOpen ? "rotate-180 text-cyan-600" : ""
+                        dropdownOpen ? "rotate-180 text-[#1a73e8]" : ""
                       }`}
                     />
                   </button>
@@ -552,11 +538,11 @@ const Profile = () => {
                                     setDropdownOpen(false);
                                   }}
                                   className={`w-full flex items-center justify-between px-3 py-2.5 text-sm font-semibold rounded-lg text-left transition-all ${
-                                    isSelected ? "bg-cyan-50/70 text-cyan-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                    isSelected ? "bg-blue-50 text-[#1a73e8]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                                   }`}
                                 >
                                   <span className="truncate">{vlt.vault?.name}</span>
-                                  {isSelected && <Check className="w-4 h-4 text-cyan-600 flex-shrink-0 ml-2" />}
+                                  {isSelected && <Check className="w-4 h-4 text-[#1a73e8] flex-shrink-0 ml-2" />}
                                 </button>
                               );
                             })}
@@ -572,7 +558,7 @@ const Profile = () => {
                   type="button"
                   onClick={handleSaveSettings}
                   disabled={isSubmitting}
-                  className={`w-full py-3 bg-gradient-to-r flex justify-center  text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-xs  transition ${isSubmitting ? "cursor-not-allowed opacity-70 from-gray-300 to-gray-300" : "from-cyan-600 to-indigo-600 hover:from-cyan-700 hover:to-indigo-700"}`}
+                  className={`w-full py-3 bg-gradient-to-r flex justify-center  text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-xs  transition ${isSubmitting ? "cursor-not-allowed opacity-70 bg-gray-300" : "bg-[#1a73e8] hover:bg-blue-600 shadow-lg shadow-blue-200"}`}
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "make change"}
                 </button>

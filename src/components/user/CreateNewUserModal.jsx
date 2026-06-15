@@ -87,7 +87,6 @@ const CreateNewUserModal = ({ setOpenModal, onUserCreated, roles, roleSearch, se
 
     if (!formData.role || !formData.role.length) {
       setErrors((prev) => ({ ...prev, role: "Please select at least one role" }));
-      addToast({ type: "error", message: "Please select at least one role" });
       return;
     }
 
@@ -98,8 +97,11 @@ const CreateNewUserModal = ({ setOpenModal, onUserCreated, roles, roleSearch, se
       const { success, message, errors: backendErrors } = res;
 
       if (!success) {
-        if (backendErrors) setErrors(backendErrors);
-        addToast({ type: "error", message: message || "Failed to create user" });
+        if (backendErrors) {
+          setErrors(backendErrors);
+        } else {
+          addToast({ type: "error", message: message || "Failed to create user" });
+        }
         return;
       }
 
@@ -109,9 +111,11 @@ const CreateNewUserModal = ({ setOpenModal, onUserCreated, roles, roleSearch, se
     } catch (err) {
       console.error(err);
       const apiResponse = err.response?.data;
-      const errorMessage = apiResponse?.message || "Failed to create user";
-      if (apiResponse?.errors) setErrors(apiResponse.errors);
-      addToast({ type: "error", message: errorMessage });
+      if (apiResponse?.errors) {
+        setErrors(apiResponse.errors);
+      } else {
+        addToast({ type: "error", message: apiResponse?.message || "Failed to create user" });
+      }
     } finally {
       setIsSubmitting(false);
     }
