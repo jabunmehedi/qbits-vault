@@ -137,7 +137,7 @@ const VaultAudit = () => {
       title: "Vault name",
       key: "name",
       className: "w-24",
-      render: (row) => <span className="text-indigo-600 font-semibold">{row?.vault?.name}</span>,
+      render: (row) => <span className="text-[#1a73e8] font-semibold">{row?.vault?.name}</span>,
     },
     {
       title: "Vault Type",
@@ -209,7 +209,7 @@ const VaultAudit = () => {
             <button
               onClick={() => !locked && openEditModal(row)}
               disabled={locked}
-              className={`font-medium transition-colors ${locked ? "text-gray-400 cursor-not-allowed hidden" : "text-indigo-600 hover:underline cursor-pointer"}`}
+              className={`font-medium transition-colors ${locked ? "text-gray-400 cursor-not-allowed hidden" : "text-[#1a73e8] hover:underline cursor-pointer"}`}
             >
               Edit Config
             </button>

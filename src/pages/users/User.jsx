@@ -97,6 +97,7 @@ const User = () => {
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [paginationData, setPaginationData] = useState({});
+  const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -126,13 +127,17 @@ const User = () => {
 
   // ── React Query: Users ──
   const { data: users = [], isLoading: isUsersLoading } = useQuery({
-    queryKey: ["users", debouncedSearch],
+    queryKey: ["users", debouncedSearch, currentPage],
     queryFn: async () => {
-      const res = await GetUsers({ search: debouncedSearch, page: 1 });
+      const res = await GetUsers({ search: debouncedSearch, page: currentPage });
       setPaginationData(res?.data ?? {});
       return res?.data?.data ?? [];
     },
   });
+
+  const handlePageChange = useCallback((page) => {
+    setCurrentPage(page);
+  }, []);
 
   // ── Seed default vault selection when users load ──
   useEffect(() => {
@@ -374,7 +379,10 @@ const User = () => {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
             type="text"
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
             placeholder="Search identity..."
             className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-2xl focus:ring-2 ring-blue-100 outline-none text-gray-700 font-medium"
           />
@@ -385,7 +393,7 @@ const User = () => {
       </div>
 
       {/* Data Table */}
-      <DataTable columns={columns} data={filteredUsers} paginationData={paginationData} isLoading={isUsersLoading} className="h-[calc(100vh-200px)]" />
+      <DataTable columns={columns} data={filteredUsers} paginationData={paginationData} changePage={handlePageChange} isLoading={isUsersLoading} className="h-[calc(100vh-200px)]" />
 
       <UserViewDrawer isOpen={openUserViewDrawer} onClose={() => setOpenUserViewDrawer(false)} userId={selectedUserId} />
 

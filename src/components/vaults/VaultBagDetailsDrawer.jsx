@@ -42,7 +42,7 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
       onClose={() => setDrawerOpen(false)}
       title={
         <div className="flex items-center gap-4 border-b border-slate-100 pb-4 w-full">
-          <div className="p-2.5 bg-cyan-50 border border-cyan-100/50 rounded-xl text-cyan-600 flex-shrink-0">
+          <div className="p-2.5 bg-blue-50 border border-blue-100/50 rounded-xl text-[#1a73e8] flex-shrink-0">
             <Package className="w-5 h-5" />
           </div>
           <div className="truncate">
@@ -110,9 +110,9 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
                               Rack {bag.rack_number}
                             </span>
                             {bag.is_sealed && (
-                              <span className="px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-purple-50 text-purple-600 border border-purple-100/50 rounded-md">
-                                Sealed
-                              </span>
+                            <span className="px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-blue-50 text-[#1a73e8] border border-blue-100/50 rounded-md">
+                              Sealed
+                            </span>
                             )}
                             {!bag.is_active && (
                               <span className="px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-rose-50 text-rose-600 border border-rose-100/50 rounded-md">
@@ -272,8 +272,8 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
                       {historyData.map((entry, i) => {
                         const isCashIn = entry.source === "cash_in";
                         const isCashOut = entry.source === "cash_out";
-                        const dotColor = isCashIn ? "bg-emerald-500" : isCashOut ? "bg-rose-500" : "bg-cyan-500";
-                        const labelColor = isCashIn ? "text-emerald-600" : isCashOut ? "text-rose-600" : "text-cyan-600";
+                        const dotColor = isCashIn ? "bg-emerald-500" : isCashOut ? "bg-rose-500" : "bg-[#1a73e8]";
+                        const labelColor = isCashIn ? "text-emerald-600" : isCashOut ? "text-rose-600" : "text-[#1a73e8]";
                         return (
                           <div key={i} className="flex gap-4">
                             <div className={`w-3.5 h-3.5 rounded-full ${dotColor} border-2 border-white shadow-sm mt-1 flex-shrink-0 z-10`} />

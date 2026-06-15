@@ -2,8 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Drawer from "../global/drawer/Drawer";
 import { MdArrowOutward, MdOutlineCalculate, MdRestartAlt } from "react-icons/md";
 import DataTable from "../global/dataTable/DataTable";
-import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CreateCashIn, UpdateCashIn } from "../../services/Cash";
 import { GetOrders } from "../../services/Orders";
 import dayjs from "dayjs";
@@ -20,6 +19,8 @@ import { useToast } from "../../hooks/useToast";
 const DENOM_NOTES = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
 const INITIAL_DENOMINATIONS = Object.fromEntries(DENOM_NOTES.map((n) => [n, 0]));
 
+const uniqueById = (items = []) => Array.from(new Map(items.filter(Boolean).map((item) => [item.id, item])).values());
+
 const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const isEditMode = !!editData;
 
@@ -27,6 +28,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const [selectedRows, setSelectedRows] = useState([]);
   const [paginationData, setPaginationData] = useState({});
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [orders, setOrders] = useState([]);
   const [denominations, setDenominations] = useState(INITIAL_DENOMINATIONS);
   const [depositLoading, setDepositLoading] = useState(false);
@@ -37,55 +39,57 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const [selectedVault, setSelectedVault] = useState(null);
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
+  const [nextPage, setNextPage] = useState(1);
 
-
-  const [searchParams, setSearchParams] = useSearchParams();
-  const currentPage = parseInt(searchParams.get("page") || "1");
-  const searchTerm = searchParams.get("search") || "";
-  const perPage = parseInt(searchParams.get("per_page") || "10");
+  const selectionTouchedIdsRef = useRef(new Set());
 
   const reduxUser = useSelector(selectAuthUser);
   const dispatch = useDispatch();
   const { addToast } = useToast();
 
-  // ── Sync reduxUser → local user state (separate from dispatch) ──
   useEffect(() => {
     if (reduxUser) {
       setUser(reduxUser);
     }
   }, [reduxUser]);
 
-  // ── Fetch auth user when drawer opens ──
   useEffect(() => {
     if (isOpen) {
       dispatch(fetchAuthUser());
     }
   }, [isOpen, dispatch]);
 
-  // ── Reset on close ──
   const handleClose = useCallback(() => {
     setStep(1);
     setSelectedRows([]);
+    setOrders([]);
+    setPaginationData({});
+    setLoading(false);
+    setLoadingMore(false);
+    setNextPage(1);
     setDenominations(INITIAL_DENOMINATIONS);
     setDepositError("");
     setIsDepositError(false);
     setIsConfirmModalOpen(false);
     setSelectedVault(null);
     setError(null);
+    selectionTouchedIdsRef.current = new Set();
     onClose();
   }, [onClose]);
 
-  // ── Seed vault + denominations from editData (edit mode only) ──
   useEffect(() => {
     if (!isEditMode || !editData || !user) return;
 
-    setDenominations(editData.denominations ? Object.fromEntries(DENOM_NOTES.map((n) => [n, editData.denominations[String(n)] ?? 0])) : INITIAL_DENOMINATIONS);
+    setDenominations(
+      editData.denominations
+        ? Object.fromEntries(DENOM_NOTES.map((n) => [n, editData.denominations[String(n)] ?? 0]))
+        : INITIAL_DENOMINATIONS
+    );
 
     const vault = user?.vault_assignments?.find((v) => v.vault.id === editData.vault_id);
     setSelectedVault(vault || null);
-  }, [isEditMode, editData, user]); // eslint-disable-line
+  }, [isEditMode, editData, user]);
 
-  // ── Seed vault (create mode only) ──
   useEffect(() => {
     if (isEditMode) return;
     if (!user?.vault_assignments) return;
@@ -98,74 +102,76 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     }
   }, [isEditMode, user]);
 
-  // ── Pre-select edit orders once orders list is loaded ──
   useEffect(() => {
-    if (!isEditMode || !editData || orders.length === 0) return;
+    if (!isEditMode || !editData?.orders?.length || orders.length === 0) return;
 
-    const editOrderIds = editData.orders.map((o) => o.order_id);
-    const matched = orders.filter((o) => editOrderIds.includes(o.order_id));
+    const editOrderIds = new Set(editData.orders.map((o) => o.order_id));
+    setSelectedRows((prev) => {
+      const selectedMap = new Map(prev.map((row) => [row.id, row]));
 
-    if (matched.length > 0) {
-      setSelectedRows(matched);
-    }
-  }, [orders]); // eslint-disable-line
-
-  // ── Fetch orders ──
-  const fetchOrders = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await GetOrders({
-        page: currentPage,
-        search: searchTerm || undefined,
-        per_page: perPage,
+      orders.forEach((order) => {
+        if (editOrderIds.has(order.order_id) && !selectionTouchedIdsRef.current.has(order.id)) {
+          selectedMap.set(order.id, order);
+        }
       });
 
-      const fetchedOrders = res?.data?.orders || [];
+      return Array.from(selectedMap.values());
+    });
+  }, [orders, editData, isEditMode]);
 
-      if (isEditMode && editData?.orders?.length > 0) {
-        const fetchedOrderIds = fetchedOrders.map((o) => o.order_id);
-        const missingOrders = editData.orders.filter((o) => !fetchedOrderIds.includes(o.order_id));
-        const merged = [...missingOrders, ...fetchedOrders];
-        setOrders(merged);
+  const fetchOrders = useCallback(
+    async ({ page = 1, append = false } = {}) => {
+      if (append) {
+        setLoadingMore(true);
       } else {
-        setOrders(fetchedOrders);
+        setLoading(true);
       }
 
-      setPaginationData(res?.data?.pagination || {});
-    } catch (e) {
-      setOrders([]);
-      setPaginationData({});
-    } finally {
-      setLoading(false);
-    }
-  }, [currentPage, searchTerm, perPage, isEditMode, editData]);
+      try {
+        const res = await GetOrders({
+          page,
+          per_page: 10,
+        });
+
+        const fetchedOrders = res?.data?.orders || [];
+        const pagination = res?.data?.pagination || {};
+
+        if (append) {
+          setOrders((prev) => uniqueById([...prev, ...fetchedOrders]));
+        } else if (isEditMode && editData?.orders?.length > 0) {
+          const fetchedOrderIds = fetchedOrders.map((o) => o.order_id);
+          const missingOrders = editData.orders.filter((o) => !fetchedOrderIds.includes(o.order_id));
+          setOrders(uniqueById([...missingOrders, ...fetchedOrders]));
+        } else {
+          setOrders(uniqueById(fetchedOrders));
+        }
+
+        setPaginationData(pagination);
+        setNextPage((pagination?.current_page || page) + 1);
+      } catch {
+        setOrders([]);
+        setPaginationData({});
+        setNextPage(1);
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [isEditMode, editData]
+  );
 
   useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
+    if (!isOpen) return;
+    fetchOrders({ page: 1, append: false });
+  }, [isOpen, fetchOrders]);
 
-  const handlePageChange = (page) => {
-    setSearchParams((prev) => {
-      const p = new URLSearchParams(prev);
-      p.set("page", page.toString());
-      return p;
-    });
+  const handleLoadMore = async () => {
+    const hasMore = paginationData?.current_page < paginationData?.last_page;
+    if (!hasMore || loading || loadingMore) return;
+
+    await fetchOrders({ page: nextPage, append: true });
   };
 
-  const handleSearch = (term) => {
-    setSearchParams((prev) => {
-      const p = new URLSearchParams(prev);
-      if (term.trim()) {
-        p.set("search", term.trim());
-        p.set("page", "1");
-      } else {
-        p.delete("search");
-      }
-      return p;
-    });
-  };
-
-  // ── Calculations ──
   const totalAmount = selectedRows.reduce((sum, o) => sum + (parseFloat(o.total_cash_to_deposit) || 0), 0);
   const grandTotal = Object.entries(denominations).reduce((sum, [val, cnt]) => sum + parseInt(val) * (parseInt(cnt) || 0), 0);
   const difference = grandTotal - totalAmount;
@@ -177,7 +183,6 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     setDenominations((prev) => ({ ...prev, [value]: num }));
   };
 
-  // ── Vault limit validations ──
   const bagMin = parseFloat(selectedVault?.vault?.bag_min_bal_limit || 0);
   const bagMax = parseFloat(selectedVault?.vault?.bag_balance_limit || 0);
 
@@ -200,7 +205,6 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
 
   const handleDoneClick = () => setIsConfirmModalOpen(true);
 
-  // ── Submit ──
   const handleConfirmSubmit = async () => {
     const { valid, msg } = vaultValidation();
     if (!valid) {
@@ -217,7 +221,6 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
       if (isEditMode) {
         const originalOrderIds = editData.orders.map((o) => o.order_id);
         const selectedOrderIds = selectedRows.map((o) => o.order_id);
-
         const removedOrderIds = originalOrderIds.filter((id) => !selectedOrderIds.includes(id));
 
         const addedOrders = selectedRows
@@ -233,7 +236,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
 
         payload = {
           cash_in_amount: totalAmount,
-          denominations: denominations,
+          denominations,
           vault_id: selectedVault?.vault.id || user?.default_vault_id,
           added_orders: addedOrders,
           removed_order_ids: removedOrderIds,
@@ -241,7 +244,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
       } else {
         payload = {
           cash_in_amount: totalAmount,
-          denominations: denominations,
+          denominations,
           vault_id: selectedVault?.vault.id || user?.default_vault_id,
           orders: selectedRows.map((row) => ({
             id: row.id,
@@ -289,12 +292,12 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     addToast({ type: "success", message: "Bag created successfully! You can now retry your cash-in." });
   };
 
-  // ── Columns ──
   const columns = [
     {
       title: "Select",
       key: "selection",
-      className: "!w-10 text-center whitespace-nowrap",
+      className: "!w-16 text-center",
+      noClip: true,
       render: (row) => {
         const isSelected = selectedRows.some((s) => s.id === row.id);
         return (
@@ -306,14 +309,14 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                 setSelectedRows((prev) => (prev.some((item) => item.id === row.id) ? prev.filter((item) => item.id !== row.id) : [...prev, row]));
               }}
               className={`relative w-6 h-6 rounded flex items-center justify-center border overflow-hidden transition-all duration-300 ${
-                isSelected ? "bg-cyan-50 border-cyan-200" : "bg-transparent border-gray-200 hover:border-cyan-200"
+                isSelected ? "bg-[#e8f0fe] border-[#1a73e8]" : "bg-transparent border-gray-200 hover:border-[#1a73e8]"
               }`}
             >
-              <motion.div className="absolute inset-0 bg-cyan-50" initial={false} animate={{ scale: isSelected ? 1 : 0 }} transition={{ duration: 0.35 }} />
+              <motion.div className="absolute inset-0 bg-[#e8f0fe]" initial={false} animate={{ scale: isSelected ? 1 : 0 }} transition={{ duration: 0.35 }} />
               <motion.svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 relative z-10 pointer-events-none" initial={false}>
                 <motion.path
                   d="M4 12L9 17L20 6"
-                  stroke="#06B6D4"
+                  stroke="#1a73e8"
                   strokeWidth="4"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -338,7 +341,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
       title: "Order ID",
       key: "order_id",
       className: "whitespace-nowrap",
-      render: (row) => <span className="font-mono font-medium text-cyan-600">{row.order_id}</span>,
+      render: (row) => <span className="font-mono font-medium text-[#1a73e8]">{row.order_id}</span>,
     },
     {
       title: "Total",
@@ -362,7 +365,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
       title: "Status",
       key: "status",
       className: "whitespace-nowrap",
-      render: () => <span className="bg-cyan-50 px-2 py-1 rounded text-xs text-cyan-500">Received By AT</span>,
+      render: () => <span className="bg-[#e8f0fe] px-2 py-1 rounded text-xs text-[#1a73e8]">Received By AT</span>,
     },
     {
       title: "Received Date",
@@ -372,6 +375,8 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     },
   ];
 
+  const hasMoreOrders = paginationData?.current_page < paginationData?.last_page;
+
   return (
     <>
       <Drawer
@@ -379,31 +384,30 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
         onClose={handleClose}
         className="w-[70%]"
         title={
-          <div className="flex items-center gap-3 mb-1">
+          <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
               <MdArrowOutward className="text-blue-500" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-slate-800">{isEditMode ? "Edit Cash In Request" : "Cash In Request"}</h2>
               <p className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
-                {isEditMode ? `Editing · ${editData?.tran_id}` : "Select orders to deposit into vault"}
+                {isEditMode ? `Editing - ${editData?.tran_id}` : "Select orders to deposit into vault"}
               </p>
             </div>
           </div>
         }
       >
         <AnimatePresence mode="wait">
-          {/* ── Step 1: Order Selection ── */}
           {step === 1 && (
             <motion.div
               key="step1"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="flex flex-col h-full"
+              className="flex flex-col h-full min-h-0"
             >
-              <div className="px-6 pt-3 pb-6 bg-white">
-                <div className="flex items-end justify-between">
+              <div className="px-6 pb-4 bg-white">
+                <div className="flex items-end justify-between gap-4">
                   <VaultSelect
                     vaults={user?.vault_assignments}
                     defaultVault={user?.default_vault_id}
@@ -416,11 +420,18 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                     setError={setError}
                   />
 
+                  <div className="min-w-[170px] pb-[2px]">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-600">
+                      Loaded {orders.length}
+                      {paginationData?.total ? ` out of ${paginationData.total}` : ""} orders
+                    </div>
+                  </div>
+
                   <div className="flex items-center gap-4">
                     <div className="flex flex-col">
                       <div
                         className={`px-4 py-2 rounded-full border border-slate-200 text-xs font-semibold ${
-                          selectedRows.length > 0 ? "text-cyan-600" : "text-slate-400"
+                          selectedRows.length > 0 ? "text-[#1a73e8]" : "text-slate-400"
                         }`}
                       >
                         {selectedRows.length} Orders Selected
@@ -440,21 +451,33 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                 </div>
               </div>
 
-              <div className="px-6">
+              <div className="px-6 flex-1 min-h-0">
                 <DataTable
                   columns={columns}
                   data={orders}
-                  changePage={handlePageChange}
-                  onSearch={handleSearch}
-                  paginationData={paginationData}
                   selectedRows={selectedRows}
-                  loading={loading}
+                  isLoading={loading}
                   setSelectedRows={setSelectedRows}
-                  className="h-[calc(100vh-310px)]"
+                  className="h-full"
+                  hideFooter
                 />
               </div>
 
-              <div className="flex items-center bg-[#FDFDFE] border-t border-slate-200 mt-2 py-4 px-6 gap-3 justify-end">
+              {hasMoreOrders && (
+                <div className="px-6 pb-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleLoadMore}
+                    disabled={loading || loadingMore}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-[#1a73e8] hover:text-[#1a73e8] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Load more orders
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center bg-[#FDFDFE] border-t border-slate-200 py-4 px-6 gap-3 justify-end">
                 <button
                   onClick={handleClose}
                   className="min-w-[160px] px-6 py-2.5 text-center justify-center cursor-pointer bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold text-sm rounded-xl transition-all flex items-center gap-2"
@@ -478,7 +501,6 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
             </motion.div>
           )}
 
-          {/* ── Step 2: Denominations ── */}
           {step === 2 && (
             <motion.div
               key="step2"
@@ -519,7 +541,6 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
               </div>
 
               <div className="flex flex-1 overflow-hidden">
-                {/* Left: Denom controls */}
                 <div className="w-[55%] p-6 overflow-y-auto border-r border-slate-100 scrollbar-hide">
                   <div className="grid grid-cols-2 gap-4">
                     {DENOM_NOTES.map((note) => (
@@ -553,11 +574,10 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                   </div>
                 </div>
 
-                {/* Right: Summary */}
                 <div className="w-[45%] p-8 bg-[#FCFCFD] flex flex-col">
                   {difference > 0 && (
                     <p className="text-red-400 mb-2 flex items-center gap-1 bg-red-50 text-xs font-medium px-3 py-1.5 rounded-full">
-                      <RiCloseCircleLine size={16} /> ৳{difference.toLocaleString()} over — remove notes
+                      <RiCloseCircleLine size={16} /> ৳{difference.toLocaleString()} over - remove notes
                     </p>
                   )}
                   <div className="p-6 rounded-2xl border border-slate-200 bg-white space-y-6">

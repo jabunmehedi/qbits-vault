@@ -163,7 +163,7 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
                                   <div
                                     className={`
                                     text-[12.5px] px-3.5 py-2 rounded-lg transition-all duration-150
-                                    ${subActive ? "bg-indigo-50/60 text-indigo-600 font-bold" : "text-slate-400 hover:bg-slate-50/80 hover:text-slate-800"}
+                                    ${subActive ? "bg-blue-50/80 text-[#1a73e8] font-bold" : "text-slate-400 hover:bg-slate-50/80 hover:text-slate-800"}
                                   `}
                                   >
                                     {subItem.label}
@@ -183,14 +183,14 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
                   <div
                     className={`
                       group text-[13px] font-medium flex items-center gap-3.5 px-3.5 py-2.5 rounded-md transition-all duration-150
-                      ${active ? "bg-indigo-50/60 text-indigo-600 font-bold" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"}
+                      ${active ? "bg-blue-50/80 text-[#1a73e8] font-bold" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"}
                     `}
                   >
                     <item.icon
                       size={18}
                       className={`
                         transition-colors duration-150
-                        ${active ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-700"}
+                        ${active ? "text-[#1a73e8]" : "text-slate-400 group-hover:text-slate-700"}
                       `}
                     />
                     {showLabel && <span>{item.label}</span>}

@@ -7,28 +7,29 @@ import { useSelector, useDispatch } from "react-redux";
 import { fetchAuthUser, selectAuthUser } from "../../store/authSlice";
 import { useToast } from "../../hooks/useToast";
 import DataTable from "../global/dataTable/DataTable";
-import VaultSelect from "../cashin/VaultSelect";
+import VaultSelect from "./CashOutVaultSelect";
 import { ArrowRight, ArrowLeft, Loader2, Info, User } from "lucide-react";
 import dayjs from "dayjs";
 import { GetCustodiansByVaultId } from "../../services/User";
 import { CiWarning } from "react-icons/ci";
+
+const PAGE_SIZE = 10;
+const uniqueById = (items = []) => Array.from(new Map(items.filter(Boolean).map((item) => [item.id, item])).values());
 
 const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const isEditMode = !!editData;
 
   const [step, setStep] = useState(1);
   const [selectedRows, setSelectedRows] = useState([]);
-  const [paginationData, setPaginationData] = useState({});
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [orders, setOrders] = useState([]);
   const [depositLoading, setDepositLoading] = useState(false);
-  const [depositError, setDepositError] = useState("");
-  const [isDepositError, setIsDepositError] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [selectedVault, setSelectedVault] = useState(null);
   const [custodians, setCustodians] = useState([]);
   const [error, setError] = useState(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
 
   // ── Step 1 & Step 2 Fields ──
@@ -62,11 +63,9 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
     setSelectedCustodian(null);
     setPurposeNote("");
     setPurposeNoteTouched(false);
-    setDepositError("");
-    setIsDepositError(false);
-    setIsConfirmModalOpen(false);
     setSelectedVault(null);
     setError(null);
+    setVisibleCount(PAGE_SIZE);
     onClose();
   }, [onClose]);
 
@@ -99,32 +98,32 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
   const fetchCashIns = useCallback(async () => {
     if (!selectedVault?.vault?.id) {
       setOrders([]);
-      setPaginationData({});
+      setVisibleCount(PAGE_SIZE);
       return;
     }
 
     setLoading(true);
     try {
       const res = await GetCashInsByVaultId(selectedVault?.vault?.id);
-      const fetchedOrders = res?.data || [];
+      const fetchedOrders = Array.isArray(res?.data) ? res.data : res?.data?.data || res?.data || [];
 
       if (isEditMode && editData?.orders?.length > 0) {
         const fetchedOrderIds = fetchedOrders.map((o) => o.order_id);
         const missingOrders = editData.orders.filter((o) => !fetchedOrderIds.includes(o.order_id));
-        const merged = [...missingOrders, ...fetchedOrders];
+        const merged = uniqueById([...missingOrders, ...fetchedOrders]);
         setOrders(merged);
+        setVisibleCount(merged.length);
       } else {
-        setOrders(fetchedOrders);
+        setOrders(uniqueById(fetchedOrders));
+        setVisibleCount(Math.min(PAGE_SIZE, fetchedOrders.length));
       }
-
-      setPaginationData(res?.data?.pagination || {});
-    } catch (e) {
+    } catch {
       setOrders([]);
-      setPaginationData({});
+      setVisibleCount(PAGE_SIZE);
     } finally {
       setLoading(false);
     }
-  }, [isEditMode, editData, selectedVault?.vault?.id]);
+  }, [isEditMode, editData, selectedVault]);
 
   useEffect(() => {
     if (isOpen) {
@@ -133,12 +132,31 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
   }, [fetchCashIns, isOpen]);
 
   // ── Calculation Logic ──
+  useEffect(() => {
+    if (isEditMode) {
+      setVisibleCount(orders.length);
+      return;
+    }
+
+    setVisibleCount((prev) => Math.min(prev, orders.length || PAGE_SIZE));
+  }, [orders, isEditMode]);
+
+  const loadMoreOrders = useCallback(() => {
+    if (loading || loadingMore) return;
+    if (visibleCount >= orders.length) return;
+
+    setLoadingMore(true);
+    setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, orders.length));
+    setLoadingMore(false);
+  }, [loading, loadingMore, orders.length, visibleCount]);
+
   const totalSelectedBagAmount = selectedRows.reduce((sum, o) => sum + (parseFloat(o.cash_in_amount) || 0), 0);
 
   // Difference calculator matching your rule: Requested Amount - Selected Bag sum
   const calculatedExcessAmount = requestedAmount < totalSelectedBagAmount;
 
   const isCustodianRequire = parseFloat(requestedAmount) < parseFloat(totalSelectedBagAmount) ? true : false;
+  const visibleOrders = orders.slice(0, visibleCount);
 
   const handleGenerateDeposit = () => {
     // 1. Required Vault Check
@@ -172,7 +190,7 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
         setCustodians(res);
       });
     }
-  }, [selectedVault?.vault?.id]);
+  }, [selectedVault]);
 
 
   const handleConfirmSubmit = async () => {
@@ -221,7 +239,8 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
     {
       title: "Select",
       key: "selection",
-      className: "w-20 text-center",
+      className: "!w-16 text-center",
+      noClip: true,
       render: (row) => {
         const isSelected = selectedRows.some((s) => s.id === row.id);
         return (
@@ -233,14 +252,14 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
                 setSelectedRows((prev) => (prev.some((item) => item.id === row.id) ? prev.filter((item) => item.id !== row.id) : [...prev, row]));
               }}
               className={`relative w-6 h-6 rounded flex items-center justify-center border overflow-hidden transition-all duration-300 ${
-                isSelected ? "bg-cyan-50 border-cyan-200" : "bg-transparent border-gray-200 hover:border-cyan-200"
+                isSelected ? "bg-[#e8f0fe] border-[#1a73e8]" : "bg-transparent border-gray-200 hover:border-[#1a73e8]"
               }`}
             >
-              <motion.div className="absolute inset-0 bg-cyan-50" initial={false} animate={{ scale: isSelected ? 1 : 0 }} transition={{ duration: 0.35 }} />
+              <motion.div className="absolute inset-0 bg-[#e8f0fe]" initial={false} animate={{ scale: isSelected ? 1 : 0 }} transition={{ duration: 0.35 }} />
               <motion.svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 relative z-10 pointer-events-none" initial={false}>
                 <motion.path
                   d="M4 12L9 17L20 6"
-                  stroke="#06B6D4"
+                  stroke="#1a73e8"
                   strokeWidth="4"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -264,22 +283,26 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
     {
       title: "Bag ID",
       key: "order_id",
-      render: (row) => <span className="font-mono font-semibold text-black/70 ">{row.bags?.barcode}</span>,
+      className: "w-[18%]",
+      render: (row) => <span className="block truncate font-mono font-semibold text-black/70">{row.bags?.barcode}</span>,
     },
     {
       title: "Transaction ID",
       key: "tran_id",
-      render: (row) => <span className="font-mono font-semibold text-cyan-500 ">{row?.tran_id}</span>,
+      className: "w-[30%]",
+      render: (row) => <span className="block truncate font-mono font-semibold text-[#1a73e8]">{row?.tran_id}</span>,
     },
     {
       title: "Total",
       key: "cash_in_amount",
+      className: "!w-28",
       render: (row) => <span>৳{parseFloat(row?.cash_in_amount || 0).toLocaleString()}</span>,
     },
     {
       title: "Cash in date",
       key: "created_at",
-      render: (row) => <span>{dayjs(row?.created_at).format("DD MMM,YYYY hh:mm A")}</span>,
+      className: "!w-[22%]",
+      render: (row) => <span className="whitespace-nowrap">{dayjs(row?.created_at).format("DD MMM, YYYY hh:mm A")}</span>,
     },
   ];
 
@@ -289,7 +312,7 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
         isOpen={isOpen}
         onClose={handleClose}
         title={
-          <div className="flex items-center gap-3 mb-1">
+          <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
               <MdArrowOutward className="text-blue-500" />
             </div>
@@ -310,20 +333,22 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="flex flex-col h-full "
+              className="flex flex-col h-full min-h-0"
             >
-              <div className="p-6 bg-white ">
-                <div className="grid grid-cols-2 gap-6 items-end justify-between">
-                  <VaultSelect
-                    vaults={user?.vault_assignments}
-                    defaultVault={user?.default_vault_id}
-                    selectedVault={selectedVault}
-                    onSelect={setSelectedVault}
-                    error={error}
-                    setError={setError}
-                  />
+              <div className="px-6 pb-3 bg-white">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-end">
+                  <div className="min-w-0">
+                    <VaultSelect
+                      vaults={user?.vault_assignments}
+                      defaultVault={user?.default_vault_id}
+                      selectedVault={selectedVault}
+                      onSelect={setSelectedVault}
+                      error={error}
+                      setError={setError}
+                    />
+                  </div>
 
-                  <div className="flex-1 items-center gap-4">
+                  <div className="min-w-0">
                     <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase mb-1 ml-1">
                       Requested Amount <span className="text-red-500">*</span>
                     </p>
@@ -331,7 +356,7 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
                       className={`flex text-gray-700 gap-2 items-center border p-2.5 rounded-lg bg-[#F8FAFC] transition-all focus-within:bg-white ${
                         isRequestedAmountInvalid
                           ? "border-red-500 focus-within:border-red-500 shadow-sm shadow-red-50"
-                          : "border-slate-200 focus-within:border-cyan-500"
+                          : "border-slate-200 focus-within:border-[#1a73e8]"
                       }`}
                     >
                       <p className="text-xs font-semibold text-slate-400">BDT</p>
@@ -347,35 +372,45 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
                       />
                     </div>
                   </div>
-                </div>
-                <div className="flex-1 items-center gap-4 mt-4 ">
-                  <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase mb-1 ml-1">Total Selected Bag Amount (BDT)</p>
-                  <div className="flex text-slate-800 gap-2 items-center border border-slate-200 p-2.5 rounded-lg bg-[#F7FBFF]">
-                    <p className="text-xs font-semibold text-slate-400">BDT</p>
-                    <input
-                      type="text"
-                      readOnly
-                      value={totalSelectedBagAmount ? totalSelectedBagAmount.toFixed(2) : "0.00"}
-                      className="w-full h-full focus:outline-none bg-transparent font-bold text-cyan-600"
-                    />
+
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase mb-1 ml-1">Total Selected Bag Amount (BDT)</p>
+                    <div className="flex text-slate-800 gap-2 items-center border border-slate-200 p-2.5 rounded-lg bg-[#F7FBFF]">
+                      <p className="text-xs font-semibold text-slate-400">BDT</p>
+                      <input
+                        type="text"
+                        readOnly
+                        value={totalSelectedBagAmount ? totalSelectedBagAmount.toFixed(2) : "0.00"}
+                        className="w-full h-full focus:outline-none bg-transparent font-bold text-[#1a73e8]"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="p-6 flex-1 overflow-hidden">
+              <div className="px-6 pb-4 flex-1 min-h-0 flex flex-col overflow-hidden">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase ml-1">Available Orders for Cash Out</span>
-                  <span className="bg-blue-50 text-blue-700 text-[11px] font-semibold px-2.5 py-1 rounded-full">{selectedRows.length} Selected</span>
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-600">
+                      Loaded {visibleOrders.length}
+                      {orders.length ? ` out of ${orders.length}` : ""} orders
+                    </div>
+                    <span className="bg-blue-50 text-[#1a73e8] text-[11px] font-semibold px-2.5 py-1 rounded-full">{selectedRows.length} Selected</span>
+                  </div>
                 </div>
-                <DataTable
-                  columns={columns}
-                  data={orders}
-                  paginationData={paginationData}
-                  selectedRows={selectedRows}
-                  loading={loading}
-                  setSelectedRows={setSelectedRows}
-                  className="h-[calc(100vh-480px)]"
-                />
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <DataTable
+                    columns={columns}
+                    data={visibleOrders}
+                    selectedRows={selectedRows}
+                    isLoading={loading}
+                    setSelectedRows={setSelectedRows}
+                    className="h-full"
+                    hideFooter
+                    onScrollEnd={loadMoreOrders}
+                  />
+                </div>
               </div>
 
               <div className="flex items-center bg-[#FDFDFE] border-t border-slate-200 py-4 px-6 gap-3 justify-end">
@@ -424,7 +459,7 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1">Requested Amount</p>
-                    <p className="text-sm font-bold text-cyan-600">৳{parseFloat(requestedAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                    <p className="text-sm font-bold text-[#1a73e8]">৳{parseFloat(requestedAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                   </div>
                 </div>
 

@@ -3,7 +3,7 @@ import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { MdCheck, MdOutlineAccountBalanceWallet } from "react-icons/md";
 
-const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, setError }) => {
+const CashOutVaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, setError }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
 
@@ -14,8 +14,6 @@ const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, set
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-
 
   const activeVaults = useMemo(() => {
     if (!vaults) return [];
@@ -30,20 +28,25 @@ const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, set
       });
   }, [vaults, defaultVault]);
 
+  const isSingleVault = activeVaults.length === 1;
+
   return (
-    <div className="relative min-w-64" ref={containerRef}>
-      <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase mb-1 ml-1">Select Vault</p>
+    <div className="relative w-full min-w-0" ref={containerRef}>
+      <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase mb-1 ml-1">Vault</p>
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between px-4 py-2.5 bg-[#F8FAFC] border ${error ? "border-red-300" : "border-slate-200"} rounded-xl hover:border-cyan-500 transition-all group`}
+        onClick={() => !isSingleVault && setIsOpen(!isOpen)}
+        disabled={isSingleVault}
+        className={`w-full flex items-center justify-between px-4 py-2.5 bg-[#F8FAFC] border ${
+          error ? "border-red-300" : "border-slate-200"
+        } rounded-xl transition-all group ${isSingleVault ? "cursor-default" : "hover:border-[#1a73e8]"}`}
       >
         <div className="flex items-center gap-2 overflow-hidden">
-          <MdOutlineAccountBalanceWallet className="text-slate-400 group-hover:text-cyan-500 transition-colors" size={18} />
+          <MdOutlineAccountBalanceWallet className={`transition-colors ${isSingleVault ? "text-slate-400" : "text-slate-400 group-hover:text-[#1a73e8]"}`} size={18} />
           <span className={`text-sm font-semibold truncate ${selectedVault ? "text-slate-700" : "text-slate-400"}`}>
             {selectedVault ? selectedVault.vault.name : "Select Vault"}
           </span>
         </div>
-        <ChevronDown className="text-slate-400 w-4 h-4" />
+        {!isSingleVault && <ChevronDown className="text-slate-400 w-4 h-4" />}
       </button>
 
       <AnimatePresence>
@@ -65,10 +68,10 @@ const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, set
                   }}
                   className="w-full flex items-center justify-between px-4 py-2 hover:bg-[#F8FAFC] transition-colors text-left"
                 >
-                  <span className={`text-sm ${selectedVault?.id === vault.id ? "font-bold text-cyan-600" : "font-medium text-slate-600"}`}>
+                  <span className={`text-sm ${selectedVault?.id === vault.id ? "font-bold text-[#1a73e8]" : "font-medium text-slate-600"}`}>
                     {vault.vault.name}
                   </span>
-                  {selectedVault?.id === vault.id && <MdCheck className="text-cyan-500" size={18} />}
+                  {selectedVault?.id === vault.id && <MdCheck className="text-[#1a73e8]" size={18} />}
                 </button>
               ))}
             </div>
@@ -79,4 +82,4 @@ const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, set
   );
 };
 
-export default VaultSelect;
+export default CashOutVaultSelect;

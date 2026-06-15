@@ -239,12 +239,12 @@ export default function CashDepositConfirmModal({ amounts, selectedRows, showCon
             <div className="relative">
               <div
                 onClick={() => setVaultOpen(!vaultOpen)}
-                className="w-full px-5 py-2 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between cursor-pointer hover:border-cyan-500 transition"
+                className="w-full px-5 py-2 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between cursor-pointer hover:border-[#1a73e8] transition"
               >
                 {selectedVault ? (
                   <div className="flex items-center gap-2">
                     <p className="text-gray-600">{selectedVault.name}</p>
-                    <p className="text-cyan-500 text-sm font-mono">{selectedVault.vault_id}</p>
+                    <p className="text-[#1a73e8] text-sm font-mono">{selectedVault.vault_id}</p>
                   </div>
                 ) : (
                   <span className="text-gray-500">Choose a vault...</span>
@@ -289,9 +289,9 @@ export default function CashDepositConfirmModal({ amounts, selectedRows, showCon
                           >
                             <div className="flex items-center gap-2">
                               <p className="text-gray-600">{vault.name}</p>
-                              <p className="text-cyan-500 text-sm font-mono">{vault.vault_id}</p>
+                              <p className="text-[#1a73e8] text-sm font-mono">{vault.vault_id}</p>
                             </div>
-                            {selectedVault?.id === vault.id && <AiOutlineCheck className="w-5 h-5 text-cyan-400" />}
+                            {selectedVault?.id === vault.id && <AiOutlineCheck className="w-5 h-5 text-[#1a73e8]" />}
                           </div>
                         ))
                       )}
@@ -311,7 +311,7 @@ export default function CashDepositConfirmModal({ amounts, selectedRows, showCon
               <div
                 onClick={() => selectedVault && setBagOpen(!bagOpen)}
                 className={`w-full px-5 py-2 bg-gray-50 border rounded-lg flex items-center justify-between transition ${
-                  !selectedVault ? "opacity-50 cursor-not-allowed border-gray-200" : "cursor-pointer hover:border-cyan-500 border-gray-200"
+                  !selectedVault ? "opacity-50 cursor-not-allowed border-gray-200" : "cursor-pointer hover:border-[#1a73e8] border-gray-200"
                 }`}
               >
                 {selectedBag ? (
@@ -361,10 +361,10 @@ export default function CashDepositConfirmModal({ amounts, selectedRows, showCon
                             className="px-5 py-4 hover:bg-gray-50 cursor-pointer transition flex items-center justify-between"
                           >
                             <div className="flex items-center gap-2">
-                              <p className="text-cyan-400 font-mono">{bag.barcode}</p>
+                              <p className="text-[#1a73e8] font-mono">{bag.barcode}</p>
                               <p className="text-gray-400 text-sm">Rack: {bag.rack_number}</p>
                             </div>
-                            {selectedBag?.id === bag.id && <AiOutlineCheck className="w-5 h-5 text-cyan-400" />}
+                            {selectedBag?.id === bag.id && <AiOutlineCheck className="w-5 h-5 text-[#1a73e8]" />}
                           </div>
                         ))
                       )}
@@ -379,7 +379,7 @@ export default function CashDepositConfirmModal({ amounts, selectedRows, showCon
           <div className="bg-gray-50 rounded-xl p-6 mb-8 border border-gray-200">
             <div className="flex justify-between text-lg">
               <span className="text-gray-600">Total Amount</span>
-              <strong className="text-cyan-500">৳{totalEnteredAmount.toFixed(2)}</strong>
+              <strong className="text-[#1a73e8]">৳{totalEnteredAmount.toFixed(2)}</strong>
             </div>
             <div className="mt-4">
               <span className="text-gray-600 text-sm">Denominations</span>
@@ -401,7 +401,7 @@ export default function CashDepositConfirmModal({ amounts, selectedRows, showCon
                           relative overflow-hidden rounded-2xl p-6 text-center border border-gray-200 transition-all 
                         `}
                       >
-                        <p className={`font-black text-cyan-500 `}>৳{note}</p>
+                        <p className={`font-black text-[#1a73e8] `}>৳{note}</p>
                         <p className="text-gray-500 mt-2 text-sm">× {count}</p>
                         <p className={`font-bold mt-3 text-gray-600`}>৳{subtotal.toLocaleString()}</p>
                       </motion.div>
@@ -456,9 +456,9 @@ export default function CashDepositConfirmModal({ amounts, selectedRows, showCon
                 <AiOutlineWarning className="w-20 h-20 text-yellow-500 mx-auto mb-6" />
                 <h4 className="text-2xl font-bold text-gray-800 mb-4">Are You Sure?</h4>
                 <p className="text-gray-600 mb-2">You are about to deposit:</p>
-                <p className="text-3xl font-bold text-cyan-600 mb-6">৳{totalEnteredAmount.toLocaleString()}</p>
+                <p className="text-3xl font-bold text-[#1a73e8] mb-6">৳{totalEnteredAmount.toLocaleString()}</p>
                 <p className="text-gray-600 mb-8">
-                  into bag <strong className="text-cyan-600 font-mono">{selectedBag?.barcode}</strong> in vault <strong>{selectedVault?.name}</strong>.
+                  into bag <strong className="text-[#1a73e8] font-mono">{selectedBag?.barcode}</strong> in vault <strong>{selectedVault?.name}</strong>.
                 </p>
 
                 <div className="flex gap-4 justify-center">

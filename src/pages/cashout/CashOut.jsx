@@ -134,6 +134,15 @@ const CashOut = () => {
     fetchCashOutLits();
   };
 
+  const cashOutPagination = {
+    current_page: 1,
+    per_page: cashOuts.length || 1,
+    total: cashOuts.length || 0,
+    prev_page_url: null,
+    next_page_url: null,
+    last_page: 1,
+  };
+
   useEffect(() => {
     const handleOutsideClick = () => {
       setActiveActionMenuId(null);
@@ -230,7 +239,7 @@ const CashOut = () => {
       title: "Vault name",
       key: "name",
       className: "w-[7%]",
-      render: (row) => <span className="text-indigo-600 font-semibold">{row?.vault?.name}</span>,
+      render: (row) => <span className="text-[#1a73e8] font-semibold">{row?.vault?.name}</span>,
     },
     {
       title: "Tran ID",
@@ -524,7 +533,7 @@ const CashOut = () => {
         </div>
       </div>
 
-      <DataTable columns={columnsCashOutLists} data={cashOuts} className="h-[calc(100vh-100px)]" />
+      <DataTable columns={columnsCashOutLists} data={cashOuts} paginationData={cashOutPagination} changePage={() => {}} className="h-[calc(100vh-100px)]" />
 
       {openCashOutReqDrawer && (
         <CashOutRequestDrawer isOpen={openCashOutReqDrawer} onClose={() => setOpenCashOutReqDrawer(false)} refetch={refetch} editData={editCashOutData} />

@@ -120,7 +120,7 @@ const Reconcile = () => {
       title: "Reconcile Id",
       key: "reconcile_tran_id",
       className: "w-[14%]",
-      render: (row) => <span className="block truncate font-mono text-indigo-400">{row.reconcile_tran_id}</span>,
+      render: (row) => <span className="block truncate text-[#1a73e8] font-semibold">{row.reconcile_tran_id}</span>,
     },
     {
       title: "Expected",
@@ -246,7 +246,7 @@ const Reconcile = () => {
               : row?.status === "completed"
                 ? "bg-green-50 border border-green-200 text-green-500"
                 : row?.status === "counted"
-                  ? "bg-indigo-50 border border-indigo-200 text-indigo-500"
+                  ? "bg-blue-50 border border-blue-200 text-[#1a73e8]"
                   : row?.status === "expired"
                     ? "bg-red-50 border border-red-200 text-red-500"
                     : "bg-orange-50 border border-orange-200 text-orange-500"

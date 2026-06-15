@@ -439,7 +439,7 @@ const fetchCashInsData = useCallback(() => {
           <span
             key={order.order_id || `order-${i}`}
             onClick={() => onIdClick(order)}
-            className="whitespace-nowrap hover:text-indigo-600 hover:underline cursor-pointer"
+            className="whitespace-nowrap hover:text-[#1a73e8] hover:underline cursor-pointer"
           >
             {order?.order_id}
             {i < orders.length - 1 ? "," : ""}
@@ -557,8 +557,8 @@ const fetchCashInsData = useCallback(() => {
     {
       title: "Vault",
       key: "name",
-      className: "w-[6%]",
-      render: (row) => <span className="font-mono text-indigo-500 uppercase">{row.vault?.name}</span>,
+      className: "w-[8%]",
+      render: (row) => <span className="text-[#1a73e8] font-semibold">{row.vault?.name}</span>,
     },
     {
       title: "Bag",
@@ -574,7 +574,7 @@ const fetchCashInsData = useCallback(() => {
     {
       title: "Tran Id",
       key: "tran_id",
-      className: "w-[15%]",
+      className: "w-[14%]",
       render: (row) => <span className="block truncate font-mono">{row?.tran_id}</span>,
     },
     {
@@ -794,6 +794,7 @@ const fetchCashInsData = useCallback(() => {
         loading={loading}
         setSelectedRows={setSelectedRows}
         className="h-[calc(100vh-80px)]"
+        compact
       />
       {/* 
       <CashDepositConfirmModal

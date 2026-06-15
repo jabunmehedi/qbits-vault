@@ -457,7 +457,7 @@ const Vault = () => {
       title: "Vault Code",
       key: "vault_code",
       className: "w-24 text-start",
-      render: (row) => <span className="text-cyan-500">{row.vault_code}</span>,
+      render: (row) => <span className="text-[#1a73e8] font-semibold">{row.vault_code}</span>,
     },
     { title: "Name", key: "name", className: "w-40 text-start", render: (row) => <span>{row.name}</span> },
     { title: "Address", key: "address", className: "w-32 text-start", render: (row) => <span>{row.address}</span> },
@@ -473,7 +473,7 @@ const Vault = () => {
     {
       title: "Bags",
       key: "total_bags",
-      className: "!w-16 text-start",
+      className: "!w-[140px] text-start",
       render: (row) => {
         const count = row.bags?.length || 0;
         return (
@@ -481,11 +481,9 @@ const Vault = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => openVaultDrawer(row)}
-            className="px-3 py-2 bg-green-50 border border-green-200 cursor-pointer text-green-500 text-xs rounded-full flex items-center gap-2"
+            className="min-w-[112px] px-2.5 py-1.5 bg-green-50 border border-green-200 cursor-pointer text-green-500 text-xs rounded-full inline-flex items-center justify-center gap-1 whitespace-nowrap"
           >
-            <span>
-              {count} Bag{count !== 1 ? "s" : ""}
-            </span>
+            <span>{count} Bag{count !== 1 ? "s" : ""}</span>
             <ChevronRight className="w-4 h-4" />
           </motion.button>
         );
@@ -515,7 +513,7 @@ const Vault = () => {
       title: "Status",
       key: "status",
       className: "w-32 text-start",
-      render: () => <span className="bg-cyan-50 text-xs text-cyan-500 border border-cyan-200 py-1 px-2 rounded-full">Active</span>,
+      render: () => <span className="bg-blue-50 text-xs text-[#1a73e8] border border-blue-200 py-1 px-2 rounded-full">Active</span>,
     },
     {
       title: "Action",
@@ -657,7 +655,7 @@ const Vault = () => {
         )}
       </div>
 
-      <DataTable columns={columns} data={vaults} paginationData={paginationData} changePage={handlePageChange} className="h-[calc(100vh-120px)]" />
+      <DataTable columns={columns} data={vaults} paginationData={paginationData} changePage={handlePageChange} className="h-[calc(100vh-120px)]" compact />
 
       {/* ── Create / Edit Modal ── */}
       {isOpenModal && (
