@@ -2,13 +2,20 @@ import { ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronLeft, History, Pack
 import Drawer from "../global/drawer/Drawer";
 import { AnimatePresence, motion } from "framer-motion";
 import dayjs from "dayjs";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { GetBagHistory } from "../../services/Vault";
 
 const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vaultBagsDetails, loadingBags, expandedBag, toggleBagExpand }) => {
   const [selectedHistoryBag, setSelectedHistoryBag] = useState(null);
   const [historyData, setHistoryData] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  useEffect(() => {
+    if (!drawerOpen) {
+      setSelectedHistoryBag(null);
+      setHistoryData([]);
+    }
+  }, [drawerOpen]);
 
   const handleOpenHistory = async (e, bag) => {
     e.stopPropagation();
@@ -262,28 +269,36 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
                   <div className="relative">
                     <div className="absolute left-[7px] top-2 bottom-2 w-px bg-slate-100" />
                     <div className="space-y-5">
-                      {historyData.map((entry, i) => (
-                        <div key={i} className="flex gap-4">
-                          <div className="w-3.5 h-3.5 rounded-full bg-cyan-500 border-2 border-white shadow-sm mt-1 flex-shrink-0 z-10" />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-600">{entry.event}</span>
-                              {entry.source === "system_log" && (
-                                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded">System</span>
-                              )}
-                            </div>
-                            <p className="text-xs text-slate-700 font-medium mt-0.5 leading-relaxed">{entry.description}</p>
-                            <div className="flex items-center gap-3 mt-1.5">
-                              {entry.user_name && (
-                                <span className="text-[10px] text-slate-400 font-medium">{entry.user_name}</span>
-                              )}
-                              <span className="text-[10px] text-slate-300 font-mono">
-                                {dayjs(entry.timestamp).format("DD MMM YYYY, h:mm A")}
-                              </span>
+                      {historyData.map((entry, i) => {
+                        const isCashIn = entry.source === "cash_in";
+                        const isCashOut = entry.source === "cash_out";
+                        const dotColor = isCashIn ? "bg-emerald-500" : isCashOut ? "bg-rose-500" : "bg-cyan-500";
+                        const labelColor = isCashIn ? "text-emerald-600" : isCashOut ? "text-rose-600" : "text-cyan-600";
+                        return (
+                          <div key={i} className="flex gap-4">
+                            <div className={`w-3.5 h-3.5 rounded-full ${dotColor} border-2 border-white shadow-sm mt-1 flex-shrink-0 z-10`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`text-[11px] font-bold uppercase tracking-wider ${labelColor}`}>{entry.event}</span>
+                                {entry.status && (
+                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded capitalize">
+                                    {entry.status}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-700 font-medium mt-0.5 leading-relaxed">{entry.description}</p>
+                              <div className="flex items-center gap-3 mt-1.5">
+                                {entry.user_name && (
+                                  <span className="text-[10px] text-slate-400 font-medium">{entry.user_name}</span>
+                                )}
+                                <span className="text-[10px] text-slate-300 font-mono">
+                                  {dayjs(entry.timestamp).format("DD MMM YYYY, h:mm A")}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
