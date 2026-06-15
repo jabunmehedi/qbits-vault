@@ -111,9 +111,9 @@ export const RejectCashIn = async (id, note = "", type = "verifier") => {
   }
 };
 
-export const GetCashInsByVaultId = async (id) => {
+export const GetCashInsByVaultId = async (id, params = {}) => {
   try {
-    const response = await axios.get(`/cash-ins/${id}`);
+    const response = await axios.get(`/cash-ins/${id}`, { params });
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);

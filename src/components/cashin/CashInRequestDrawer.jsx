@@ -2,7 +2,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import Drawer from "../global/drawer/Drawer";
 import { MdArrowOutward, MdOutlineCalculate, MdRestartAlt } from "react-icons/md";
 import DataTable from "../global/dataTable/DataTable";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckBagAvailability, CreateCashIn, UpdateCashIn } from "../../services/Cash";
 import { GetOrders } from "../../services/Orders";
 import dayjs from "dayjs";
@@ -26,10 +27,6 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
 
   const [step, setStep] = useState(1);
   const [selectedRows, setSelectedRows] = useState([]);
-  const [paginationData, setPaginationData] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [orders, setOrders] = useState([]);
   const [denominations, setDenominations] = useState(INITIAL_DENOMINATIONS);
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositError, setDepositError] = useState("");
@@ -39,12 +36,12 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const [selectedVault, setSelectedVault] = useState(null);
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
-  const [nextPage, setNextPage] = useState(1);
 
   const selectionTouchedIdsRef = useRef(new Set());
 
   const reduxUser = useSelector(selectAuthUser);
   const dispatch = useDispatch();
+  const queryClient = useQueryClient();
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -62,11 +59,6 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const handleClose = useCallback(() => {
     setStep(1);
     setSelectedRows([]);
-    setOrders([]);
-    setPaginationData({});
-    setLoading(false);
-    setLoadingMore(false);
-    setNextPage(1);
     setDenominations(INITIAL_DENOMINATIONS);
     setDepositError("");
     setIsDepositError(false);
@@ -74,8 +66,39 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     setSelectedVault(null);
     setError(null);
     selectionTouchedIdsRef.current = new Set();
+    // Drop cached pages so the next open starts fresh from the first cursor page.
+    queryClient.removeQueries({ queryKey: ["cashInOrders"] });
     onClose();
-  }, [onClose]);
+  }, [onClose, queryClient]);
+
+  // ── Fetch deposit-eligible orders (cursor-paginated, infinite scroll) ──
+  const { data, isLoading: loading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ["cashInOrders"],
+    enabled: isOpen,
+    initialPageParam: null,
+    queryFn: async ({ pageParam }) => {
+      const res = await GetOrders({ cursor: pageParam, per_page: 10 });
+      return res?.data; // { orders, pagination: { next_cursor, has_more } }
+    },
+    getNextPageParam: (lastPage) => lastPage?.pagination?.next_cursor ?? undefined,
+  });
+
+  const fetchedOrders = useMemo(() => uniqueById(data?.pages?.flatMap((p) => p?.orders || []) || []), [data]);
+
+  // In edit mode, the orders already attached to this cash-in may not be in the fetched
+  // page, so prepend them so they stay visible and selectable.
+  const orders = useMemo(() => {
+    if (isEditMode && editData?.orders?.length > 0) {
+      const fetchedIds = new Set(fetchedOrders.map((o) => o.order_id));
+      const missing = editData.orders.filter((o) => !fetchedIds.has(o.order_id));
+      return uniqueById([...missing, ...fetchedOrders]);
+    }
+    return fetchedOrders;
+  }, [fetchedOrders, isEditMode, editData]);
+
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   useEffect(() => {
     if (!isEditMode || !editData || !user) return;
@@ -118,59 +141,6 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
       return Array.from(selectedMap.values());
     });
   }, [orders, editData, isEditMode]);
-
-  const fetchOrders = useCallback(
-    async ({ page = 1, append = false } = {}) => {
-      if (append) {
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
-      }
-
-      try {
-        const res = await GetOrders({
-          page,
-          per_page: 10,
-        });
-
-        const fetchedOrders = res?.data?.orders || [];
-        const pagination = res?.data?.pagination || {};
-
-        if (append) {
-          setOrders((prev) => uniqueById([...prev, ...fetchedOrders]));
-        } else if (isEditMode && editData?.orders?.length > 0) {
-          const fetchedOrderIds = fetchedOrders.map((o) => o.order_id);
-          const missingOrders = editData.orders.filter((o) => !fetchedOrderIds.includes(o.order_id));
-          setOrders(uniqueById([...missingOrders, ...fetchedOrders]));
-        } else {
-          setOrders(uniqueById(fetchedOrders));
-        }
-
-        setPaginationData(pagination);
-        setNextPage((pagination?.current_page || page) + 1);
-      } catch {
-        setOrders([]);
-        setPaginationData({});
-        setNextPage(1);
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
-      }
-    },
-    [isEditMode, editData]
-  );
-
-  useEffect(() => {
-    if (!isOpen) return;
-    fetchOrders({ page: 1, append: false });
-  }, [isOpen, fetchOrders]);
-
-  const handleLoadMore = async () => {
-    const hasMore = paginationData?.current_page < paginationData?.last_page;
-    if (!hasMore || loading || loadingMore) return;
-
-    await fetchOrders({ page: nextPage, append: true });
-  };
 
   const totalAmount = selectedRows.reduce((sum, o) => sum + (parseFloat(o.total_cash_to_deposit) || 0), 0);
   const grandTotal = Object.entries(denominations).reduce((sum, [val, cnt]) => sum + parseInt(val) * (parseInt(cnt) || 0), 0);
@@ -431,8 +401,6 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     },
   ];
 
-  const hasMoreOrders = paginationData?.current_page < paginationData?.last_page;
-
   return (
     <>
       <Drawer
@@ -478,8 +446,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
 
                   <div className="min-w-[170px] pb-[2px]">
                     <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-600">
-                      Loaded {orders.length}
-                      {paginationData?.total ? ` out of ${paginationData.total}` : ""} orders
+                      Loaded {orders.length} orders
                     </div>
                   </div>
 
@@ -507,31 +474,29 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                 </div>
               </div>
 
-              <div className="px-6 flex-1 min-h-0">
+              <div className="px-6 flex-1 min-h-0 flex flex-col">
                 <DataTable
                   columns={columns}
                   data={orders}
                   selectedRows={selectedRows}
                   isLoading={loading}
                   setSelectedRows={setSelectedRows}
-                  className="h-full"
+                  className="flex-1 min-h-0"
                   hideFooter
+                  onScrollEnd={handleLoadMore}
                 />
+                {!loading && (hasNextPage || isFetchingNextPage) && (
+                  <div className="pt-2 pb-1 text-center text-[11px] font-semibold text-slate-400">
+                    {isFetchingNextPage ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Loading more orders...
+                      </span>
+                    ) : (
+                      "Scroll to load more"
+                    )}
+                  </div>
+                )}
               </div>
-
-              {hasMoreOrders && (
-                <div className="px-6 pb-3 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={handleLoadMore}
-                    disabled={loading || loadingMore}
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-[#1a73e8] hover:text-[#1a73e8] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    Load more orders
-                  </button>
-                </div>
-              )}
 
               <div className="flex items-center bg-[#FDFDFE] border-t border-slate-200 py-4 px-6 gap-3 justify-end">
                 <button

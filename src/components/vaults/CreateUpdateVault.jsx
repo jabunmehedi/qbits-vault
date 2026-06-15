@@ -105,7 +105,7 @@ const CreateUpdateVault = ({
                 <FiBox className="w-6 h-6 text-blue-600" />
                 <label className="text-sm font-semibold text-gray-600">Bags Association</label>
               </div>
-              <div className="flex uppercase font-semibold items-center gap-2 cursor-pointer px-4 py-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg text-xs text-blue-400 ">
+              <div className="flex uppercase font-semibold items-center gap-2 cursor-pointer px-4 py-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg text-xs text-[#1a73e8] ">
                 Limit
                 <input
                   type="text"

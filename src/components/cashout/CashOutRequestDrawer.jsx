@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from "framer-motion";
 import Drawer from "../global/drawer/Drawer";
 import { MdArrowOutward } from "react-icons/md";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { CreateCashOut, GetCashInsByVaultId } from "../../services/Cash";
 import { useSelector, useDispatch } from "react-redux";
 import { fetchAuthUser, selectAuthUser } from "../../store/authSlice";
@@ -21,15 +22,11 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
 
   const [step, setStep] = useState(1);
   const [selectedRows, setSelectedRows] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [orders, setOrders] = useState([]);
   const [depositLoading, setDepositLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [selectedVault, setSelectedVault] = useState(null);
   const [custodians, setCustodians] = useState([]);
   const [error, setError] = useState(null);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
 
   // ── Step 1 & Step 2 Fields ──
@@ -65,7 +62,6 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
     setPurposeNoteTouched(false);
     setSelectedVault(null);
     setError(null);
-    setVisibleCount(PAGE_SIZE);
     onClose();
   }, [onClose]);
 
@@ -82,7 +78,33 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
     }
   }, [isEditMode, user?.vault_assignments]);
 
-  // ── Seed selected rows ──
+  // ── Fetch available cash-out bags (cursor-paginated, infinite scroll) ──
+  const vaultId = selectedVault?.vault?.id;
+  const { data, isLoading: loading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ["cashOutBags", vaultId],
+    enabled: isOpen && !!vaultId,
+    initialPageParam: null,
+    queryFn: async ({ pageParam }) => {
+      const res = await GetCashInsByVaultId(vaultId, { cursor: pageParam, per_page: PAGE_SIZE });
+      return res?.data; // { data: [...], next_cursor, has_more }
+    },
+    getNextPageParam: (lastPage) => lastPage?.next_cursor ?? undefined,
+  });
+
+  const fetchedOrders = useMemo(() => uniqueById(data?.pages?.flatMap((p) => p?.data || []) || []), [data]);
+
+  // In edit mode the bags already on this cash-out are excluded server-side
+  // (whereDoesntHave cashOut), so prepend them from editData to keep them visible/selectable.
+  const orders = useMemo(() => {
+    if (isEditMode && editData?.orders?.length > 0) {
+      const fetchedIds = new Set(fetchedOrders.map((o) => o.order_id));
+      const missing = editData.orders.filter((o) => !fetchedIds.has(o.order_id));
+      return uniqueById([...missing, ...fetchedOrders]);
+    }
+    return fetchedOrders;
+  }, [fetchedOrders, isEditMode, editData]);
+
+  // ── Seed selected rows (edit mode) ──
   useEffect(() => {
     if (!isEditMode || !editData || orders.length === 0) return;
 
@@ -94,61 +116,9 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
     }
   }, [orders, isEditMode, editData]);
 
-  // ── Fetch orders ──
-  const fetchCashIns = useCallback(async () => {
-    if (!selectedVault?.vault?.id) {
-      setOrders([]);
-      setVisibleCount(PAGE_SIZE);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await GetCashInsByVaultId(selectedVault?.vault?.id);
-      const fetchedOrders = Array.isArray(res?.data) ? res.data : res?.data?.data || res?.data || [];
-
-      if (isEditMode && editData?.orders?.length > 0) {
-        const fetchedOrderIds = fetchedOrders.map((o) => o.order_id);
-        const missingOrders = editData.orders.filter((o) => !fetchedOrderIds.includes(o.order_id));
-        const merged = uniqueById([...missingOrders, ...fetchedOrders]);
-        setOrders(merged);
-        setVisibleCount(merged.length);
-      } else {
-        setOrders(uniqueById(fetchedOrders));
-        setVisibleCount(Math.min(PAGE_SIZE, fetchedOrders.length));
-      }
-    } catch {
-      setOrders([]);
-      setVisibleCount(PAGE_SIZE);
-    } finally {
-      setLoading(false);
-    }
-  }, [isEditMode, editData, selectedVault]);
-
-  useEffect(() => {
-    if (isOpen) {
-      fetchCashIns();
-    }
-  }, [fetchCashIns, isOpen]);
-
-  // ── Calculation Logic ──
-  useEffect(() => {
-    if (isEditMode) {
-      setVisibleCount(orders.length);
-      return;
-    }
-
-    setVisibleCount((prev) => Math.min(prev, orders.length || PAGE_SIZE));
-  }, [orders, isEditMode]);
-
   const loadMoreOrders = useCallback(() => {
-    if (loading || loadingMore) return;
-    if (visibleCount >= orders.length) return;
-
-    setLoadingMore(true);
-    setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, orders.length));
-    setLoadingMore(false);
-  }, [loading, loadingMore, orders.length, visibleCount]);
+    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const totalSelectedBagAmount = selectedRows.reduce((sum, o) => sum + (parseFloat(o.cash_in_amount) || 0), 0);
 
@@ -156,7 +126,7 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
   const calculatedExcessAmount = requestedAmount < totalSelectedBagAmount;
 
   const isCustodianRequire = parseFloat(requestedAmount) < parseFloat(totalSelectedBagAmount) ? true : false;
-  const visibleOrders = orders.slice(0, visibleCount);
+  const visibleOrders = orders;
 
   const handleGenerateDeposit = () => {
     // 1. Required Vault Check
@@ -393,23 +363,33 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
                   <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase ml-1">Available Orders for Cash Out</span>
                   <div className="flex items-center gap-3">
                     <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-600">
-                      Loaded {visibleOrders.length}
-                      {orders.length ? ` out of ${orders.length}` : ""} orders
+                      Loaded {visibleOrders.length} orders
                     </div>
                     <span className="bg-blue-50 text-[#1a73e8] text-[11px] font-semibold px-2.5 py-1 rounded-full">{selectedRows.length} Selected</span>
                   </div>
                 </div>
-                <div className="flex-1 min-h-0 overflow-hidden">
+                <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                   <DataTable
                     columns={columns}
                     data={visibleOrders}
                     selectedRows={selectedRows}
                     isLoading={loading}
                     setSelectedRows={setSelectedRows}
-                    className="h-full"
+                    className="flex-1 min-h-0"
                     hideFooter
                     onScrollEnd={loadMoreOrders}
                   />
+                  {!loading && (hasNextPage || isFetchingNextPage) && (
+                    <div className="pt-2 text-center text-[11px] font-semibold text-slate-400">
+                      {isFetchingNextPage ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <Loader2 className="animate-spin" size={12} /> Loading more bags...
+                        </span>
+                      ) : (
+                        "Scroll to load more"
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -1,22 +1,22 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Calendar, Layers, Loader2 } from "lucide-react";
+import { Calendar, Layers, Loader2, BookOpen, Landmark } from "lucide-react";
 import { GetReports } from "../../services/Reports";
 import DataTable from "../../components/global/dataTable/DataTable";
 import { GetVaults } from "../../services/Vault";
 import { useSelector } from "react-redux";
 import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
 import { useSearchParams } from "react-router-dom";
+import VaultStatementList from "../../components/reports/VaultStatementList";
+import VaultStatement from "../../components/reports/VaultStatement";
 
 const Reports = () => {
+  const [mode, setMode] = useState("statement"); // "statement" (bank-style) | "ledger" (flat)
+  const [activeVault, setActiveVault] = useState(null); // selected vault for the statement view
   const [timeline, setTimeline] = useState("all");
   const [selectedVault, setSelectedVault] = useState("all");
   const [vaults, setVaults] = useState([]);
-  const [paginationData, setPaginationData] = useState({});
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  // Extra states for your new granular search filters
-  const [tranId, setTranId] = useState("");
+  const [, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
 
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
@@ -43,12 +43,11 @@ const Reports = () => {
 
   // React Query Fetch Hook
   const { data, isLoading } = useQuery({
-    queryKey: ["vaultReport", timeline, selectedVault, tranId, page],
+    queryKey: ["vaultReport", timeline, selectedVault, page],
     queryFn: async () => {
       const res = await GetReports({
         timeline,
         vault_id: selectedVault,
-        tran_id: tranId,
         page: page,
         per_page: 15,
       });
@@ -122,6 +121,8 @@ const Reports = () => {
     }
   ];
 
+  const isStatement = mode === "statement";
+
   return (
     <div>
       {/* Upper Controls / Breadcrumb Panel */}
@@ -129,13 +130,38 @@ const Reports = () => {
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-10 bg-[#1a2b4b] rounded-full" />
           <div>
-            <h1 className="xl:text-2xl font-black text-[#1a2b4b] uppercase">Vault Ledger Reports</h1>
+            <h1 className="xl:text-2xl font-black text-[#1a2b4b] uppercase">
+              {isStatement ? "Bank Statement" : "Vault Ledger Reports"}
+            </h1>
             <p className="text-[8px] xl:text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase">Audit Reports</p>
           </div>
         </div>
 
         {/* Filters Matrix Row */}
         <div className="flex flex-wrap items-center gap-3">
+          {/* Mode toggle: Bank Statement vs flat Ledger */}
+          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+            <button
+              onClick={() => {
+                setMode("statement");
+                setActiveVault(null);
+              }}
+              className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${
+                isStatement ? "bg-[#1a2b4b] text-white" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <Landmark size={14} /> Statement
+            </button>
+            <button
+              onClick={() => setMode("ledger")}
+              className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${
+                !isStatement ? "bg-[#1a2b4b] text-white" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <BookOpen size={14} /> Ledger
+            </button>
+          </div>
+
           {/* Dynamic Transaction ID Text Search Input */}
           {/* <div className="flex items-center gap-1.5 bg-white border rounded-xl px-3 py-1.5 shadow-2xs">
             <Search size={14} className="text-slate-400" />
@@ -169,31 +195,41 @@ const Reports = () => {
             </select>
           </div>
 
-          {/* Vault ID Select Filter Constraint */}
-          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm">
-            <Layers size={14} className="text-slate-400" />
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vault:</span>
-            <select
-              value={selectedVault}
-              onChange={(e) => {
-                setSelectedVault(e.target.value);
-                setPage(1);
-              }}
-              className="text-xs font-semibold bg-transparent outline-none cursor-pointer text-slate-700"
-            >
-              <option value="all">All Active Vaults</option>
-              {/* DYNAMIC CONDITIONALLY FILTERED VAULT LOOP */}
-              {filteredVaults?.map((vault) => (
-                <option key={vault.id} value={vault.id}>
-                  {vault.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Vault ID Select Filter Constraint — ledger mode only */}
+          {!isStatement && (
+            <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm">
+              <Layers size={14} className="text-slate-400" />
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vault:</span>
+              <select
+                value={selectedVault}
+                onChange={(e) => {
+                  setSelectedVault(e.target.value);
+                  setPage(1);
+                }}
+                className="text-xs font-semibold bg-transparent outline-none cursor-pointer text-slate-700"
+              >
+                <option value="all">All Active Vaults</option>
+                {/* DYNAMIC CONDITIONALLY FILTERED VAULT LOOP */}
+                {filteredVaults?.map((vault) => (
+                  <option key={vault.id} value={vault.id}>
+                    {vault.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Main Ledger Content Canvas Card Wrapper */}
+      {/* Bank Statement Mode: vault accounts list -> per-vault running-balance statement */}
+      {isStatement ? (
+        activeVault ? (
+          <VaultStatement vault={activeVault} timeline={timeline} onBack={() => setActiveVault(null)} />
+        ) : (
+          <VaultStatementList vaults={filteredVaults} onSelect={setActiveVault} />
+        )
+      ) : (
+      /* Main Ledger Content Canvas Card Wrapper */
       <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden">
         {/* Aggregate Status Summary Header Strip */}
         <div className="bg-slate-50/50 border-b border-slate-100 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
@@ -234,6 +270,7 @@ const Reports = () => {
           <DataTable data={ledgerRows} columns={columns} paginationData={pagination} changePage={handlePageChange} className="h-[calc(100vh-220px)]" />
         )}
       </div>
+      )}
     </div>
   );
 };
