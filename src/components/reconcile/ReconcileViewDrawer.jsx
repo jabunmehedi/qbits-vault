@@ -123,7 +123,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     return initialSubmitted;
   };
 
-  console.log({ user });
 
   useEffect(() => {
     if (reconcileId && isOpen) {

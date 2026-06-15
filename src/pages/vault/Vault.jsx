@@ -28,7 +28,6 @@ const Vault = () => {
   const [vaultBagsDetails, setVaultBagsDetails] = useState([]);
   const [loadingBags, setLoadingBags] = useState(false);
   const [expandedBag, setExpandedBag] = useState(null);
-  const [historyBag, setHistoryBag] = useState(null);
   const [generatedVaultCode, setGeneratedVaultCode] = useState(null);
 
   const [isEditMode, setIsEditMode] = useState(false);
@@ -195,6 +194,7 @@ const Vault = () => {
 
     setVaults(items ?? []);
     setPaginationData(pagination);
+    return items ?? [];
   };
 
   useEffect(() => {
@@ -244,8 +244,6 @@ const Vault = () => {
     setDrawerOpen(true);
     setLoadingBags(true);
     setExpandedBag(null);
-    setHistoryBag(null);
-
     if (vault.bags?.length > 0) {
       setVaultBagsDetails(vault.bags);
       setLoadingBags(false);
@@ -379,7 +377,17 @@ const Vault = () => {
           return;
         }
 
-        addToast({ type: "success", message: "Vault created successfully." });
+        const createdCode = String(generatedVaultCode);
+        setIsLoading(false);
+        handleCloseModal();
+        const refreshedVaults = await fetchVaultData();
+        const canSeeVault = refreshedVaults.some((v) => String(v.vault_code) === createdCode);
+        if (canSeeVault) {
+          addToast({ type: "success", message: "Vault created successfully." });
+        } else {
+          addToast({ type: "info", message: "Vault created. Please wait for admin to enable your access." });
+        }
+        return;
       }
 
       setIsLoading(false);
@@ -513,6 +521,7 @@ const Vault = () => {
       title: "Action",
       key: "actions",
       className: "w-14 relative",
+      noClip: true,
       render: (row) => {
         const isMenuOpen = activeActionMenuId === row.id;
         const isConfirmingDelete = deleteConfirmId === row.id;
@@ -551,45 +560,29 @@ const Vault = () => {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -5 }}
                 transition={{ duration: 0.15 }}
-                className={`absolute right-0 mt-1 ${row?.verifier_status === "verified" ? "hidden" : ""} bg-white border border-gray-200 divide-y divide-gray-100 rounded-lg shadow-xl z-50 overflow-hidden transition-all ${
-                  isConfirmingDelete ? "w-44" : "w-28"
-                }`}
+                className={`absolute right-0 mt-1 bg-white border border-gray-200 divide-y divide-gray-100 rounded-lg shadow-xl z-50 overflow-hidden ${isConfirmingDelete ? "w-44" : "w-36"}`}
               >
                 <AnimatePresence mode="wait">
                   {!isConfirmingDelete ? (
                     <motion.div key="options" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                      {/* Edit Option */}
                       {(isSuperAdmin || hasPermission("vault.edit")) && (
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditModal(row);
-                          }}
-                          className="flex items-center w-full px-3 py-2 text-xs hover:text-blue-600 hover:bg-blue-50 transition-colors gap-2 cursor-pointer"
+                          onClick={(e) => { e.stopPropagation(); setActiveActionMenuId(null); openEditModal(row); }}
+                          className="flex items-center w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors gap-2 font-medium cursor-pointer"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                            />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                           </svg>
                           Edit
                         </button>
                       )}
-
-                      {/* Delete Option Trigger */}
                       {(isSuperAdmin || hasPermission("vault.delete")) && (
                         <button
                           onClick={handleDeleteClick}
-                          className="flex items-center w-full px-3 py-2 text-xs hover:text-red-600 hover:bg-red-50 transition-colors gap-2 cursor-pointer"
+                          className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors gap-2 font-medium cursor-pointer"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
                           Delete
                         </button>
@@ -603,7 +596,7 @@ const Vault = () => {
                       exit={{ opacity: 0, x: -10 }}
                       className="py-4 text-center"
                     >
-                      <p className="text-xs text-gray-500 font-medium mb-2">Are you sure you want to delete?</p>
+                      <p className="text-xs text-gray-500 font-medium mb-2">Are you sure?</p>
                       <div className="flex justify-center gap-2">
                         <button
                           onClick={handleCancelDelete}
@@ -613,13 +606,10 @@ const Vault = () => {
                         </button>
                         <button
                           disabled={isApiDeleting}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteSubmit(row.id);
-                          }}
+                          onClick={(e) => { e.stopPropagation(); handleDeleteSubmit(row.id); }}
                           className="px-2 py-1 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded transition-colors cursor-pointer"
                         >
-                          {isApiDeleting ? <Loader2 className="w-4 h-4  mx-2 animate-spin" /> : "Confirm"}
+                          {isApiDeleting ? <Loader2 className="w-4 h-4 mx-2 animate-spin" /> : "Confirm"}
                         </button>
                       </div>
                     </motion.div>
@@ -700,7 +690,6 @@ const Vault = () => {
         loadingBags={loadingBags}
         toggleBagExpand={toggleBagExpand}
         expandedBag={expandedBag}
-        setHistoryBag={setHistoryBag}
       />
     </div>
   );

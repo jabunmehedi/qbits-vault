@@ -422,12 +422,12 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                     <div className="flex items-center gap-2 w-full justify-end">
                       <button
                         onClick={handleDisableUser}
-                        disabled={actionLoading === "disable" || (!isSuperAdmin && !isAdmin)}
-                        className={`text-white px-3 py-2 rounded-lg text-xs font-bold transition disabled:opacity-20 ${
+                        disabled={statusMutation.isPending || (!isSuperAdmin && !isAdmin)}
+                        className={`text-white px-3 py-2 rounded-lg text-xs font-bold transition disabled:opacity-50 ${
                           user?.status === "inactive" ? "bg-green-600 hover:bg-green-700" : "bg-[#AE2448] hover:bg-red-800"
                         }`}
                       >
-                        {actionLoading === "disable" ? "..." : user?.status === "inactive" ? "ENABLE USER" : "DISABLE USER"}
+                        {user?.status === "inactive" ? "ENABLE USER" : "DISABLE USER"}
                       </button>
 
                       {/* Explicit Migrate Trigger Button next to Archive */}
@@ -436,10 +436,8 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                         disabled={checkingMigration || user?.status === "archived" || (!isSuperAdmin && !isAdmin)}
                         className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition text-gray-700 bg-gray-100 border border-gray-200 hover:bg-gray-200 disabled:opacity-40"
                       >
-                        <>
-                          <RefreshCw size={12} />
-                          MIGRATE
-                        </>
+                        {checkingMigration ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                        MIGRATE
                       </button>
 
                       <button

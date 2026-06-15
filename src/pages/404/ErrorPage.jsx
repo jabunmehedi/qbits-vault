@@ -4,7 +4,6 @@ import { useNavigate, useRouteError } from "react-router-dom";
 export default function ErrorPage() {
   const navigate = useNavigate();
   const error = useRouteError();
-  console.error(error);
 
   return (
     <div className="min-h-screen text-white flex flex-col items-center justify-center bg-dark800 p-6">

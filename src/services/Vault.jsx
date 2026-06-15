@@ -92,6 +92,15 @@ export const UpdateVaultRoles = async (userId, vaultId, roles) => {
     console.error(error?.response?.data?.message);
   }
 };
+export const GetBagHistory = async (bagId) => {
+  try {
+    const response = await axiosConfig.get(`/activity-logs/bag/${bagId}`);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response?.data;
+  }
+};
 export const MakeDefaultVault = async (id, data) => {
   try {
     const response = await axiosConfig.put(`/users/${id}`, data);
