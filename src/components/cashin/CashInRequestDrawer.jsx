@@ -3,7 +3,7 @@ import Drawer from "../global/drawer/Drawer";
 import { MdArrowOutward, MdOutlineCalculate, MdRestartAlt } from "react-icons/md";
 import DataTable from "../global/dataTable/DataTable";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CreateCashIn, UpdateCashIn } from "../../services/Cash";
+import { CheckBagAvailability, CreateCashIn, UpdateCashIn } from "../../services/Cash";
 import { GetOrders } from "../../services/Orders";
 import dayjs from "dayjs";
 import { LuMinus, LuPlus } from "react-icons/lu";
@@ -196,22 +196,54 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const { valid: isVaultValid, msg: vaultMsg } = vaultValidation();
   const isCashInVaultMinMaxAmountAllowed = selectedRows.length > 0 && isVaultValid;
 
-  const handleGenerateDeposit = () => {
+  const handleGenerateDeposit = async () => {
     const { valid, msg } = vaultValidation();
     if (!valid) return setError(msg);
+
+    const vaultId = selectedVault?.vault.id || user?.default_vault_id;
+
+    setError(null);
     setDepositLoading(true);
-    setStep(2);
+    try {
+      // Check bag availability up front so we restrict the user here (on Next)
+      // instead of only at the final submit step.
+      const res = await CheckBagAvailability(vaultId);
+
+      const failed =
+        !res ||
+        res instanceof Error ||
+        res?.isAxiosError === true ||
+        res?.success === false ||
+        (typeof res?.status === "number" && res.status >= 400);
+
+      if (failed) {
+        const data = res?.response?.data || res;
+        const canCreate = !!data?.message?.bag_create_role;
+        const msgText = data?.message?.message || "No bag available for cash-in.";
+
+        // No bag available AND the user can't create one — stop here, don't advance.
+        // (If they can create a bag, let them continue and create + submit at the end.)
+        if (!canCreate) {
+          addToast({ type: "warning", message: msgText });
+          return;
+        }
+      }
+
+      setStep(2);
+    } finally {
+      setDepositLoading(false);
+    }
   };
 
   const handleDoneClick = () => setIsConfirmModalOpen(true);
 
-  const handleConfirmSubmit = async () => {
+  const handleConfirmSubmit = async (successMessage = "Cash-in submitted successfully!") => {
     const { valid, msg } = vaultValidation();
     if (!valid) {
       setIsConfirmModalOpen(false);
       setError(msg);
       setStep(1);
-      return;
+      return false;
     }
 
     setSubmitLoading(true);
@@ -259,15 +291,30 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
 
       const res = isEditMode ? await UpdateCashIn(editData.id, payload) : await CreateCashIn(payload);
 
-      if (res?.status === 500 || res?.status === 422 || res?.success === false) {
+      // CreateCashIn/UpdateCashIn return the response body on success, or the raw
+      // axios error object on failure. Detect failure explicitly; treat anything
+      // else as success so a success body without an explicit { success: true }
+      // field still closes the modal and refetches.
+      const failed =
+        !res ||
+        res instanceof Error ||
+        res?.isAxiosError === true ||
+        res?.success === false ||
+        (typeof res?.status === "number" && res.status >= 400);
+
+      if (failed) {
         setIsDepositError(true);
         setDepositError(res?.response?.data || "An error occurred.");
-      } else if (res?.status === 200 || res?.status === 201 || res?.success === true) {
+        return false;
+      } else {
+        addToast({ type: "success", message: successMessage });
         refetch?.();
         handleClose();
+        return true;
       }
     } catch (err) {
       console.error("Submit error:", err);
+      return false;
     } finally {
       setSubmitLoading(false);
     }
@@ -289,7 +336,16 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
       throw new Error(res?.message);
     }
 
-    addToast({ type: "success", message: "Bag created successfully! You can now retry your cash-in." });
+    // Clear the "no bag" error and submit the cash-in right away — one action, no manual retry.
+    setIsDepositError(false);
+    setDepositError("");
+    const submitted = await handleConfirmSubmit("Bag created and cash-in submitted successfully!");
+
+    // Bag was created; if the follow-up submit failed, make sure the user still
+    // knows the bag exists (the modal already shows the submit error).
+    if (!submitted) {
+      addToast({ type: "warning", message: "Bag created, but the cash-in could not be submitted. Please try again." });
+    }
   };
 
   const columns = [

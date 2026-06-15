@@ -24,6 +24,15 @@ export const GetCashOuts = async () => {
     console.error(error?.response?.data?.message);
   }
 };
+export const CheckBagAvailability = async (vaultId) => {
+  try {
+    const response = await axios.get(`/check-bag/cash-in/${vaultId}`);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error;
+  }
+};
 export const CreateCashIn = async (data) => {
   try {
     const response = await axios.post(`/cash-in`, data);
@@ -143,6 +152,16 @@ export const VerifyCashOut = async (id, action, note = "") => {
 export const ApproveCashOut = async (id, note = "") => {
   try {
     const response = await axios.post(`/approve/cash-out/${id}`, { note });
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response?.data;
+  }
+};
+
+export const RejectCashOut = async (id, note = "", type = "verifier") => {
+  try {
+    const response = await axios.post(`/reject/cash-out/${id}`, { note, type });
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);

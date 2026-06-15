@@ -9,3 +9,13 @@ export const GetCashInLedger = async (cashInId) => {
     throw error;
   }
 };
+
+export const GetCashOutLedger = async (cashOutId) => {
+  try {
+    const response = await axiosConfig.get(`/cash-out/${cashOutId}/ledger`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching cash-out ledger:", error);
+    throw error;
+  }
+};

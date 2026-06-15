@@ -619,6 +619,7 @@ const fetchCashInsData = useCallback(() => {
                 setOpen={(isOpen) => setActiveVerifyId(isOpen ? row.id : null)}
                 className="max-w-xl"
                 title="Verify"
+                rejectTitle="Reject this cash-in?"
               >
                 <CashInDetails cashIn={row} />
               </VerifyButton>

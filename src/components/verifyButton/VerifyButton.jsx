@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { Loader2, X } from "lucide-react";
 
-const VerifyButton = ({ children, isOpen, setOpen, className, handleSubmit, handleReject, isLoading, title = "Verify" }) => {
+const VerifyButton = ({ children, isOpen, setOpen, className, handleSubmit, handleReject, isLoading, title = "Verify", rejectTitle = "Reject this request?" }) => {
   const [rejectMode, setRejectMode] = useState(false);
   const [rejectNote, setRejectNote] = useState("");
 
@@ -94,7 +94,7 @@ const VerifyButton = ({ children, isOpen, setOpen, className, handleSubmit, hand
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                           </svg>
                         </div>
-                        <p className="text-sm font-semibold text-slate-700">Reject this cash-in?</p>
+                        <p className="text-sm font-semibold text-slate-700">{rejectTitle}</p>
                         <p className="text-xs text-slate-400 mt-1">Provide a reason (optional)</p>
                       </div>
                       <textarea

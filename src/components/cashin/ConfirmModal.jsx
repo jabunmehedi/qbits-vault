@@ -5,7 +5,6 @@ import { useState } from "react";
 const ConfirmModal = ({ grandTotal, onCancel, onConfirm, loading, isDepositError, message, onBagCreated }) => {
   const [rackNumber, setRackNumber] = useState("1");
   const [bagLoading, setBagLoading] = useState(false);
-  const [bagSuccess, setBagSuccess] = useState(false);
 
   const hasCreatePermission = !!message?.message?.bag_create_role;
   const isBlocked = message?.errors?.role_status === false;
@@ -13,15 +12,16 @@ const ConfirmModal = ({ grandTotal, onCancel, onConfirm, loading, isDepositError
   const handleCreateBag = async () => {
     setBagLoading(true);
     try {
+      // Creates the bag and submits the cash-in in one go. On success the parent
+      // closes this modal; on failure it re-renders with the new error.
       await onBagCreated(rackNumber);
-      setBagSuccess(true);
     } finally {
       setBagLoading(false);
     }
   };
 
   return (
-    <CustomModal title="Cash In Deposit" isCloseModal={onCancel} className="max-w-lg">
+    <CustomModal title="Cash In Deposit" isCloseModal={onCancel} className="max-w-2xl">
       {isDepositError ? (
         <div>
           <div className="py-6 text-center">
@@ -35,11 +35,7 @@ const ConfirmModal = ({ grandTotal, onCancel, onConfirm, loading, isDepositError
             <p className="text-slate-500 text-sm">{message?.message?.message}</p>
           </div>
 
-          {bagSuccess ? (
-            <div className="mx-4 mb-4 p-4 bg-green-50 border border-green-200 rounded-xl text-center">
-              <p className="text-green-600 font-semibold text-sm">Bag created successfully! You can now retry your cash-in.</p>
-            </div>
-          ) : hasCreatePermission ? (
+          {hasCreatePermission ? (
             <div className="mx-4 mb-4 p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Create New Bag</p>
               <div>
@@ -52,28 +48,29 @@ const ConfirmModal = ({ grandTotal, onCancel, onConfirm, loading, isDepositError
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
-              <p className="text-[11px] text-slate-400">Barcode will be auto-generated based on the vault.</p>
+              <p className="text-[11px] text-slate-400">A bag will be created and your cash-in submitted in one step.</p>
             </div>
           ) : isBlocked ? (
             <div className="mx-4 mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-center">
-              <p className="text-yellow-700 text-sm font-medium">You don't have permission to create bags. Contact your admin.</p>
+              <p className="text-yellow-700 text-sm font-medium">You don&apos;t have permission to create bags. Contact your admin.</p>
             </div>
           ) : null}
 
           <div className="flex justify-between items-center gap-4 px-4 pb-4">
             <button
               onClick={onCancel}
-              className="flex-1 py-2.5 px-4 rounded-xl text-sm border border-gray-200 font-bold text-gray-600 hover:text-red-400 hover:bg-gray-50 transition-colors"
+              disabled={bagLoading}
+              className="flex-1 py-2.5 px-4 rounded-xl text-sm border border-gray-200 font-bold text-gray-600 hover:text-red-400 hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
-              {bagSuccess ? "Close" : "Cancel"}
+              Cancel
             </button>
-            {!bagSuccess && hasCreatePermission && (
+            {hasCreatePermission && (
               <button
                 onClick={handleCreateBag}
                 disabled={bagLoading || !rackNumber.trim()}
-                className="py-2.5 px-4 flex-1 rounded-xl bg-[#1a73e8] shadow-lg shadow-blue-200 hover:bg-blue-600 text-sm font-bold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="py-2.5 px-6 flex-1 whitespace-nowrap rounded-xl bg-[#1a73e8] shadow-lg shadow-blue-200 hover:bg-blue-600 text-sm font-bold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {bagLoading ? <Loader2 className="animate-spin w-4 h-4" /> : "Create Bag"}
+                {bagLoading ? <Loader2 className="animate-spin w-4 h-4" /> : "Create Bag & Submit Cash-In"}
               </button>
             )}
           </div>
@@ -101,7 +98,7 @@ const ConfirmModal = ({ grandTotal, onCancel, onConfirm, loading, isDepositError
               Cancel
             </button>
             <button
-              onClick={onConfirm}
+              onClick={() => onConfirm()}
               disabled={loading || grandTotal === 0}
               className="px-4 flex-1 py-2.5 rounded-xl bg-[#1a73e8] shadow-lg shadow-blue-200 hover:bg-blue-600 text-sm font-bold text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
