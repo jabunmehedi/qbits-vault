@@ -36,7 +36,7 @@ const CustodianAvatar = ({ custodian = [] }) => {
       >
         <div
           className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white shadow-sm group-hover:scale-105 transition-transform ${
-            custodian?.status === "verified" ? "bg-cyan-500 text-white" : "bg-gray-300 text-gray-600"
+            custodian?.status === "verified" ? "bg-[#1a73e8] text-white" : "bg-gray-300 text-gray-600"
           }`}
         >
           {(custodian?.custodian?.name || "V").charAt(0).toUpperCase()}

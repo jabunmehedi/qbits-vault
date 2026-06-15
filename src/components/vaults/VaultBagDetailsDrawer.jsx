@@ -72,7 +72,7 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
 
           {loadingBags ? (
             <div className="flex items-center justify-center py-24">
-              <div className="animate-spin rounded-full h-10 w-10 border-2 border-slate-100 border-t-cyan-500" />
+              <div className="animate-spin rounded-full h-10 w-10 border-2 border-slate-100 border-t-[#1a73e8]" />
             </div>
           ) : vaultBagsDetails.length === 0 ? (
             <div className="text-center py-24 border border-dashed border-slate-200 rounded-2xl bg-slate-50/30">
@@ -258,7 +258,7 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
               <div className="flex-1 overflow-y-auto p-5 scrollbar-thin">
                 {loadingHistory ? (
                   <div className="flex items-center justify-center py-24">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-100 border-t-cyan-500" />
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-100 border-t-[#1a73e8]" />
                   </div>
                 ) : historyData.length === 0 ? (
                   <div className="text-center py-24">

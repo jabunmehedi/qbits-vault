@@ -92,7 +92,7 @@ const SystemPreferences = () => {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`relative flex items-center gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap outline-none ${
-                isActive ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
+                isActive ? "text-blue-600 font-bold" : "text-slate-400 hover:text-slate-600"
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -124,7 +124,7 @@ const SystemPreferences = () => {
               {/* Loader State Render Boundary Scope Display */}
               {isLoading ? (
                 <div className="flex items-center justify-center py-24">
-                  <div className="w-8 h-8 rounded-full border-2 border-slate-100 border-t-cyan-500 animate-spin" />
+                  <div className="w-8 h-8 rounded-full border-2 border-slate-100 border-t-[#1a73e8] animate-spin" />
                 </div>
               ) : vaults.length === 0 ? (
                 <div className="text-center py-20 bg-white">
@@ -169,7 +169,7 @@ const SystemPreferences = () => {
                                 value={vault.bag_min_bal_limit}
                                 // FIX: Altered target parameter key string to match exactly what state uses
                                 onChange={(e) => handleThresholdChange(vault.id, "bag_min_bal_limit", e.target.value)}
-                                className="w-full pl-7 pr-3 py-2 bg-white border border-slate-200 rounded-xl focus:border-cyan-500/50 outline-none transition-all placeholder:text-gray-300 text-slate-700 text-xs font-mono font-bold"
+                                className="w-full pl-7 pr-3 py-2 bg-white border border-slate-200 rounded-xl focus:border-[#1a73e8]/50 outline-none transition-all placeholder:text-gray-300 text-slate-700 text-xs font-mono font-bold"
                               />
                             </div>
                           </td>
@@ -184,7 +184,7 @@ const SystemPreferences = () => {
                                 value={vault.bag_balance_limit}
                                 // FIX: Altered target parameter key string to match exactly what state uses
                                 onChange={(e) => handleThresholdChange(vault.id, "bag_balance_limit", e.target.value)}
-                                className="w-full pl-7 pr-3 py-2 bg-white border border-slate-200 rounded-xl focus:border-cyan-500/50 outline-none transition-all placeholder:text-gray-300 text-slate-700 text-xs font-mono font-bold"
+                                className="w-full pl-7 pr-3 py-2 bg-white border border-slate-200 rounded-xl focus:border-[#1a73e8]/50 outline-none transition-all placeholder:text-gray-300 text-slate-700 text-xs font-mono font-bold"
                               />
                             </div>
                           </td>

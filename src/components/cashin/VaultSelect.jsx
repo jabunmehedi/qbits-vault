@@ -35,10 +35,10 @@ const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, set
       <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase mb-1 ml-1">Select Vault</p>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between px-4 py-2.5 bg-[#F8FAFC] border ${error ? "border-red-300" : "border-slate-200"} rounded-xl hover:border-cyan-500 transition-all group`}
+        className={`w-full flex items-center justify-between px-4 py-2.5 bg-[#F8FAFC] border ${error ? "border-red-300" : "border-slate-200"} rounded-xl hover:border-[#1a73e8] transition-all group`}
       >
         <div className="flex items-center gap-2 overflow-hidden">
-          <MdOutlineAccountBalanceWallet className="text-slate-400 group-hover:text-cyan-500 transition-colors" size={18} />
+          <MdOutlineAccountBalanceWallet className="text-slate-400 group-hover:text-[#1a73e8] transition-colors" size={18} />
           <span className={`text-sm font-semibold truncate ${selectedVault ? "text-slate-700" : "text-slate-400"}`}>
             {selectedVault ? selectedVault.vault.name : "Select Vault"}
           </span>
@@ -65,10 +65,10 @@ const VaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, error, set
                   }}
                   className="w-full flex items-center justify-between px-4 py-2 hover:bg-[#F8FAFC] transition-colors text-left"
                 >
-                  <span className={`text-sm ${selectedVault?.id === vault.id ? "font-bold text-cyan-600" : "font-medium text-slate-600"}`}>
+                  <span className={`text-sm ${selectedVault?.id === vault.id ? "font-bold text-[#1a73e8]" : "font-medium text-slate-600"}`}>
                     {vault.vault.name}
                   </span>
-                  {selectedVault?.id === vault.id && <MdCheck className="text-cyan-500" size={18} />}
+                  {selectedVault?.id === vault.id && <MdCheck className="text-[#1a73e8]" size={18} />}
                 </button>
               ))}
             </div>

@@ -64,7 +64,7 @@ export const MigrateTab = ({ currentUser, users, onMigrate, migrating }) => {
           placeholder="Search user..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-cyan-400 bg-gray-50"
+          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-400 bg-gray-50"
         />
         <div className="max-h-[160px] overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
           {eligibleUsers.length === 0 && <p className="text-center text-sm text-gray-400 py-4">No users found</p>}
@@ -72,7 +72,7 @@ export const MigrateTab = ({ currentUser, users, onMigrate, migrating }) => {
             <label
               key={u.id}
               className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors ${
-                targetUserId === String(u.id) ? "bg-cyan-50" : "hover:bg-gray-50"
+                targetUserId === String(u.id) ? "bg-blue-50" : "hover:bg-gray-50"
               }`}
             >
               <input
@@ -85,10 +85,10 @@ export const MigrateTab = ({ currentUser, users, onMigrate, migrating }) => {
               />
               <div
                 className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
-                  targetUserId === String(u.id) ? "border-cyan-500" : "border-gray-300"
+                  targetUserId === String(u.id) ? "border-[#1a73e8]" : "border-gray-300"
                 }`}
               >
-                {targetUserId === String(u.id) && <div className="w-2 h-2 rounded-full bg-cyan-500" />}
+                {targetUserId === String(u.id) && <div className="w-2 h-2 rounded-full bg-[#1a73e8]" />}
               </div>
               <RxAvatar src={u.img} name={u.name} />
               <div className="flex-1 min-w-0">
@@ -106,7 +106,7 @@ export const MigrateTab = ({ currentUser, users, onMigrate, migrating }) => {
         onClick={() => targetUser && onMigrate(targetUser)}
         disabled={!targetUserId || migrating}
         className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
-          targetUserId && !migrating ? "bg-cyan-500 hover:bg-cyan-600 text-white" : "bg-gray-100 text-gray-400 cursor-not-allowed"
+          targetUserId && !migrating ? "bg-[#1a73e8] hover:bg-blue-600 text-white" : "bg-gray-100 text-gray-400 cursor-not-allowed"
         }`}
       >
         {migrating ? (

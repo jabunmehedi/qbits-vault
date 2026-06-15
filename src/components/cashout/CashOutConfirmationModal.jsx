@@ -151,8 +151,8 @@ export default function CashOutConfirmationModal({ amounts, selectedRows, select
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-4">
-                      <div className="bg-cyan-100 rounded-xl p-3">
-                        <Package className="w-8 h-8 text-cyan-600" />
+                      <div className="bg-blue-100 rounded-xl p-3">
+                        <Package className="w-8 h-8 text-blue-600" />
                       </div>
                       <div className="flex items-center justify-between w-full">
                         <div>
@@ -181,7 +181,7 @@ export default function CashOutConfirmationModal({ amounts, selectedRows, select
           <div className="bg-gray-50 rounded-xl p-6 mb-8 border border-gray-200">
             <div className="flex justify-between text-lg">
               <span className="text-gray-600">Total Amount</span>
-              <strong className="text-cyan-500">৳{amounts}</strong>
+              <strong className="text-[#1a73e8]">৳{amounts}</strong>
             </div>
             <div className="mt-4">
               <span className="text-gray-600 text-sm">Denominations</span>
@@ -224,7 +224,7 @@ export default function CashOutConfirmationModal({ amounts, selectedRows, select
                           transition={{ delay: 0.1 }}
                           className="relative overflow-hidden rounded-2xl p-6 text-center border border-gray-200 transition-all"
                         >
-                          <p className="font-black text-cyan-500">৳{note}</p>
+                          <p className="font-black text-[#1a73e8]">৳{note}</p>
                           <p className="text-gray-500 mt-2 text-sm">× {count}</p>
                           <p className="font-bold mt-3 text-gray-600">৳{subtotal.toLocaleString()}</p>
                         </motion.div>
@@ -278,7 +278,7 @@ export default function CashOutConfirmationModal({ amounts, selectedRows, select
                 <AiOutlineWarning className="w-20 h-20 text-yellow-500 mx-auto mb-6" />
                 <h4 className="text-2xl font-bold text-gray-800 mb-4">Are You Sure?</h4>
                 <p className="text-gray-600 mb-2">You are about to Cash Out:</p>
-                <p className="text-3xl font-bold text-cyan-600 mb-6">৳{amounts}</p>
+                <p className="text-3xl font-bold text-blue-600 mb-6">৳{amounts}</p>
                 <p className="text-gray-600 mb-8">
                   From the following bags:
                   <br />

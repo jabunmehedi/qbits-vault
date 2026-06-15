@@ -148,7 +148,7 @@ const PermissionViewer = ({ isOpen, onClose, user, permissions, onSaved }) => {
                   type="button"
                   onClick={handleSave}
                   disabled={!canEdit || isSaving}
-                  className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-100 disabled:text-slate-400 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-xs flex items-center gap-2"
+                  className="px-4 py-2 bg-[#1a73e8] hover:bg-blue-600 disabled:bg-slate-100 disabled:text-slate-400 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-xs flex items-center gap-2"
                 >
                   {isSaving ? <div className="w-3.5 h-3.5 border-2 border-slate-300 border-t-white rounded-full animate-spin" /> : "Update Permissions"}
                 </button>
@@ -181,7 +181,7 @@ const PermissionViewer = ({ isOpen, onClose, user, permissions, onSaved }) => {
                             onClick={() => toggleGroup(groupName)}
                             className={`flex items-center gap-1 px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md border transition-all ${
                               allSelected
-                                ? "bg-cyan-50 text-cyan-700 border-cyan-200/60"
+                                ? "bg-blue-50 text-[#1a73e8] border-blue-200/60"
                                 : "bg-white text-slate-400 border-slate-200 hover:text-slate-600 hover:border-slate-300"
                             }`}
                           >
@@ -206,7 +206,7 @@ const PermissionViewer = ({ isOpen, onClose, user, permissions, onSaved }) => {
                                 {/* Micro Custom Toggle Dot Matrix Circle */}
                                 <div
                                   className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all flex-shrink-0 ${
-                                    isChecked ? "bg-cyan-500 border-cyan-500 shadow-xs" : "bg-white border-slate-300 group-hover:border-slate-400"
+                                    isChecked ? "bg-[#1a73e8] border-[#1a73e8] shadow-xs" : "bg-white border-slate-300 group-hover:border-slate-400"
                                   }`}
                                 >
                                   {isChecked && <Check className="w-2.5 h-2.5 text-white stroke-[3.5]" />}

@@ -177,7 +177,7 @@ const CreateNewUserModal = ({ setOpenModal, onUserCreated, roles, roleSearch, se
                 {selectedRoles.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
                     {selectedRoles.map((roleName, index) => (
-                      <span key={index} className="inline-block bg-cyan-500 text-white text-xs px-2.5 py-0.5 rounded-full uppercase font-semibold">
+                      <span key={index} className="inline-block bg-[#1a73e8] text-white text-xs px-2.5 py-0.5 rounded-full uppercase font-semibold">
                         {roleName}
                       </span>
                     ))}

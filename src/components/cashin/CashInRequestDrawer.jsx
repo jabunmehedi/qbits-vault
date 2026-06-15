@@ -599,34 +599,59 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
               <div className="flex flex-1 overflow-hidden">
                 <div className="w-[55%] p-6 overflow-y-auto border-r border-slate-100 scrollbar-hide">
                   <div className="grid grid-cols-2 gap-4">
-                    {DENOM_NOTES.map((note) => (
-                      <div
-                        key={note}
-                        className="bg-[#F1F5F9] rounded-xl p-4 flex flex-col items-center gap-3 border border-transparent hover:border-blue-200 transition-all"
-                      >
-                        <span className="text-lg font-bold text-slate-700">{note.toLocaleString()}</span>
-                        <div className="flex items-center gap-4">
-                          <button
-                            onClick={() => updateDenom(note, -1)}
-                            className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50 border border-slate-100"
-                          >
-                            <LuMinus size={14} />
-                          </button>
-                          <input
-                            type="text"
-                            value={denominations[note] ?? 0}
-                            onChange={(e) => handleInputChange(note, e.target.value)}
-                            className="w-12 text-center bg-transparent text-blue-600 font-bold text-lg outline-none"
-                          />
-                          <button
-                            onClick={() => updateDenom(note, 1)}
-                            className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50 border border-slate-100"
-                          >
-                            <LuPlus size={14} />
-                          </button>
+                    {DENOM_NOTES.map((note) => {
+                      const count = parseInt(denominations[note]) || 0;
+                      const lineTotal = note * count;
+                      return (
+                        <div
+                          key={note}
+                          className="bg-white rounded-xl p-3.5 flex flex-col gap-2.5 border border-slate-200 hover:border-blue-300 transition-all shadow-sm"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-base font-bold text-slate-800">৳{note.toLocaleString()}</span>
+                            <span className={`text-[11px] font-semibold ${lineTotal > 0 ? "text-slate-600" : "text-slate-300"}`}>
+                              = ৳{lineTotal.toLocaleString()}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => updateDenom(note, -1)}
+                              className="w-8 h-8 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition disabled:opacity-40"
+                              disabled={count === 0}
+                              aria-label={`Decrease ${note} note count`}
+                            >
+                              <LuMinus size={14} />
+                            </button>
+
+                            <div className="relative flex-1">
+                              <span className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 bg-white px-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                                Qty
+                              </span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={denominations[note] ?? 0}
+                                onChange={(e) => handleInputChange(note, e.target.value)}
+                                placeholder="0"
+                                className="w-full text-center bg-white border border-slate-300 rounded-lg py-1.5 text-blue-600 font-bold text-base outline-none focus:border-[#1a73e8] focus:ring-2 focus:ring-blue-100 transition"
+                                aria-label={`${note} note count`}
+                              />
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => updateDenom(note, 1)}
+                              className="w-8 h-8 shrink-0 rounded-lg bg-[#1a73e8] flex items-center justify-center text-white hover:bg-blue-600 transition"
+                              aria-label={`Increase ${note} note count`}
+                            >
+                              <LuPlus size={14} />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 

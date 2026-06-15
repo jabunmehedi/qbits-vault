@@ -29,7 +29,7 @@ const TabContent = ({
                 name="name"
                 value={editFormData.name}
                 onChange={(e) => setEditFormData((p) => ({ ...p, name: e.target.value }))}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-cyan-400 outline-none"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-blue-400 outline-none"
               />
             </div>
 
@@ -40,7 +40,7 @@ const TabContent = ({
                 type="email"
                 value={editFormData.email}
                 onChange={(e) => setEditFormData((p) => ({ ...p, email: e.target.value }))}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-cyan-400 outline-none"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-blue-400 outline-none"
               />
             </div>
 
@@ -50,7 +50,7 @@ const TabContent = ({
                 name="status"
                 value={editFormData.status}
                 onChange={(e) => setEditFormData((p) => ({ ...p, status: e.target.value }))}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-cyan-400 outline-none bg-white"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-blue-400 outline-none bg-white"
               >
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>

@@ -74,7 +74,7 @@ export default function Dashboard() {
       change: dashboardData?.totalCashIn?.change || "0%",
       trend: dashboardData?.totalCashIn?.trend || "up",
       icon: FiArrowDownLeft,
-      color: "text-cyan-600 bg-cyan-50",
+      color: "text-blue-600 bg-blue-50",
     },
     {
       label: "Total Cashout",
@@ -107,14 +107,14 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 text-slate-800 p-6 font-sans relative overflow-x-hidden">
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-cyan-200/20 blur-[100px] rounded-full pointer-events-none" />
+      <div className="absolute top-0 right-1/4 w-96 h-96 bg-blue-200/20 blur-[100px] rounded-full pointer-events-none" />
       <div className="absolute bottom-10 left-10 w-80 h-80 bg-indigo-200/20 blur-[90px] rounded-full pointer-events-none" />
 
       <KYCReminderModal isOpen={showKYCModal} onClose={handleCloseModal} />
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 border-b border-slate-200/80 pb-5 relative z-50">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
             Qbits Vault Dashboard
           </h1>
           <p className="text-sm text-slate-400 mt-1">Real-time ecosystem health metrics and verification ledgers.</p>
@@ -181,9 +181,9 @@ export default function Dashboard() {
                 setTimeframeDropdownOpen(!timeframeDropdownOpen);
                 setVaultDropdownOpen(false);
               }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white/90 backdrop-blur-md border border-slate-200 hover:border-cyan-500/50 rounded-xl text-sm font-semibold text-slate-700 transition-all "
+              className="flex items-center gap-2 px-4 py-2.5 bg-white/90 backdrop-blur-md border border-slate-200 hover:border-[#1a73e8]/50 rounded-xl text-sm font-semibold text-slate-700 transition-all "
             >
-              <FiCalendar className="text-cyan-600" />
+              <FiCalendar className="text-blue-600" />
               <span>{timeframeLabels[timeframe]}</span>
               <FiChevronDown className={`transition-transform duration-200 ${timeframeDropdownOpen ? "rotate-180" : ""}`} />
             </button>
@@ -204,7 +204,7 @@ export default function Dashboard() {
                         setTimeframeDropdownOpen(false);
                       }}
                       className={`w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 transition ${
-                        timeframe === key ? "text-cyan-600 font-bold bg-cyan-50/50" : "text-slate-600"
+                        timeframe === key ? "text-blue-600 font-bold bg-blue-50/50" : "text-slate-600"
                       }`}
                     >
                       {label}
@@ -261,7 +261,7 @@ export default function Dashboard() {
 
               <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 bg-slate-50 px-3 py-1.5 border border-slate-100 rounded-xl">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-cyan-500 inline-block" /> Cash In
+                  <span className="w-2 h-2 rounded-full bg-[#1a73e8] inline-block" /> Cash In
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" /> Cash Out
@@ -394,12 +394,12 @@ export default function Dashboard() {
                       >
                         <div className="flex items-center gap-3">
                           <div
-                            className={`p-2 rounded-lg text-xs font-bold ${item.type === "Cash In" ? "bg-cyan-50 text-cyan-600" : item.type === "Cash Out" ? "bg-rose-50 text-rose-600" : "bg-purple-50 text-purple-600"}`}
+                            className={`p-2 rounded-lg text-xs font-bold ${item.type === "Cash In" ? "bg-blue-50 text-blue-600" : item.type === "Cash Out" ? "bg-rose-50 text-rose-600" : "bg-purple-50 text-purple-600"}`}
                           >
                             {item.type === "Cash In" ? "CI" : item.type === "Cash Out" ? "CO" : "VT"}
                           </div>
                           <div>
-                            <div className="text-xs font-bold text-slate-800 group-hover:text-cyan-600 transition-colors">
+                            <div className="text-xs font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
                               {item.tran_id} <span className="text-xs text-indigo-400">{item.vault_name}</span>
                             </div>
                             <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
