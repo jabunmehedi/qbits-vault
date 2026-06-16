@@ -301,12 +301,33 @@ const Vault = () => {
 
     // ── Rack number validation ──────────────────────────────────────
     const newRackErrors = {};
+    // Track racks already taken so a number can't be assigned to two bags.
+    // Uniqueness only matters when total_racks is set (otherwise every bag is rack "1").
+    const seenRacks = new Map();
 
     processedBags.forEach((bag) => {
-      if (!bag.rack_number || bag.rack_number === "") {
+      const rackStr = (bag.rack_number || "").trim();
+
+      if (!rackStr) {
         newRackErrors[bag.id] = "Rack number is required";
-      } else if (maxRacks !== null && !isTotalRacksEmpty && parseInt(bag.rack_number, 10) > maxRacks) {
+        return;
+      }
+
+      const rackNum = parseInt(rackStr, 10);
+
+      if (maxRacks !== null && !isTotalRacksEmpty && rackNum > maxRacks) {
         newRackErrors[bag.id] = `Cannot exceed ${maxRacks}`;
+        return;
+      }
+
+      if (!isTotalRacksEmpty) {
+        if (seenRacks.has(rackNum)) {
+          newRackErrors[bag.id] = `Rack ${rackNum} is already used`;
+          // Also flag the first bag that took this rack, so both are visible.
+          newRackErrors[seenRacks.get(rackNum)] = `Rack ${rackNum} is already used`;
+        } else {
+          seenRacks.set(rackNum, bag.id);
+        }
       }
     });
 

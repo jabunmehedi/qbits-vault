@@ -528,9 +528,9 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
-              className="flex flex-col h-full bg-white"
+              className="flex flex-col flex-1 min-h-0 bg-white"
             >
-              <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <div className="px-6 py-3 border-b border-slate-100 flex justify-between items-center">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
                     <MdOutlineCalculate size={20} />
@@ -620,13 +620,15 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                   </div>
                 </div>
 
-                <div className="w-[45%] p-8 bg-[#FCFCFD] flex flex-col">
-                  {difference > 0 && (
-                    <p className="text-red-400 mb-2 flex items-center gap-1 bg-red-50 text-xs font-medium px-3 py-1.5 rounded-full">
-                      <RiCloseCircleLine size={16} /> ৳{difference.toLocaleString()} over - remove notes
-                    </p>
-                  )}
-                  <div className="p-6 rounded-2xl border border-slate-200 bg-white space-y-6">
+                <div className="w-[45%] p-6 bg-[#FCFCFD] flex flex-col">
+                  <div className="p-5 rounded-2xl border border-slate-200 bg-white space-y-3">
+                    {/* "Over" warning sits at the top of the card: no clipping, and the
+                        card's top stays aligned with the left denominations grid. */}
+                    {difference > 0 && (
+                      <p className="flex items-center gap-1 bg-red-50 text-red-400 text-xs font-medium px-3 py-1.5 rounded-lg">
+                        <RiCloseCircleLine size={16} /> ৳{difference.toLocaleString()} over - remove notes
+                      </p>
+                    )}
                     <div className="flex justify-between">
                       <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Expected Total</p>
@@ -641,24 +643,24 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grand Total</p>
-                      <p className={`text-4xl font-black ${totalAmount < grandTotal ? "text-red-600" : "text-blue-600"}`}>৳{grandTotal.toLocaleString()}</p>
+                      <p className={`text-3xl font-black ${totalAmount < grandTotal ? "text-red-600" : "text-blue-600"}`}>৳{grandTotal.toLocaleString()}</p>
                     </div>
                   </div>
 
-                  <div className="mt-10 flex-1">
-                    <h3 className="text-sm font-bold text-slate-800 mb-4">Calculation Summary</h3>
-                    <div className="text-[10px] font-bold text-gray-400 uppercase grid grid-cols-3 pb-2 mb-3">
+                  <div className="mt-4 flex-1 min-h-0 flex flex-col">
+                    <h3 className="text-sm font-bold text-slate-800 mb-2">Calculation Summary</h3>
+                    <div className="text-[10px] font-bold text-gray-400 uppercase grid grid-cols-3 pb-1 mb-1">
                       <span>Denom</span>
                       <span>Count</span>
                       <span className="text-right">Total</span>
                     </div>
-                    <div className="overflow-y-auto max-h-[300px] pr-2">
+                    <div className="flex-1 min-h-0 overflow-y-auto pr-2">
                       {Object.entries(denominations).filter(([, cnt]) => cnt > 0).length > 0 ? (
                         Object.entries(denominations)
                           .filter(([, cnt]) => cnt > 0)
                           .sort(([a], [b]) => parseInt(b) - parseInt(a))
                           .map(([val, cnt]) => (
-                            <div key={val} className="grid grid-cols-3 border-b py-3 border-slate-200 text-sm">
+                            <div key={val} className="grid grid-cols-3 border-b py-2.5 border-slate-200 text-sm">
                               <span className="font-bold text-slate-700">৳{val}</span>
                               <span className="text-slate-500">x{cnt}</span>
                               <span className="font-bold text-slate-800 text-right">৳{(parseInt(val) * cnt).toLocaleString()}</span>
@@ -700,6 +702,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
           isDepositError={isDepositError}
           message={depositError}
           onBagCreated={handleBagCreated}
+          totalRacks={parseInt(selectedVault?.vault?.total_racks, 10) || 0}
         />
       )}
     </>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import DataTable from "../../components/global/dataTable/DataTable";
 import dayjs from "dayjs";
 import { useSearchParams } from "react-router-dom";
@@ -39,6 +39,7 @@ const CashIn = () => {
   const [openOrderDetailsDrawer, setOpenOrderDetailsDrawer] = useState(false);
   const [editLoading, setEditLoading] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [activeVerifyId, setActiveVerifyId] = useState(null);
   const [activeApproveId, setActiveApproveId] = useState(null);
   const [verifyLoading, setVerifyLoading] = useState(null);
@@ -468,6 +469,7 @@ const fetchCashInsData = useCallback(() => {
   };
 
   const handleDeleteCashIn = async (id) => {
+    setDeleteLoading(true);
     try {
       const res = await DeleteCashIn(id);
 
@@ -478,6 +480,7 @@ const fetchCashInsData = useCallback(() => {
     } catch (err) {
       console.error("Failed to delete cash-in:", err);
     } finally {
+      setDeleteLoading(false);
       setDeleteConfirmId(null);
     }
   };
@@ -738,15 +741,17 @@ const fetchCashInsData = useCallback(() => {
                       <div className="flex justify-center gap-2">
                         <button
                           onClick={handleCancelDelete}
-                          className="px-2 py-1 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors cursor-pointer"
+                          disabled={deleteLoading}
+                          className="px-2 py-1 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Cancel
                         </button>
                         <button
+                          disabled={deleteLoading}
                           onClick={(e) => { e.stopPropagation(); handleDeleteCashIn(row.id); }}
-                          className="px-2 py-1 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded transition-colors cursor-pointer"
+                          className="px-2 py-1 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center min-w-[58px]"
                         >
-                          Confirm
+                          {deleteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm"}
                         </button>
                       </div>
                     </motion.div>

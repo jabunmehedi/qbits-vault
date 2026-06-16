@@ -140,22 +140,22 @@ const Reports = () => {
         {/* Filters Matrix Row */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Mode toggle: Bank Statement vs flat Ledger */}
-          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+          <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
             <button
               onClick={() => {
                 setMode("statement");
                 setActiveVault(null);
               }}
-              className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${
-                isStatement ? "bg-[#1a2b4b] text-white" : "text-slate-500 hover:text-slate-700"
+              className={`flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
+                isStatement ? "bg-white text-[#1a73e8] shadow-sm" : "text-slate-500 hover:text-slate-700"
               }`}
             >
               <Landmark size={14} /> Statement
             </button>
             <button
               onClick={() => setMode("ledger")}
-              className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${
-                !isStatement ? "bg-[#1a2b4b] text-white" : "text-slate-500 hover:text-slate-700"
+              className={`flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
+                !isStatement ? "bg-white text-[#1a73e8] shadow-sm" : "text-slate-500 hover:text-slate-700"
               }`}
             >
               <BookOpen size={14} /> Ledger

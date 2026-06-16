@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import DataTable from "../../components/global/dataTable/DataTable";
 import { AnimatePresence, motion } from "framer-motion";
 import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
@@ -105,6 +105,7 @@ const CashOut = () => {
   const [openBagDetailsDrawer, setOpenBagDetailsDrawer] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const { hasPermission } = usePermissions();
   const user = useSelector(selectAuthUser);
@@ -571,6 +572,7 @@ const CashOut = () => {
   };
 
   const handleDeleteSubmit = async (id) => {
+    setDeleteLoading(true);
     try {
       const res = await DeleteCashOut(id);
 
@@ -585,6 +587,7 @@ const CashOut = () => {
       console.error("Failed to delete cashout item:", err);
       addToast({ message: "Failed to delete item", type: "error" });
     } finally {
+      setDeleteLoading(false);
       setDeleteConfirmId(null);
       setActiveActionMenuId(null);
     }
@@ -670,12 +673,13 @@ const CashOut = () => {
       render: (row) => {
         const isVerifierShowButton = row?.custodian?.custodian_id === user?.id && row?.custodian?.status === "pending";
         const isVerified = row?.verifier_status === "verified";
+        const isRejected = row?.verifier_status === "rejected" || row?.approver_status === "rejected";
         return (
           <>
             {row?.custodian ? (
               <div className="flex items-center gap-2">
                 <CustodianAvatar custodian={row?.custodian || []} />
-                {isVerifierShowButton && isVerified && (
+                {isVerifierShowButton && isVerified && !isRejected && (
                   <VerifyButton
                     handleSubmit={() => handleCustodianVerify(row.id)}
                     isOpen={activeCustodianId === row.id}
@@ -704,11 +708,13 @@ const CashOut = () => {
         const isVerified = row?.verifier_status === "verified";
 
         const isCustodianConditionMet = !row?.custodian || row?.custodian?.status === "verified";
+        // Once rejected (by a verifier or an approver) the cash-out is terminal — no further actions.
+        const isRejected = row?.verifier_status === "rejected" || row?.approver_status === "rejected";
 
         return (
           <div className="flex items-center gap-2">
             <VerifierAvatars requiredVerifiers={row.required_approvers || []} isRejected={row?.approver_status === "rejected"} />
-            {isApproverShowButton && isVerified && isCustodianConditionMet && (
+            {isApproverShowButton && isVerified && isCustodianConditionMet && !isRejected && (
               <VerifyButton
                 handleSubmit={() => handleApprove(row.id)}
                 handleReject={(note) => handleRejectApprove(row.id, note)}
@@ -734,6 +740,12 @@ const CashOut = () => {
       render: (row) => {
         const isMenuOpen = activeActionMenuId === row.id;
         const isConfirmingDelete = deleteConfirmId === row.id;
+        // Editable only while fully pending — once any verifier has acted, or it's
+        // been rejected/approved, the cash-out is locked (mirrors cash-in + backend guard).
+        const isLocked =
+          row?.required_verifiers?.some((v) => v?.verified) ||
+          row?.verifier_status !== "pending" ||
+          row?.approver_status !== "pending";
 
         const toggleMenu = (e) => {
           e.stopPropagation();
@@ -803,7 +815,7 @@ const CashOut = () => {
                   {!isConfirmingDelete ? (
                     <motion.div key="options" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                       {/* Edit Option */}
-                      {row?.verifier_status !== "verified" && (isSuperAdmin || hasPermission("cash-out.edit")) && (
+                      {!isLocked && (isSuperAdmin || hasPermission("cash-out.edit")) && (
                         <button
                           onClick={handleEdit}
                           className="flex items-center w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors gap-2 font-medium cursor-pointer"
@@ -859,18 +871,20 @@ const CashOut = () => {
                       <div className="flex justify-center gap-2">
                         <button
                           onClick={handleCancelDelete}
-                          className="px-2 py-1 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors cursor-pointer"
+                          disabled={deleteLoading}
+                          className="px-2 py-1 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Cancel
                         </button>
                         <button
+                          disabled={deleteLoading}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteSubmit(row.id);
                           }}
-                          className="px-2 py-1 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded transition-colors cursor-pointer"
+                          className="px-2 py-1 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center min-w-[58px]"
                         >
-                          Confirm
+                          {deleteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm"}
                         </button>
                       </div>
                     </motion.div>

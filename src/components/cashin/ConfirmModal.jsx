@@ -2,19 +2,32 @@ import { Loader2 } from "lucide-react";
 import CustomModal from "../global/modal/CustomModal";
 import { useState } from "react";
 
-const ConfirmModal = ({ grandTotal, onCancel, onConfirm, loading, isDepositError, message, onBagCreated }) => {
+const ConfirmModal = ({ grandTotal, onCancel, onConfirm, loading, isDepositError, message, onBagCreated, totalRacks = 0 }) => {
   const [rackNumber, setRackNumber] = useState("1");
   const [bagLoading, setBagLoading] = useState(false);
+  const [bagError, setBagError] = useState("");
 
   const hasCreatePermission = !!message?.message?.bag_create_role;
   const isBlocked = message?.errors?.role_status === false;
 
+  // Racks only matter when the vault defines total_racks (mirrors the vault modal).
+  // When it doesn't, the rack is optional and the backend defaults it to "1".
+  const racksEnabled = totalRacks > 0;
+  const rackNum = parseInt(rackNumber, 10);
+  const rackMissing = racksEnabled && rackNumber.trim() === "";
+  const rackOutOfRange = racksEnabled && rackNumber.trim() !== "" && (rackNum < 1 || rackNum > totalRacks);
+  const rackError = bagError || (rackOutOfRange ? `Rack number cannot exceed ${totalRacks}` : "");
+  const createDisabled = bagLoading || rackMissing || rackOutOfRange;
+
   const handleCreateBag = async () => {
+    setBagError("");
     setBagLoading(true);
     try {
       // Creates the bag and submits the cash-in in one go. On success the parent
-      // closes this modal; on failure it re-renders with the new error.
-      await onBagCreated(rackNumber);
+      // closes this modal; on failure we surface the reason inline (e.g. rack taken).
+      await onBagCreated(racksEnabled ? rackNumber : "1");
+    } catch (e) {
+      setBagError(e?.message || "Failed to create bag");
     } finally {
       setBagLoading(false);
     }
@@ -39,14 +52,29 @@ const ConfirmModal = ({ grandTotal, onCancel, onConfirm, loading, isDepositError
             <div className="mx-4 mb-4 p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Create New Bag</p>
               <div>
-                <label className="text-xs text-slate-500 font-medium mb-1 block">Rack Number</label>
+                <label className="text-xs text-slate-500 font-medium mb-1 block">
+                  Rack Number{racksEnabled && <span className="text-slate-400 font-normal"> (1–{totalRacks})</span>}
+                </label>
                 <input
                   type="text"
-                  value={rackNumber}
-                  onChange={(e) => setRackNumber(e.target.value)}
-                  placeholder="e.g. A1"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  inputMode="numeric"
+                  value={racksEnabled ? rackNumber : "1"}
+                  disabled={!racksEnabled}
+                  onChange={(e) => {
+                    setRackNumber(e.target.value.replace(/[^0-9]/g, ""));
+                    if (bagError) setBagError("");
+                  }}
+                  placeholder={racksEnabled ? `1–${totalRacks}` : "1"}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
+                    !racksEnabled
+                      ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed select-none"
+                      : rackError
+                        ? "border-red-400 focus:ring-red-200"
+                        : "border-slate-200 focus:ring-blue-300"
+                  }`}
                 />
+                {racksEnabled && rackError && <p className="text-[11px] text-red-500 font-semibold mt-1">{rackError}</p>}
+                {!racksEnabled && bagError && <p className="text-[11px] text-red-500 font-semibold mt-1">{bagError}</p>}
               </div>
               <p className="text-[11px] text-slate-400">A bag will be created and your cash-in submitted in one step.</p>
             </div>
@@ -67,7 +95,7 @@ const ConfirmModal = ({ grandTotal, onCancel, onConfirm, loading, isDepositError
             {hasCreatePermission && (
               <button
                 onClick={handleCreateBag}
-                disabled={bagLoading || !rackNumber.trim()}
+                disabled={createDisabled}
                 className="py-2.5 px-6 flex-1 whitespace-nowrap rounded-xl bg-[#1a73e8] shadow-lg shadow-blue-200 hover:bg-blue-600 text-sm font-bold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {bagLoading ? <Loader2 className="animate-spin w-4 h-4" /> : "Create Bag & Submit Cash-In"}

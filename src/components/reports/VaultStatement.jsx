@@ -1,7 +1,8 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowDownCircle, ArrowUpCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowDownCircle, ArrowUpCircle, Landmark, Loader2, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { GetVaultStatement } from "../../services/Reports";
 import DataTable from "../global/dataTable/DataTable";
+import AppButton from "../global/AppButton";
 
 const fmt = (n) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
 
@@ -37,8 +38,8 @@ const VaultStatement = ({ vault, timeline, onBack }) => {
     {
       title: "Reference",
       key: "tran_id",
-      className: "w-36 text-start font-mono font-bold text-slate-900",
-      render: (row) => <span>{row.tran_id}</span>,
+      className: "w-44 text-start",
+      render: (row) => <span className="block truncate font-mono text-[#1a73e8] font-semibold">{row.tran_id}</span>,
     },
     {
       title: "Description",
@@ -78,44 +79,71 @@ const VaultStatement = ({ vault, timeline, onBack }) => {
   return (
     <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden">
       {/* Account header */}
-      <div className="bg-slate-50/50 border-b border-slate-100 px-6 py-4">
+      <div className="bg-slate-50/60 border-b border-slate-100 px-6 py-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <button
-              onClick={onBack}
-              className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-[#1a2b4b] bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs transition-colors"
-            >
-              <ArrowLeft size={14} /> Back
-            </button>
-            <div>
-              <p className="text-[10px] font-bold text-[#1a73e8] tracking-wider uppercase">{vault.vault_code || `ID: ${vault.id}`}</p>
-              <h3 className="text-base font-black text-[#1a2b4b]">{vault.name}</h3>
+            <AppButton variant="primary" onClick={onBack} className="px-4 py-2 text-xs">
+              <ArrowLeft size={15} /> Back
+            </AppButton>
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-blue-50 text-[#1a73e8] flex items-center justify-center">
+                <Landmark size={20} />
+              </div>
+              <div>
+                <span className="inline-block font-mono text-[10px] font-bold text-[#1a73e8] bg-blue-50 px-1.5 py-0.5 rounded">
+                  #{vault.vault_code || vault.id}
+                </span>
+                <h3 className="text-base font-black text-[#1a2b4b] mt-0.5">{vault.name}</h3>
+              </div>
             </div>
           </div>
 
-          <div className="text-right">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Current Balance</p>
-            <p className="text-xl font-black text-[#1a2b4b]">৳{fmt(closing)}</p>
+          <div className="flex items-center gap-2.5 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm">
+            <Wallet size={16} className="text-[#1a73e8]" />
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Current Balance</p>
+              <p className="text-lg font-black text-[#1a2b4b] leading-tight">৳{fmt(closing)}</p>
+            </div>
           </div>
         </div>
 
         {/* Statement totals */}
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white border border-slate-100 rounded-xl px-4 py-2.5">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Opening Balance</p>
-            <p className="text-sm font-bold text-slate-700 mt-0.5">৳{fmt(opening)}</p>
+          <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+              <Wallet size={16} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Opening Balance</p>
+              <p className="text-sm font-black text-slate-700 mt-0.5 truncate">৳{fmt(opening)}</p>
+            </div>
           </div>
-          <div className="bg-white border border-slate-100 rounded-xl px-4 py-2.5">
-            <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Total Credit</p>
-            <p className="text-sm font-bold text-emerald-600 mt-0.5">৳{fmt(totalCredit)}</p>
+          <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
+              <TrendingUp size={16} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Credit</p>
+              <p className="text-sm font-black text-emerald-600 mt-0.5 truncate">৳{fmt(totalCredit)}</p>
+            </div>
           </div>
-          <div className="bg-white border border-slate-100 rounded-xl px-4 py-2.5">
-            <p className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">Total Debit</p>
-            <p className="text-sm font-bold text-rose-600 mt-0.5">৳{fmt(totalDebit)}</p>
+          <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center shrink-0">
+              <TrendingDown size={16} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Debit</p>
+              <p className="text-sm font-black text-rose-600 mt-0.5 truncate">৳{fmt(totalDebit)}</p>
+            </div>
           </div>
-          <div className="bg-[#1a2b4b] rounded-xl px-4 py-2.5">
-            <p className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Closing Balance</p>
-            <p className="text-sm font-bold text-white mt-0.5">৳{fmt(closing)}</p>
+          <div className="bg-[#1a73e8] rounded-xl px-4 py-3 flex items-center gap-3 shadow-lg shadow-blue-200">
+            <div className="w-9 h-9 rounded-lg bg-white/20 text-white flex items-center justify-center shrink-0">
+              <Landmark size={16} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold text-white/70 uppercase tracking-wider">Closing Balance</p>
+              <p className="text-sm font-black text-white mt-0.5 truncate">৳{fmt(closing)}</p>
+            </div>
           </div>
         </div>
       </div>

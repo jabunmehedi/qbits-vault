@@ -68,6 +68,15 @@ export const CreateCashOut = async (data) => {
     console.error(error?.response?.data?.message);
   }
 };
+export const UpdateCashOut = async (id, data) => {
+  try {
+    const response = await axios.put(`/cash-out/${id}`, data);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response?.data;
+  }
+};
 
 // cashout
 

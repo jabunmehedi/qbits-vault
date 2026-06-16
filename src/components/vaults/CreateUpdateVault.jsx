@@ -173,6 +173,9 @@ const CreateUpdateVault = ({
                                 : `bg-[#F8FAFC] focus:border-blue-300 ${rackErrors[bag.id] ? "border-red-400" : "border-gray-200"}`
                             }`}
                           />
+                          {watchedTotalRacks > 0 && rackErrors[bag.id] && (
+                            <p className="text-[10px] text-red-500 font-semibold mt-1">{rackErrors[bag.id]}</p>
+                          )}
                         </div>
 
                         <button

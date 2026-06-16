@@ -3,7 +3,7 @@ import Drawer from "../global/drawer/Drawer";
 import { MdArrowOutward } from "react-icons/md";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { CreateCashOut, GetCashInsByVaultId } from "../../services/Cash";
+import { CreateCashOut, UpdateCashOut, GetCashInsByVaultId } from "../../services/Cash";
 import { useSelector, useDispatch } from "react-redux";
 import { fetchAuthUser, selectAuthUser } from "../../store/authSlice";
 import { useToast } from "../../hooks/useToast";
@@ -93,28 +93,38 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
 
   const fetchedOrders = useMemo(() => uniqueById(data?.pages?.flatMap((p) => p?.data || []) || []), [data]);
 
-  // In edit mode the bags already on this cash-out are excluded server-side
-  // (whereDoesntHave cashOut), so prepend them from editData to keep them visible/selectable.
+  // In edit mode the cash-ins already on this cash-out are excluded server-side
+  // (whereDoesntHave cashOut), so prepend the reconstructed rows from editData
+  // (selected_cash_ins) to keep them visible and selectable.
   const orders = useMemo(() => {
-    if (isEditMode && editData?.orders?.length > 0) {
-      const fetchedIds = new Set(fetchedOrders.map((o) => o.order_id));
-      const missing = editData.orders.filter((o) => !fetchedIds.has(o.order_id));
+    if (isEditMode && editData?.selected_cash_ins?.length > 0) {
+      const fetchedIds = new Set(fetchedOrders.map((o) => o.id));
+      const missing = editData.selected_cash_ins.filter((o) => !fetchedIds.has(o.id));
       return uniqueById([...missing, ...fetchedOrders]);
     }
     return fetchedOrders;
   }, [fetchedOrders, isEditMode, editData]);
 
-  // ── Seed selected rows (edit mode) ──
+  // ── Seed all fields from editData (edit mode) ──
   useEffect(() => {
-    if (!isEditMode || !editData || orders.length === 0) return;
+    if (!isEditMode || !editData || !user?.vault_assignments) return;
 
-    const editOrderIds = editData.orders.map((o) => o.order_id);
-    const matched = orders.filter((o) => editOrderIds.includes(o.order_id));
+    const vault = user.vault_assignments.find((v) => v.vault?.id === editData.vault_id);
+    setSelectedVault(vault || null);
 
-    if (matched.length > 0) {
-      setSelectedRows(matched);
+    setRequestedAmount(editData.request_amount != null ? String(editData.request_amount) : "");
+    setPurposeNote(editData.note || "");
+
+    // custodian relation carries the assigned user under `.custodian`
+    if (editData.custodian?.custodian) {
+      setSelectedCustodian(editData.custodian.custodian);
     }
-  }, [orders, isEditMode, editData]);
+
+    // selected_cash_ins is the server-reconstructed set of rows on this cash-out
+    if (editData.selected_cash_ins?.length > 0) {
+      setSelectedRows(editData.selected_cash_ins);
+    }
+  }, [isEditMode, editData, user?.vault_assignments]);
 
   const loadMoreOrders = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) fetchNextPage();
@@ -185,9 +195,10 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
         purpose_note: purposeNote,
       };
 
-      const res = await CreateCashOut(payload);
+      const res = isEditMode ? await UpdateCashOut(editData.id, payload) : await CreateCashOut(payload);
 
       if (res?.success === true) {
+        addToast({ type: "success", message: isEditMode ? "Cash-out updated successfully!" : "Cash-out submitted successfully!" });
         refetch();
         onClose();
       } else {
@@ -522,7 +533,7 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
 
                 {/* 4. Purpose / Note Textarea Component */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-[#475569] tracking-wider uppercase">Purpose / Note</label>
+                  <label className="text-xs font-bold text-[#475569] tracking-wider uppercase">Purpose / Note *</label>
                   <textarea
                     rows={4}
                     value={purposeNote}
