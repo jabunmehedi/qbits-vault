@@ -42,9 +42,19 @@ export const GetPendingReconciliations = async () => {
   }
 };
 
-export const VerifyReconcile = async (id, action, note = "") => {
+export const VerifyReconcile = async (id, action = "verify", note = "") => {
   try {
     const response = await axiosConfig.post(`/reconcile/verify/${id}`, { action, note });
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response?.data;
+  }
+};
+
+export const RejectReconcile = async (id, note = "", type = "verifier") => {
+  try {
+    const response = await axiosConfig.post(`/reconcile/reject/${id}`, { note, type });
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);

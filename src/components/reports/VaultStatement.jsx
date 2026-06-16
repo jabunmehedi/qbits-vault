@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowDownCircle, ArrowUpCircle, Landmark, Loader2, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { ArrowLeft, ArrowDownCircle, ArrowUpCircle, Landmark, Loader2, RefreshCw, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { GetVaultStatement } from "../../services/Reports";
 import DataTable from "../global/dataTable/DataTable";
 import AppButton from "../global/AppButton";
@@ -8,20 +8,38 @@ const fmt = (n) => Number(n || 0).toLocaleString(undefined, { minimumFractionDig
 
 const vaultBalance = (vault) => (vault?.bags || []).reduce((s, b) => s + parseFloat(b.current_amount || 0), 0);
 
+const getStatementPayload = (page) => {
+  if (Array.isArray(page?.data)) return page;
+  return page?.data || page || {};
+};
+
+const getStatementRows = (page) => {
+  const payload = getStatementPayload(page);
+  if (Array.isArray(payload)) return payload;
+  return payload?.transactions || payload?.data || [];
+};
+
+const getStatementNextCursor = (page) => {
+  const payload = getStatementPayload(page);
+  if (payload?.has_more === false || payload?.pagination?.has_more === false) return undefined;
+  return payload?.next_cursor ?? payload?.pagination?.next_cursor ?? undefined;
+};
+
 const VaultStatement = ({ vault, timeline, onBack }) => {
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+  const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ["vaultStatement", vault.id, timeline],
     queryFn: async ({ pageParam }) => {
       const res = await GetVaultStatement(vault.id, { timeline, cursor: pageParam, per_page: 20 });
-      return res?.data;
+      return getStatementPayload(res);
     },
+    enabled: !!vault?.id,
     initialPageParam: null,
-    getNextPageParam: (lastPage) => lastPage?.next_cursor ?? undefined,
+    getNextPageParam: getStatementNextCursor,
   });
 
   // Summary (opening/closing/totals) is computed once and returned on the first page only.
-  const summary = data?.pages?.[0]?.summary || {};
-  const rows = data?.pages?.flatMap((p) => p?.transactions || []) || [];
+  const summary = getStatementPayload(data?.pages?.[0])?.summary || {};
+  const rows = data?.pages?.flatMap(getStatementRows) || [];
 
   const opening = summary.opening_balance ?? 0;
   const totalCredit = summary.total_credit ?? 0;
@@ -32,7 +50,7 @@ const VaultStatement = ({ vault, timeline, onBack }) => {
     {
       title: "Date & Time",
       key: "completed_at",
-      className: "w-36 text-start font-normal text-slate-400",
+      className: "w-36 text-start",
       render: (row) => <span>{row.completed_at || "—"}</span>,
     },
     {
@@ -77,9 +95,9 @@ const VaultStatement = ({ vault, timeline, onBack }) => {
   ];
 
   return (
-    <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden">
+    <div className="flex-1 min-h-0 flex flex-col rounded-2xl overflow-hidden">
       {/* Account header */}
-      <div className="bg-slate-50/60 border-b border-slate-100 px-6 py-4">
+      <div className="bg-slate-50/60 border-x border-t border-slate-200 rounded-t-2xl px-6 py-4 shrink-0">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <AppButton variant="primary" onClick={onBack} className="px-4 py-2 text-xs">
@@ -149,9 +167,20 @@ const VaultStatement = ({ vault, timeline, onBack }) => {
       </div>
 
       {isLoading ? (
-        <div className="py-20 flex items-center justify-center gap-2 text-slate-400 text-sm">
+        <div className="flex-1 min-h-0 py-20 flex items-center justify-center gap-2 text-slate-400 text-sm bg-white border-x border-b border-slate-200 rounded-b-2xl">
           <Loader2 className="animate-spin" size={16} />
           Building account statement...
+        </div>
+      ) : isError ? (
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 text-center text-sm text-slate-400 bg-white border-x border-b border-slate-200 rounded-b-2xl">
+          <p className="font-semibold text-slate-500">Could not load this statement.</p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-[#1a73e8] transition hover:border-[#1a73e8]"
+          >
+            <RefreshCw size={14} /> Retry
+          </button>
         </div>
       ) : (
         <DataTable
@@ -161,21 +190,19 @@ const VaultStatement = ({ vault, timeline, onBack }) => {
           onScrollEnd={() => {
             if (hasNextPage && !isFetchingNextPage) fetchNextPage();
           }}
-          className="h-[calc(100vh-320px)]"
+          className={`flex-1 min-h-0 !rounded-t-none !border-t-0 ${isFetchingNextPage || hasNextPage ? "!rounded-b-none" : ""}`}
         />
       )}
 
-      {/* Infinite-scroll loader / end marker */}
-      {!isLoading && (
-        <div className="border-t border-slate-100 px-6 py-2.5 text-center text-[11px] font-semibold text-slate-400">
+      {/* Infinite-scroll loader */}
+      {!isLoading && (isFetchingNextPage || hasNextPage) && (
+        <div className="border-x border-t border-b border-slate-200 rounded-b-2xl bg-white px-6 py-2.5 text-center text-[11px] font-semibold text-slate-400 shrink-0">
           {isFetchingNextPage ? (
             <span className="inline-flex items-center gap-1.5">
               <Loader2 className="animate-spin" size={12} /> Loading older transactions...
             </span>
-          ) : hasNextPage ? (
-            "Scroll to load more"
           ) : (
-            "End of statement"
+            "Scroll to load more"
           )}
         </div>
       )}

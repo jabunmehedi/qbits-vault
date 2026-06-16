@@ -13,8 +13,8 @@ const DataTable = ({
   scrollThreshold = 24,
   compact = false,
 }) => {
-  const headerPaddingClassName = compact ? "pl-3 pr-2 py-1.5" : "px-4 py-2";
-  const cellPaddingClassName = compact ? "pl-3 pr-1 py-1" : "px-4 py-1.5";
+  const headerPaddingClassName = compact ? "pl-3 pr-2 py-1.5" : "px-4 py-1.5";
+  const cellPaddingClassName = compact ? "pl-3 pr-1 py-1" : "px-4 py-1";
 
   const generatePageNumbers = () => {
     if (!paginationData?.last_page) return [];

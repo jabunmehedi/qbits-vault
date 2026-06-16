@@ -9,7 +9,7 @@ import { useToast } from "../../hooks/useToast";
 import { useSelector } from "react-redux";
 import { selectAuthUser } from "../../store/authSlice";
 
-const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
+const ReconcileModal = ({ isClose, refetch, reconcileId, defaultVaultId }) => {
   const [selectedVaultId, setSelectedVaultId] = useState(null);
   const [latestReconcileData, setLatestReconcileData] = useState([]);
   const [vaults, setVaults] = useState([]);
@@ -22,6 +22,7 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
   const user = useSelector(selectAuthUser);
+  const defaultSelectedVaultId = !reconcileId && defaultVaultId ? Number(defaultVaultId) : null;
 
   const getCurrentTime = () => {
     const now = new Date();
@@ -35,7 +36,13 @@ const ReconcileModal = ({ isClose, refetch, reconcileId }) => {
     const assignVaults = user?.vault_assignments?.filter((assign) => assign.status === "active");
     setVaults(assignVaults);
     GetLatestReconcile().then((res) => setLatestReconcileData(res?.data || []));
-  }, []);
+  }, [user?.vault_assignments]);
+
+  useEffect(() => {
+    if (defaultSelectedVaultId) {
+      setSelectedVaultId(defaultSelectedVaultId);
+    }
+  }, [defaultSelectedVaultId]);
 
   useEffect(() => {
     if (reconcileId) {

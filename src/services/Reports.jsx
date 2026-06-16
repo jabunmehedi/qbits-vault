@@ -19,5 +19,6 @@ export const GetVaultStatement = async (vaultId, params = {}) => {
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);
+    throw error;
   }
 };
