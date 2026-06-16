@@ -8,6 +8,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchAuthUser, selectAuthUser } from "../../store/authSlice";
 import { MakeDefaultVault } from "../../services/Vault";
 import { useToast } from "../../hooks/useToast";
+import { roleLabel } from "../../utils/roleLabel";
 
 const baseStorageUrl = import.meta.env.VITE_REACT_APP_STORAGE_URL;
 
@@ -451,7 +452,7 @@ const Profile = () => {
                       key={idx}
                       className="px-3 py-1 bg-blue-50 text-[#1a73e8] border border-blue-100 text-xs font-bold rounded-lg uppercase tracking-wider"
                     >
-                      {role?.name}
+                      {roleLabel(role?.name)}
                     </span>
                   ))}
                 </div>

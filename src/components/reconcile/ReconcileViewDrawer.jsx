@@ -1,29 +1,37 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Drawer from "../global/drawer/Drawer";
 import AppButton from "../global/AppButton";
-import { CompleteReconciliation, EndReconciliation, StartReconciliation, ViewReconcile } from "../../services/Reconcile";
+import { CompleteReconciliation, EndReconciliation, RejectReconcile, StartReconciliation, VerifyReconcile, ViewReconcile } from "../../services/Reconcile";
 import { useToast } from "../../hooks/useToast";
 import { useSelector } from "react-redux";
 import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
 import dayjs from "dayjs";
-import { ScanLine } from "lucide-react";
+import { QrCode, CheckCircle2 } from "lucide-react";
+import VerifyButton from "../verifyButton/VerifyButton";
+import ReconclieDetails from "./ReconclieDetails";
 
 const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, refetch }) => {
   const [currentStep, setCurrentStep] = useState("intro");
   const [racks, setRacks] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [submittingRackId, setSubmittingRackId] = useState(null);
+  const [submittingBagId, setSubmittingBagId] = useState(null);
   const [validateBy, setValidateBy] = useState({ amount: true /*, weight: false */ });
   const [reconcileVerified, setReconcileVerified] = useState();
   const [reconclieStatus, setReconcileStatus] = useState();
   const [targetVaultId, setTargetVaultId] = useState(null);
   const [scheduledTimestamp, setScheduledTimestamp] = useState(null);
   const [isAllowedToEnd, setIsAllowedToEnd] = useState(false);
-  const [rackNotes, setRackNotes] = useState({});
-  const [submittedRacks, setSubmittedRacks] = useState({});
-  const [noteModal, setNoteModal] = useState({ isOpen: false, rackIndex: null, noteText: "", isReadOnly: false });
-  const [scanValue, setScanValue] = useState("");
-  const [scanFeedback, setScanFeedback] = useState(null);
+  const [bagNotes, setBagNotes] = useState({});
+  const [submittedBags, setSubmittedBags] = useState({});
+  const [noteModal, setNoteModal] = useState({ isOpen: false, rackIndex: null, bagIndex: null, noteText: "", isReadOnly: false });
+  const [bagScanInputs, setBagScanInputs] = useState({});
+  const [reconcileData, setReconcileData] = useState(null);
+  const [requiredVerifiers, setRequiredVerifiers] = useState([]);
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+
+  // Guards the one-time auto-submit of empty (expected 0) bags per reconcile load.
+  const zeroBagsAutoSubmitRef = useRef(false);
 
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const user = useSelector(selectAuthUser);
@@ -58,15 +66,17 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     }
   };
 
-  // 2. Auditor Check (Step 2: Bag Data Inputs and Save Submission Capabilities)
+  // 2. Auditor / Reconciler Check (Step 2: Bag Data Inputs and Save Submission Capabilities)
   const canPerformCounting = () => {
     if (isSuperAdmin) return true;
     if (!targetVaultId || !user?.vault_assignments) return false;
 
     const activeAssignment = user.vault_assignments.find((assign) => Number(assign.vault_id) === Number(targetVaultId) && assign.status === "active");
-    const auditorRoleId = user?.roles?.find((role) => role?.name?.toLowerCase() == "auditor")?.id;
+    const countingRoleIds = (user?.roles || [])
+      .filter((role) => ["auditor", "reconciler"].includes(role?.name?.toLowerCase()))
+      .map((role) => Number(role.id));
 
-    return activeAssignment?.roles?.some((roleId) => Number(roleId) === Number(auditorRoleId)) || false;
+    return activeAssignment?.roles?.some((roleId) => countingRoleIds.includes(Number(roleId))) || false;
   };
 
   // Helper function to process backend bags array into state format
@@ -87,6 +97,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
 
       const varianceBagInfo = varianceMap.get(bag.id);
       let initialAmount = bag?.user_amount !== undefined && bag?.user_amount !== null ? bag.user_amount : "";
+      let savedNote = "";
 
       if (varianceBagInfo) {
         const savedCountedAmount =
@@ -103,16 +114,26 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
         }
 
         if (varianceBagInfo?.pivot?.note) {
-          acc[rackNum].savedNote = varianceBagInfo.pivot.note;
+          savedNote = varianceBagInfo.pivot.note;
         }
+      }
+
+      const expectedAmount = Number(bag?.current_amount) || 0;
+
+      // Empty bags (e.g. fully cashed out → 0) auto-count as 0 so the auditor
+      // never has to type 0 manually; the field stays editable if needed.
+      if (initialAmount === "" && expectedAmount === 0) {
+        initialAmount = 0;
       }
 
       acc[rackNum].bags.push({
         id: bag?.id,
         bagNo: bag?.barcode || "N/A",
-        expectedAmount: Number(bag?.current_amount) || 0,
+        tranId: bag?.last_cash_in_tran_id || "",
+        expectedAmount,
         // expectedWeight: 0.5,
         amount: initialAmount,
+        savedNote,
         // weight: bag?.user_weight !== undefined && bag?.user_weight !== null ? bag.user_weight : "",
       });
 
@@ -122,15 +143,13 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     return Object.values(rackGroups).sort((a, b) => a.title.localeCompare(b.title));
   };
 
-  const determineSubmittedRacks = (vaultBags, varianceBags) => {
+  const determineSubmittedBags = (vaultBags, varianceBags) => {
     const initialSubmitted = {};
-    const verifiedRacks = new Set((varianceBags || []).map((bag) => String(bag.rack_number)));
     const verifiedBagIds = new Set((varianceBags || []).map((bag) => bag.id));
 
     vaultBags.forEach((bag) => {
-      const rackId = `rack-${bag.rack_number}`;
-      if (verifiedRacks.has(String(bag.rack_number)) || verifiedBagIds.has(bag.id) || bag?.is_processed || bag?.status === "reconciled") {
-        initialSubmitted[rackId] = true;
+      if (verifiedBagIds.has(bag.id) || bag?.is_processed || bag?.status === "reconciled") {
+        initialSubmitted[bag.id] = true;
       }
     });
 
@@ -140,7 +159,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
 
   useEffect(() => {
     if (reconcileId && isOpen) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- keep drawer loading feedback while fetching reconcile details.
+      zeroBagsAutoSubmitRef.current = false;
       setLoading(true);
       ViewReconcile(reconcileId)
         .then((res) => {
@@ -152,6 +171,8 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
           setReconcileVerified(res?.data?.verifier_status);
           setReconcileStatus(res?.data?.status);
           setTargetVaultId(res?.data?.vault_id);
+          setReconcileData(res?.data || null);
+          setRequiredVerifiers(res?.data?.required_verifiers || []);
 
           if (res?.data?.started_by === user?.id) {
             setIsAllowedToEnd(true);
@@ -168,12 +189,64 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
           const varianceBagsArray = res?.data?.variance_bags || [];
 
           setRacks(parseBackendBags(bagsArray, varianceBagsArray));
-          setSubmittedRacks(determineSubmittedRacks(bagsArray, varianceBagsArray));
+          setSubmittedBags(determineSubmittedBags(bagsArray, varianceBagsArray));
         })
         .catch((err) => console.error("Error loading reconciliation details:", err))
         .finally(() => setLoading(false));
     }
   }, [reconcileId, isOpen, user?.id]);
+
+  // Auto-complete empty bags (expected 0, counted 0): nothing to count, so they
+  // are submitted as done without the auditor clicking Done.
+  useEffect(() => {
+    if (currentStep !== "counting" || racks.length === 0 || !canPerformCounting() || zeroBagsAutoSubmitRef.current) return;
+
+    const byRack = {};
+    racks.forEach((rack) => {
+      rack.bags.forEach((bag) => {
+        const counted = bag.amount === "" ? 0 : Number(bag.amount);
+        if (bag.expectedAmount === 0 && counted === 0 && !submittedBags[bag.id]) {
+          (byRack[rack.rack_number] ||= []).push(bag);
+        }
+      });
+    });
+
+    const rackNumbers = Object.keys(byRack);
+    if (rackNumbers.length === 0) return;
+
+    zeroBagsAutoSubmitRef.current = true;
+
+    (async () => {
+      try {
+        for (const rackNumber of rackNumbers) {
+          await CompleteReconciliation(reconcileId, {
+            rack_number: rackNumber,
+            variances_bags: byRack[rackNumber].map((bag) => ({
+              bag_id: bag.id,
+              counted_amount: 0,
+              expected_amount: bag.expectedAmount,
+              note: "",
+            })),
+          });
+        }
+
+        const refreshRes = await ViewReconcile(reconcileId);
+        const bagsArray = refreshRes?.data?.vault?.bags || [];
+        const varianceBagsArray = refreshRes?.data?.variance_bags || [];
+        setRacks(parseBackendBags(bagsArray, varianceBagsArray));
+        setSubmittedBags((prev) => {
+          const next = { ...prev, ...determineSubmittedBags(bagsArray, varianceBagsArray) };
+          rackNumbers.forEach((rn) => byRack[rn].forEach((bag) => (next[bag.id] = true)));
+          return next;
+        });
+        refetch?.();
+      } catch (err) {
+        console.error("Auto-submit of empty bags failed:", err);
+        zeroBagsAutoSubmitRef.current = false; // allow a retry on next render
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per load when counting starts; guarded by zeroBagsAutoSubmitRef
+  }, [currentStep, racks, targetVaultId]);
 
   const handleInputChange = (rackIndex, bagIndex, field, value) => {
     const updatedRacks = [...racks];
@@ -182,64 +255,37 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     bag[field] = value === "" ? "" : Number(value);
     setRacks(updatedRacks);
 
-    const rackId = updatedRacks[rackIndex].id;
-    if (submittedRacks[rackId]) {
-      setSubmittedRacks((prev) => ({ ...prev, [rackId]: false }));
+    if (submittedBags[bag.id]) {
+      setSubmittedBags((prev) => ({ ...prev, [bag.id]: false }));
     }
   };
 
   const normalizeScanValue = (value) => String(value || "").trim().toLowerCase();
 
-  const handleScanSubmit = () => {
-    const scannedCode = normalizeScanValue(scanValue);
+  const updateBagScanInput = (bagId, value) => {
+    setBagScanInputs((prev) => ({ ...prev, [bagId]: { value, status: null } }));
+  };
 
-    if (!scannedCode) return;
-    if (!canPerformCounting()) {
-      setScanFeedback({ type: "error", message: "You do not have permission to scan bags for this vault." });
-      return;
+  const handleBagScanSubmit = (rackIndex, bagIndex) => {
+    const rack = racks[rackIndex];
+    const bag = rack.bags[bagIndex];
+    const rawValue = bagScanInputs[bag.id]?.value || "";
+    const scannedCode = normalizeScanValue(rawValue);
+
+    if (!scannedCode || !canPerformCounting() || submittedBags[bag.id]) return;
+
+    // QR encodes the cash-in transaction id; fall back to the bag barcode for manual entry.
+    const matchesScan = normalizeScanValue(bag.tranId) === scannedCode || normalizeScanValue(bag.bagNo) === scannedCode;
+
+    // Keep the scanned barcode value in the field either way (matched or not).
+    if (matchesScan) {
+      // Scan confirms the bag matches its expected balance — fill it and auto-submit.
+      handleInputChange(rackIndex, bagIndex, "amount", bag.expectedAmount);
+      setBagScanInputs((prev) => ({ ...prev, [bag.id]: { value: rawValue, status: "success" } }));
+      submitBagToApi(rackIndex, bagIndex, bag.expectedAmount);
+    } else {
+      setBagScanInputs((prev) => ({ ...prev, [bag.id]: { value: rawValue, status: "error" } }));
     }
-
-    let found = false;
-    let blockedBySubmittedRack = false;
-    const updatedRacks = racks.map((rack) => {
-      const matchedBagIndex = rack.bags.findIndex((bag) => normalizeScanValue(bag.bagNo) === scannedCode || normalizeScanValue(bag.id) === scannedCode);
-
-      if (matchedBagIndex === -1 || found) return rack;
-
-      found = true;
-      if (submittedRacks[rack.id]) {
-        blockedBySubmittedRack = true;
-        return rack;
-      }
-
-      return {
-        ...rack,
-        bags: rack.bags.map((bag, bagIndex) =>
-          bagIndex === matchedBagIndex
-            ? {
-                ...bag,
-                amount: bag.expectedAmount,
-              }
-            : bag
-        ),
-      };
-    });
-
-    if (!found) {
-      setScanFeedback({ type: "error", message: `Bag ${scanValue} was not found in this reconciliation.` });
-      setScanValue("");
-      return;
-    }
-
-    if (blockedBySubmittedRack) {
-      setScanFeedback({ type: "error", message: `Bag ${scanValue} is already in a submitted rack.` });
-      setScanValue("");
-      return;
-    }
-
-    setRacks(updatedRacks);
-    setScanFeedback({ type: "success", message: `Bag ${scanValue} counted successfully.` });
-    setScanValue("");
   };
 
   const isBagMismatched = (bag) => {
@@ -251,63 +297,71 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     return amountMismatch; // || weightMismatch;
   };
 
-  const isAllBagsTypedInRack = (rack) => {
-    return rack.bags.every((bag) => {
-      const isAmountFilled = !validateBy.amount || bag.amount !== "";
-      // const isWeightFilled = !validateBy.weight || bag.weight !== "";
-      return isAmountFilled; // && isWeightFilled;
-    });
-  };
+  // A bag is "done-able" once its amount is entered and, if it mismatches the
+  // expected balance, a discrepancy note has been saved for it.
+  const isBagAmountEntered = (bag) => !validateBy.amount || bag.amount !== "";
 
-  const checkIfRackHasMismatch = (rack) => {
-    return rack.bags.some((bag) => isBagMismatched(bag));
+  const isBagReadyToDone = (bag) => {
+    if (!isBagAmountEntered(bag)) return false;
+    if (isBagMismatched(bag)) return !!bagNotes[bag.id];
+    return true;
   };
 
   const getValidatedCount = (rack) => {
-    const validCount = rack.bags.filter((bag) => !isBagMismatched(bag)).length;
-    return `${validCount}/${rack.bags.length} Validated`;
+    const doneCount = rack.bags.filter((bag) => submittedBags[bag.id]).length;
+    return `${doneCount}/${rack.bags.length} Done`;
   };
+
+  const isRackFullyDone = (rack) => rack.bags.every((bag) => submittedBags[bag.id]);
 
   const isAuditReadyForFinalSubmit = () => {
     if (racks.length === 0) return false;
-    return racks.every((rack) => submittedRacks[rack.id] === true && reconcileVerified === "verified");
+    return racks.every((rack) => rack.bags.every((bag) => submittedBags[bag.id] === true)) && reconcileVerified === "verified";
   };
 
-  const openNoteModal = (rackIndex) => {
-    const targetRack = racks[rackIndex];
-    const isSubmitted = submittedRacks[targetRack.id];
-    const noteContent = isSubmitted ? targetRack.savedNote || "" : rackNotes[targetRack.id] || "";
+  const openNoteModal = (rackIndex, bagIndex) => {
+    const targetBag = racks[rackIndex].bags[bagIndex];
+    const isSubmitted = submittedBags[targetBag.id];
+    const noteContent = isSubmitted ? targetBag.savedNote || "" : bagNotes[targetBag.id] || "";
 
     setNoteModal({
       isOpen: true,
       rackIndex,
+      bagIndex,
       noteText: noteContent,
       isReadOnly: !!isSubmitted,
     });
   };
 
-  const saveNoteForRack = () => {
-    const targetRack = racks[noteModal.rackIndex];
-    setRackNotes((prev) => ({
+  const saveNoteForBag = () => {
+    const targetBag = racks[noteModal.rackIndex].bags[noteModal.bagIndex];
+    setBagNotes((prev) => ({
       ...prev,
-      [targetRack.id]: noteModal.noteText,
+      [targetBag.id]: noteModal.noteText,
     }));
-    setNoteModal({ isOpen: false, rackIndex: null, noteText: "", isReadOnly: false });
+    setNoteModal({ isOpen: false, rackIndex: null, bagIndex: null, noteText: "", isReadOnly: false });
   };
 
-  const submitRackDataToApi = (rackIndex) => {
+  const submitBagToApi = (rackIndex, bagIndex, countedAmountOverride) => {
     const targetRack = racks[rackIndex];
-    const finalNote = rackNotes[targetRack.id] || "";
-    setSubmittingRackId(targetRack.id);
+    const bag = targetRack.bags[bagIndex];
+    setSubmittingBagId(bag.id);
+
+    // On auto-submit (scan) the freshly scanned amount is passed in, since the
+    // racks state update from handleInputChange hasn't been applied yet.
+    const countedAmount = countedAmountOverride !== undefined ? countedAmountOverride : bag.amount === "" ? 0 : bag.amount;
+    const mismatch = validateBy.amount && Number(countedAmount) !== Number(bag.expectedAmount);
 
     const payload = {
       rack_number: targetRack.rack_number,
-      variances_bags: targetRack.bags.map((bag) => ({
-        bag_id: bag.id,
-        counted_amount: bag.amount === "" ? 0 : bag.amount,
-        expected_amount: bag.expectedAmount,
-        note: isBagMismatched(bag) ? finalNote : "",
-      })),
+      variances_bags: [
+        {
+          bag_id: bag.id,
+          counted_amount: countedAmount,
+          expected_amount: bag.expectedAmount,
+          note: mismatch ? bagNotes[bag.id] || "" : "",
+        },
+      ],
     };
 
     CompleteReconciliation(reconcileId, payload)
@@ -319,17 +373,17 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
         const varianceBagsArray = refreshRes?.data?.variance_bags || [];
 
         setRacks(parseBackendBags(bagsArray, varianceBagsArray));
-        const freshSubmittedState = determineSubmittedRacks(bagsArray, varianceBagsArray);
+        const freshSubmittedState = determineSubmittedBags(bagsArray, varianceBagsArray);
 
-        setSubmittedRacks((prev) => ({
+        setSubmittedBags((prev) => ({
           ...prev,
           ...freshSubmittedState,
-          [targetRack.id]: true,
+          [bag.id]: true,
         }));
         refetch?.();
       })
       .catch((err) => console.error("Error executing component sync loop:", err))
-      .finally(() => setSubmittingRackId(null));
+      .finally(() => setSubmittingBagId(null));
   };
 
   const handleFinalSubmit = async () => {
@@ -350,13 +404,61 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     });
   };
 
+  // Re-pull verifier-related state after a verify/reject action.
+  const refreshVerifierState = async () => {
+    const res = await ViewReconcile(reconcileId);
+    setReconcileVerified(res?.data?.verifier_status);
+    setReconcileStatus(res?.data?.status);
+    setReconcileData(res?.data || null);
+    setRequiredVerifiers(res?.data?.required_verifiers || []);
+  };
+
+  const handleVerify = async () => {
+    setVerifyLoading(true);
+    try {
+      const res = await VerifyReconcile(reconcileId);
+      if (!res?.success) {
+        addToast({ message: res?.message || "Failed to verify reconciliation", type: "error" });
+        return;
+      }
+      await refreshVerifierState();
+      addToast({ message: "Reconcile verified successfully", type: "success" });
+      refetch?.();
+    } catch (err) {
+      console.error("Failed to verify Reconcile:", err);
+    } finally {
+      setVerifyLoading(false);
+      setVerifyOpen(false);
+    }
+  };
+
+  const handleReject = async (note) => {
+    setVerifyLoading(true);
+    try {
+      const res = await RejectReconcile(reconcileId, note, "verifier");
+      if (!res?.success) {
+        addToast({ message: res?.message || "Failed to reject reconciliation", type: "error" });
+        return;
+      }
+      await refreshVerifierState();
+      addToast({ message: "Reconciliation rejected", type: "success" });
+      refetch?.();
+    } catch (err) {
+      console.error("Failed to reject reconciliation:", err);
+    } finally {
+      setVerifyLoading(false);
+      setVerifyOpen(false);
+    }
+  };
+
   const scheduleStatus = getScheduleStatus();
 
-
+  const allBagsDone = racks.length > 0 && racks.every((rack) => rack.bags.every((bag) => submittedBags[bag.id]));
+  const isPendingVerifier = requiredVerifiers.some((v) => v.user_id === user?.id && !v.verified);
+  const canShowVerifyButton =
+    allBagsDone && isPendingVerifier && reconcileVerified !== "verified" && reconcileVerified !== "rejected";
 
   const canSubmitReconcileButton = isAllowedToEnd && isAuditReadyForFinalSubmit();
-  const totalBagCount = racks.reduce((sum, rack) => sum + rack.bags.length, 0);
-  const scannedBagCount = racks.reduce((sum, rack) => sum + rack.bags.filter((bag) => bag.amount !== "").length, 0);
 
   return (
     <Drawer
@@ -444,41 +546,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                     </div>
                   )}
 
-                  <div className="bg-white border border-blue-100 rounded-xl p-4 shadow-sm space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-9 h-9 rounded-lg bg-blue-50 text-[#1a73e8] flex items-center justify-center">
-                          <ScanLine size={17} />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Bag Scanner</p>
-                          <p className="text-[11px] font-semibold text-slate-400">
-                            Counted {scannedBagCount}/{totalBagCount} bags
-                          </p>
-                        </div>
-                      </div>
-                      {scanFeedback && (
-                        <span className={`text-[11px] font-bold ${scanFeedback.type === "success" ? "text-emerald-600" : "text-red-500"}`}>
-                          {scanFeedback.message}
-                        </span>
-                      )}
-                    </div>
-                    <input
-                      type="text"
-                      value={scanValue}
-                      disabled={!canPerformCounting()}
-                      onChange={(e) => setScanValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleScanSubmit();
-                        }
-                      }}
-                      placeholder="Scan or enter bag barcode, then press Enter"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono text-slate-700 outline-none focus:border-[#1a73e8] focus:ring-2 focus:ring-blue-100 disabled:bg-gray-50 disabled:text-gray-400"
-                    />
-                  </div>
-
                   <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 flex items-center space-x-6">
                     <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Validate By:</span>
                     <label className="flex items-center space-x-2 text-sm text-gray-600 font-medium cursor-pointer">
@@ -506,16 +573,12 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                   </div>
 
                   {racks.map((rack, rackIndex) => {
-                    const allBagsTyped = isAllBagsTypedInRack(rack);
-                    const hasMismatch = checkIfRackHasMismatch(rack);
-                    const hasNoteSaved = !!rackNotes[rack.id];
-                    const isRackSubmitted = submittedRacks[rack.id];
-                    const isCurrentlyLoading = submittingRackId === rack.id;
+                    const rackDone = isRackFullyDone(rack);
 
                     return (
                       <div
                         key={rack.id}
-                        className={`border border-gray-100 rounded-xl ${isRackSubmitted ? "bg-gray-50/50 opacity-75" : "bg-white"} overflow-hidden`}
+                        className={`border border-gray-100 rounded-xl ${rackDone ? "bg-gray-50/50" : "bg-white"} overflow-hidden`}
                       >
                         <div className="bg-gray-50/50 px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                           <div className="flex items-center space-x-3">
@@ -523,117 +586,135 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                             <span className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium">{getValidatedCount(rack)}</span>
                           </div>
 
-                          <div className="flex items-center space-x-2">
-                            {isCurrentlyLoading && <span className="text-xs text-gray-400 animate-pulse">Saving...</span>}
-
-                            {!isCurrentlyLoading && isRackSubmitted && (
-                              <div className="flex items-center space-x-2">
-                                {rack.savedNote && (
-                                  <button
-                                    onClick={() => openNoteModal(rackIndex)}
-                                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-semibold py-1 px-2.5 rounded transition-colors cursor-pointer mr-1"
-                                  >
-                                    📝 View Note
-                                  </button>
-                                )}
-                                <span className="text-xs font-semibold text-green-600 flex items-center space-x-1">✅ Done Reconciled</span>
-                              </div>
-                            )}
-
-                            {!isCurrentlyLoading && !isRackSubmitted && allBagsTyped && canPerformCounting() && (
-                              <>
-                                {hasMismatch && !hasNoteSaved && (
-                                  <button
-                                    onClick={() => openNoteModal(rackIndex)}
-                                    className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold py-1.5 px-3 rounded-lg transition-colors cursor-pointer"
-                                  >
-                                    Add Note
-                                  </button>
-                                )}
-
-                                {hasMismatch && hasNoteSaved && (
-                                  <button
-                                    onClick={() => submitRackDataToApi(rackIndex)}
-                                    className="bg-green-600 hover:bg-green-700 text-white text-xs font-semibold py-1.5 px-3 rounded-lg transition-colors cursor-pointer"
-                                  >
-                                    Confirm & Done
-                                  </button>
-                                )}
-
-                                {!hasMismatch && (
-                                  <button
-                                    onClick={() => submitRackDataToApi(rackIndex)}
-                                    className="bg-green-500 hover:bg-green-700 text-white text-xs font-semibold py-1.5 px-3 rounded-full transition-colors cursor-pointer"
-                                  >
-                                    Done
-                                  </button>
-                                )}
-                              </>
-                            )}
-                          </div>
+                          {rackDone && <span className="text-xs font-semibold text-green-600 flex items-center space-x-1">✅ Rack Reconciled</span>}
                         </div>
 
-                        <div className="p-4 space-y-4">
+                        <div className="p-4 space-y-5">
                           {rack.bags.map((bag, bagIndex) => {
-                            const amountError = allBagsTyped && validateBy.amount && bag.amount !== bag.expectedAmount;
-                            // const weightError = allBagsTyped && validateBy.weight && bag.weight !== bag.expectedWeight;
+                            const isBagSubmitted = submittedBags[bag.id];
+                            const isBagSaving = submittingBagId === bag.id;
+                            const amountEntered = bag.amount !== "";
+                            const amountError = amountEntered && validateBy.amount && bag.amount !== bag.expectedAmount;
+                            const mismatch = isBagMismatched(bag);
+                            const hasNoteSaved = !!bagNotes[bag.id];
+                            const readyToDone = isBagReadyToDone(bag);
+                            const scanState = bagScanInputs[bag.id];
 
                             return (
-                              <div key={bag.id} className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Bag No</label>
-                                  <input
-                                    type="text"
-                                    value={bag.bagNo}
-                                    disabled
-                                    className="w-full bg-gray-50 border border-gray-200 text-gray-500 text-sm rounded-lg p-2 font-medium truncate"
-                                  />
+                              <div key={bag.id} className={`space-y-2 ${isBagSubmitted ? "opacity-75" : ""}`}>
+                                <div className="grid grid-cols-3 gap-3">
+                                  {/* Bag No */}
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Bag No</label>
+                                    <div className="w-full bg-gray-50 border border-gray-200 text-gray-500 text-sm rounded-lg p-2 font-medium truncate">
+                                      {bag.bagNo}
+                                    </div>
+                                  </div>
+
+                                  {/* Amount */}
+                                  <div>
+                                    <div className="flex justify-between items-center mb-1">
+                                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Amount</label>
+                                      <span className="text-[10px] font-bold text-blue-500">exp: {bag.expectedAmount}</span>
+                                    </div>
+                                    <input
+                                      type="number"
+                                      placeholder="0"
+                                      value={bag.amount}
+                                      disabled={isBagSubmitted || !canPerformCounting()}
+                                      onChange={(e) => handleInputChange(rackIndex, bagIndex, "amount", e.target.value)}
+                                      className={`w-full border text-gray-700 text-sm rounded-lg p-2 font-medium focus:ring-1 outline-none ${
+                                        isBagSubmitted || !canPerformCounting()
+                                          ? "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+                                          : amountError
+                                            ? "border-red-500 focus:border-red-600 focus:ring-red-200 bg-red-50/10 text-red-600"
+                                            : "border-gray-200 focus:border-indigo-500 focus:ring-indigo-200"
+                                      }`}
+                                    />
+                                  </div>
+
+                                  {/* Scan */}
+                                  <div>
+                                    <div className="flex justify-between items-center mb-1">
+                                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Scan</label>
+                                      {scanState?.status === "success" && <span className="text-[10px] font-bold text-emerald-600">✓</span>}
+                                      {scanState?.status === "error" && <span className="text-[10px] font-bold text-red-500">No match</span>}
+                                    </div>
+                                    <div className="relative">
+                                      <input
+                                        type="text"
+                                        placeholder="Scan Barcode..."
+                                        value={scanState?.value || ""}
+                                        disabled={isBagSubmitted || !canPerformCounting()}
+                                        onChange={(e) => updateBagScanInput(bag.id, e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            handleBagScanSubmit(rackIndex, bagIndex);
+                                          }
+                                        }}
+                                        className={`w-full border rounded-lg pl-2 pr-9 py-2 text-sm font-mono text-slate-700 outline-none focus:ring-2 disabled:bg-gray-50 disabled:text-gray-400 ${
+                                          scanState?.status === "error"
+                                            ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+                                            : scanState?.status === "success"
+                                              ? "border-emerald-400 focus:border-emerald-500 focus:ring-emerald-100"
+                                              : "border-slate-200 focus:border-[#1a73e8] focus:ring-blue-100"
+                                        }`}
+                                      />
+                                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none">
+                                        <QrCode size={16} />
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
 
-                                <div>
-                                  <div className="flex justify-between items-center mb-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Amount</label>
-                                    <span className="text-[10px] font-bold text-blue-500">exp: {bag.expectedAmount}</span>
-                                  </div>
-                                  <input
-                                    type="number"
-                                    placeholder="0"
-                                    value={bag.amount}
-                                    disabled={isRackSubmitted || !canPerformCounting()}
-                                    onChange={(e) => handleInputChange(rackIndex, bagIndex, "amount", e.target.value)}
-                                    className={`w-full border text-gray-700 text-sm rounded-lg p-2 font-medium focus:ring-1 outline-none ${
-                                      isRackSubmitted || !canPerformCounting()
-                                        ? "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
-                                        : amountError
-                                          ? "border-red-500 focus:border-red-600 focus:ring-red-200 bg-red-50/10 text-red-600"
-                                          : "border-gray-200 focus:border-indigo-500 focus:ring-indigo-200"
-                                    }`}
-                                  />
+                                {/* Per-bag actions: Note + Done */}
+                                <div className="flex items-center justify-end gap-2 min-h-[28px]">
+                                  {isBagSaving ? (
+                                    <span className="text-xs text-gray-400 animate-pulse">Saving...</span>
+                                  ) : isBagSubmitted ? (
+                                    <>
+                                      {bag.savedNote && (
+                                        <button
+                                          onClick={() => openNoteModal(rackIndex, bagIndex)}
+                                          className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-semibold py-1 px-2.5 rounded transition-colors cursor-pointer"
+                                        >
+                                          📝 View Note
+                                        </button>
+                                      )}
+                                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600">
+                                        <CheckCircle2 size={16} /> Done
+                                      </span>
+                                    </>
+                                  ) : (
+                                    canPerformCounting() && (
+                                      <>
+                                        <button
+                                          onClick={() => openNoteModal(rackIndex, bagIndex)}
+                                          disabled={!amountEntered || !mismatch}
+                                          className={`text-xs font-semibold py-1.5 px-3 rounded-lg transition-colors ${
+                                            !amountEntered || !mismatch
+                                              ? "bg-gray-100 text-gray-300 cursor-not-allowed"
+                                              : hasNoteSaved
+                                                ? "bg-orange-100 text-orange-600 hover:bg-orange-200 cursor-pointer"
+                                                : "bg-orange-500 text-white hover:bg-orange-600 cursor-pointer"
+                                          }`}
+                                        >
+                                          {hasNoteSaved ? "Edit Note" : "Note"}
+                                        </button>
+                                        <button
+                                          onClick={() => submitBagToApi(rackIndex, bagIndex)}
+                                          disabled={!readyToDone}
+                                          className={`text-xs font-semibold py-1.5 px-4 rounded-lg transition-colors ${
+                                            readyToDone ? "bg-green-600 text-white hover:bg-green-700 cursor-pointer" : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                          }`}
+                                        >
+                                          Done
+                                        </button>
+                                      </>
+                                    )
+                                  )}
                                 </div>
-
-                                {/* Weight input temporarily disabled
-                                <div>
-                                  <div className="flex justify-between items-center mb-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Weight</label>
-                                    <span className="text-[10px] font-bold text-blue-500">exp: {bag.expectedWeight}</span>
-                                  </div>
-                                  <input
-                                    type="number"
-                                    step="0.1"
-                                    placeholder="0.0"
-                                    value={bag.weight}
-                                    disabled={isRackSubmitted || !canPerformCounting()}
-                                    onChange={(e) => handleInputChange(rackIndex, bagIndex, "weight", e.target.value)}
-                                    className={`w-full border text-gray-700 text-sm rounded-lg p-2 font-medium outline-none focus:ring-1 ${
-                                      isRackSubmitted || !canPerformCounting()
-                                        ? "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
-                                        : weightError
-                                          ? "border-red-500 focus:border-red-600 focus:ring-red-200 bg-red-50/10 text-red-600"
-                                          : "border-gray-200 focus:border-indigo-500 focus:ring-indigo-200"
-                                    }`}
-                                  />
-                                </div>
-                                */}
                               </div>
                             );
                           })}
@@ -648,24 +729,42 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                     <p className="text-green-600 font-semibold text-center text-sm">Reconciliation completed successfully</p>
                   </div>
                 ) : (
-                  <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 flex gap-3 z-10">
+                  <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 flex items-center gap-3 z-10">
                     <button
                       onClick={onClose}
                       className="flex-1 py-2.5 px-4 border border-gray-200 text-gray-600 hover:text-red-400 hover:bg-gray-50 font-bold text-sm rounded-xl transition-colors cursor-pointer"
                     >
                       Cancel
                     </button>
-                    <button
-                      disabled={!canSubmitReconcileButton}
-                      onClick={handleFinalSubmit}
-                      className={`flex-1 py-2.5 px-4 font-bold text-sm rounded-xl transition-all ${
-                        canSubmitReconcileButton
-                          ? "bg-[#1a73e8] hover:bg-blue-600 text-white shadow-lg shadow-blue-200 cursor-pointer"
-                          : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                      }`}
-                    >
-                      Submit Audit Reconcile
-                    </button>
+
+                    {canShowVerifyButton ? (
+                      <VerifyButton
+                        handleSubmit={handleVerify}
+                        handleReject={handleReject}
+                        isOpen={verifyOpen}
+                        isLoading={verifyLoading}
+                        setOpen={setVerifyOpen}
+                        className="max-w-xl"
+                        wrapperClassName="flex-1"
+                        triggerClassName="w-full py-2.5 px-4 text-sm"
+                        title="Verify"
+                        rejectTitle="Reject this reconciliation?"
+                      >
+                        <ReconclieDetails reconcile={reconcileData} />
+                      </VerifyButton>
+                    ) : (
+                      <button
+                        disabled={!canSubmitReconcileButton}
+                        onClick={handleFinalSubmit}
+                        className={`flex-1 py-2.5 px-4 font-bold text-sm rounded-xl transition-all ${
+                          canSubmitReconcileButton
+                            ? "bg-[#1a73e8] hover:bg-blue-600 text-white shadow-lg shadow-blue-200 cursor-pointer"
+                            : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                        }`}
+                      >
+                        Submit Audit Reconcile
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -699,7 +798,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
             />
             <div className="flex space-x-3 justify-end text-sm font-medium">
               <button
-                onClick={() => setNoteModal({ isOpen: false, rackIndex: null, noteText: "", isReadOnly: false })}
+                onClick={() => setNoteModal({ isOpen: false, rackIndex: null, bagIndex: null, noteText: "", isReadOnly: false })}
                 className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors cursor-pointer"
               >
                 Close
@@ -707,7 +806,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
 
               {!noteModal.isReadOnly && (
                 <button
-                  onClick={saveNoteForRack}
+                  onClick={saveNoteForBag}
                   disabled={!noteModal.noteText.trim()}
                   className={`px-4 py-2 rounded-lg transition-colors ${
                     noteModal.noteText.trim() ? "bg-orange-500 hover:bg-orange-600 text-white cursor-pointer" : "bg-gray-200 text-gray-400 cursor-not-allowed"

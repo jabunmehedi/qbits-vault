@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import JsBarcode from "jsbarcode";
 import { Plus, Loader2 } from "lucide-react";
 import DataTable from "../../components/global/dataTable/DataTable";
 import dayjs from "dayjs";
@@ -126,6 +127,19 @@ const fetchCashInsData = useCallback(() => {
 
       const amountFmt = (n) => parseFloat(n).toLocaleString("en-US", { minimumFractionDigits: 2 });
 
+      // Barcode encoding the cash-in transaction id, rendered to a PNG for the print window
+      const barcodeDataUrl = (() => {
+        if (!cashIn.tran_id) return "";
+        try {
+          const canvas = document.createElement("canvas");
+          JsBarcode(canvas, String(cashIn.tran_id), { format: "CODE128", displayValue: false, width: 2, height: 55, margin: 0 });
+          return canvas.toDataURL("image/png");
+        } catch (err) {
+          console.error("Barcode generation failed:", err);
+          return "";
+        }
+      })();
+
       const numberToWords = (amount) => {
         const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
           "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
@@ -242,6 +256,11 @@ const fetchCashInsData = useCallback(() => {
     .cb { width: 13px; height: 13px; border: 1.5px solid #94a3b8; border-radius: 2px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .cb.active { background: #1a73e8; border-color: #1a73e8; }
     .cb.active::after { content: ''; display: block; width: 7px; height: 4px; border-left: 1.5px solid #fff; border-bottom: 1.5px solid #fff; transform: rotate(-45deg) translateY(-1px); }
+
+    /* ── Barcode ── */
+    .barcode-block { text-align: center; margin: 14px 0 2px; padding-top: 12px; border-top: 1px dashed #cbd5e1; page-break-inside: avoid; break-inside: avoid; }
+    .barcode-img { height: 55px; max-width: 100%; }
+    .barcode-text { font-family: monospace; font-size: 11px; letter-spacing: 2px; margin-top: 3px; color: #475569; }
 
     /* ── Footer ── */
     .footer { text-align: center; padding: 8px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; }
@@ -417,6 +436,13 @@ const fetchCashInsData = useCallback(() => {
           </span>`).join("")}
       </div>
     </div>
+
+    ${barcodeDataUrl ? `
+    <!-- Barcode (encodes cash-in transaction id) -->
+    <div class="barcode-block">
+      <img class="barcode-img" src="${barcodeDataUrl}" alt="Cash-in transaction barcode" />
+      <div class="barcode-text">${cashIn.tran_id}</div>
+    </div>` : ""}
 
   </div>
 

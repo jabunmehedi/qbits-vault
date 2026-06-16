@@ -6,6 +6,7 @@ import { CreateCashIn } from "../../services/Cash";
 import { useNavigate } from "react-router-dom";
 import AppButton from "../global/AppButton";
 import { X } from "lucide-react";
+import QRCode from "react-qr-code";
 
 export default function CashDepositConfirmModal({ amounts, selectedRows, showConfirmModal, setShowConfirmModal, totalEnteredAmount, denominations }) {
   const [selectedVault, setSelectedVault] = useState(null);
@@ -23,6 +24,9 @@ export default function CashDepositConfirmModal({ amounts, selectedRows, showCon
 
   // Reconfirmation modal state
   const [showReconfirm, setShowReconfirm] = useState(false);
+
+  // Transaction id of the created cash-in, used to render the printable QR label
+  const [tranId, setTranId] = useState(null);
 
   const vaultRef = useRef(null);
   const bagRef = useRef(null);
@@ -129,6 +133,9 @@ export default function CashDepositConfirmModal({ amounts, selectedRows, showCon
       const res = await CreateCashIn(payload);
 
       if (res?.success === true) {
+        // Capture the cash-in tran id so the QR label renders before printing
+        setTranId(res?.data?.tran_id || null);
+
         setTimeout(() => {
           handlePrintSuccess();
         }, 300);
@@ -159,6 +166,21 @@ export default function CashDepositConfirmModal({ amounts, selectedRows, showCon
             color: "#000",
           }}
         >
+          <hr style={{ border: "1px dashed #000", margin: "12px 0" }} />
+
+          {/* QR label — encodes the cash-in transaction id for audit scanning */}
+          {tranId && (
+            <div style={{ textAlign: "center", margin: "12px 0" }}>
+              <div style={{ display: "inline-block", padding: "10px", border: "1px solid #000", borderRadius: "8px" }}>
+                <QRCode value={tranId} size={140} />
+                <div style={{ marginTop: "8px", fontFamily: "monospace", fontWeight: "bold", fontSize: "13px" }}>{tranId}</div>
+              </div>
+              <div style={{ marginTop: "6px", fontSize: "11px" }}>
+                Bag: <strong style={{ fontFamily: "monospace" }}>{selectedBag?.barcode}</strong>
+              </div>
+            </div>
+          )}
+
           <hr style={{ border: "1px dashed #000", margin: "12px 0" }} />
 
           {/* Summary info - you should get real values from API if possible */}

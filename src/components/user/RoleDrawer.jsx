@@ -7,6 +7,7 @@ import { useSelector } from "react-redux";
 import { selectIsAdmin, selectIsSuperAdmin } from "../../store/authSlice";
 import { usePermissions } from "../../hooks/usePermissions";
 import { CreateRole, DeleteRole } from "../../services/Role"; // Assuming DeleteRole exists here
+import { roleLabel } from "../../utils/roleLabel";
 
 const RoleDrawer = ({ isOpen, onClose, rolesList, refetchRoles }) => {
   const [newRoleName, setNewRoleName] = useState("");
@@ -118,7 +119,7 @@ const RoleDrawer = ({ isOpen, onClose, rolesList, refetchRoles }) => {
                   >
                     <div className="flex items-center gap-3">
                       <Shield className="w-4 h-4 text-blue-500" />
-                      <span className="text-sm font-bold text-gray-700 uppercase">{role.name}</span>
+                      <span className="text-sm font-bold text-gray-700 uppercase">{roleLabel(role.name)}</span>
                     </div>
 
                     {canDeleteRole && (

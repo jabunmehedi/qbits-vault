@@ -5,6 +5,7 @@ import { useToast } from "../../hooks/useToast";
 import { Check, ChevronDown, Eye, EyeOff, Loader2, Lock, Mail, Shield, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CreateUser } from "../../services/User";
+import { roleLabel } from "../../utils/roleLabel";
 
 const SUPERADMIN_NAMES = ["Superadmin", "Super Admin", "superadmin", "super-admin"];
 const INITIAL_FORM = { name: "", email: "", password: "", role: [] };
@@ -178,7 +179,7 @@ const CreateNewUserModal = ({ setOpenModal, onUserCreated, roles, roleSearch, se
                   <div className="flex flex-wrap gap-1.5">
                     {selectedRoles.map((roleName, index) => (
                       <span key={index} className="inline-block bg-[#1a73e8] text-white text-xs px-2.5 py-0.5 rounded-full uppercase font-semibold">
-                        {roleName}
+                        {roleLabel(roleName)}
                       </span>
                     ))}
                   </div>
@@ -253,7 +254,7 @@ const CreateNewUserModal = ({ setOpenModal, onUserCreated, roles, roleSearch, se
                         formData.role.includes(role.id) ? "bg-blue-50" : "hover:bg-gray-50"
                       }`}
                     >
-                      <span className="text-xs font-bold text-gray-700 uppercase">{role?.name}</span>
+                      <span className="text-xs font-bold text-gray-700 uppercase">{roleLabel(role?.name)}</span>
                       {formData.role.includes(role.id) && <Check size={14} className="text-blue-600 shrink-0" />}
                     </div>
                   ))

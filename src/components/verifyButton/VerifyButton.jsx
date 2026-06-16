@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { Loader2, X } from "lucide-react";
 
-const VerifyButton = ({ children, isOpen, setOpen, className, handleSubmit, handleReject, isLoading, title = "Verify", rejectTitle = "Reject this request?" }) => {
+const VerifyButton = ({ children, isOpen, setOpen, className, triggerClassName, wrapperClassName, handleSubmit, handleReject, isLoading, title = "Verify", rejectTitle = "Reject this request?" }) => {
   const [rejectMode, setRejectMode] = useState(false);
   const [rejectNote, setRejectNote] = useState("");
 
@@ -38,7 +38,7 @@ const VerifyButton = ({ children, isOpen, setOpen, className, handleSubmit, hand
   };
 
   return (
-    <div className="relative inline-block">
+    <div className={cn("relative inline-block", wrapperClassName)}>
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
@@ -47,6 +47,7 @@ const VerifyButton = ({ children, isOpen, setOpen, className, handleSubmit, hand
           "relative px-5 py-1.5 rounded-xl text-xs font-bold transition-all z-10",
           "bg-[#1a73e8] text-white shadow-lg shadow-blue-200 hover:bg-blue-600",
           isOpen && "ring-4 ring-blue-200",
+          triggerClassName,
         )}
       >
         {title}

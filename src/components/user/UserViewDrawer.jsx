@@ -10,6 +10,7 @@ import { useQueryClient, useMutation } from "@tanstack/react-query";
 import axiosConfig from "../../utils/axiosConfig";
 import { selectIsAdmin, selectIsSuperAdmin } from "../../store/authSlice";
 import { useSelector } from "react-redux";
+import { roleLabel } from "../../utils/roleLabel";
 import UserChangePasswordModal from "./UserChangePasswordModal";
 import { useToast } from "../../hooks/useToast";
 import UserMigrationModal from "./UserMigrationModal";
@@ -528,7 +529,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                                 }`}
                               >
                                 <div>
-                                  <p className="font-bold">{role?.name}</p>
+                                  <p className="font-bold">{roleLabel(role?.name)}</p>
                                   <p className="text-xs opacity-75">{isEnabled ? "Enabled" : "Disabled"}</p>
                                 </div>
                                 <div className={`w-8 h-8 rounded-2xl flex items-center justify-center text-xl ${isEnabled ? "" : "bg-gray-100"}`}>

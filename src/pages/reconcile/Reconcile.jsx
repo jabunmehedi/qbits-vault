@@ -2,14 +2,11 @@ import { useSearchParams } from "react-router-dom";
 import DataTable from "../../components/global/dataTable/DataTable";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { GetReconciles, RejectReconcile, VerifyReconcile } from "../../services/Reconcile";
-import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
+import { GetReconciles } from "../../services/Reconcile";
 import { ArrowLeft, Building2, Landmark, Loader2, Plus, Scale, Wallet, WalletCards } from "lucide-react";
 import { useSelector } from "react-redux";
 import ReconcileViewDrawer from "../../components/reconcile/ReconcileViewDrawer";
-import VerifyButton from "../../components/verifyButton/VerifyButton";
-import { useToast } from "../../hooks/useToast";
-import ReconclieDetails from "../../components/reconcile/ReconclieDetails";
+import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
 import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
 import { GetVaults } from "../../services/Vault";
 import dayjs from "dayjs";
@@ -36,12 +33,6 @@ const auditEndAt = (row) =>
   row?.completed_at ||
   row?.expected_completion_at ||
   (row?.status === "completed" ? row?.updated_at : null);
-const hasRejectedVerifier = (row) =>
-  (row?.required_verifiers || []).some((verifier) => verifier?.rejected_at || verifier?.status === "rejected" || verifier?.pivot?.rejected_at);
-const reconcileVerifierStatus = (row) => {
-  if (row?.verifier_status === "rejected" || hasRejectedVerifier(row)) return "rejected";
-  return row?.verifier_status;
-};
 
 const Reconcile = () => {
   const [reconcileData, setReconcileData] = useState([]);
@@ -51,14 +42,11 @@ const Reconcile = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedReconcile, setSelectedReconcile] = useState(null);
   const [openReconcileViewDrawer, setOpenReconcileViewDrawer] = useState(false);
-  const [verifyLoading, setVerifyLoading] = useState(null);
-  const [activeVerifyId, setActiveVerifyId] = useState(null);
   const [editReconcileId, setEditReconcileId] = useState(null);
   const [varianceNotesModal, setVarianceNotesModal] = useState(null);
   const [paginationData, setPaginationData] = useState({});
   const currentPage = parseInt(searchParams.get("page") || "1");
   const activeVaultId = searchParams.get("vault");
-  const { addToast } = useToast();
 
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const user = useSelector(selectAuthUser);
@@ -108,54 +96,6 @@ const Reconcile = () => {
     fetchReconcileData();
   };
 
-  const handleVerifyClick = async (id) => {
-    setVerifyLoading(id);
-    try {
-      const res = await VerifyReconcile(id);
-
-      if (!res?.success) {
-        addToast({ message: res?.message, type: "error" });
-        return;
-      }
-
-      await fetchReconcileData();
-      addToast({ message: "Reconcile verified successfully", type: "success" });
-    } catch (err) {
-      console.error("Failed to verify Reconcile:", err);
-    } finally {
-      setVerifyLoading(null);
-    }
-  };
-
-  const handleRejectVerifyClick = async (id, note) => {
-    setVerifyLoading(id);
-    try {
-      const res = await RejectReconcile(id, note, "verifier");
-
-      if (!res?.success) {
-        addToast({ message: res?.message, type: "error" });
-        return;
-      }
-
-      const freshItems = await fetchReconcileData();
-      const freshRow = freshItems.find((item) => Number(item.id) === Number(id));
-
-      if (freshRow && reconcileVerifierStatus(freshRow) !== "rejected") {
-        addToast({
-          message: "Reject request was accepted, but the backend did not mark this reconciliation as rejected.",
-          type: "error",
-        });
-        return;
-      }
-
-      addToast({ message: "Reconciliation rejected", type: "success" });
-    } catch (err) {
-      console.error("Failed to reject reconciliation:", err);
-    } finally {
-      setVerifyLoading(null);
-      setActiveVerifyId(null);
-    }
-  };
 
   const handleOpenCreateModal = () => {
     setEditReconcileId(null);
@@ -432,36 +372,16 @@ const Reconcile = () => {
         );
       },
     },
-    {
+   /* {
       title: "Reconciler",
-      key: "created_at",
-      className: "w-[14%] text-center",
-      render: (row) => {
-        const isVerifierShowButton = row?.required_verifiers?.some((verifier) => verifier?.user_id === user?.id && !verifier?.verified);
-        const isAuditCountingDone = row?.started_by && row?.status === "counted";
-        const verifierStatus = reconcileVerifierStatus(row);
-        const isRejected = verifierStatus === "rejected";
-        return (
-          <div className="flex items-center gap-2 flex-wrap">
-            <VerifierAvatars requiredVerifiers={row.required_verifiers || []} isRejected={isRejected} />
-            {isVerifierShowButton && isAuditCountingDone && !isRejected && (
-              <VerifyButton
-                handleSubmit={() => handleVerifyClick(row.id)}
-                handleReject={(note) => handleRejectVerifyClick(row.id, note)}
-                isOpen={activeVerifyId === row.id}
-                isLoading={verifyLoading}
-                setOpen={(isOpen) => setActiveVerifyId(isOpen ? row.id : null)}
-                className="max-w-xl"
-                title="Verify"
-                rejectTitle="Reject this reconciliation?"
-              >
-                <ReconclieDetails reconcile={row} />
-              </VerifyButton>
-            )}
-          </div>
-        );
-      },
-    },
+      key: "reconciler",
+      className: "w-[14%]",
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <VerifierAvatars requiredVerifiers={row.required_reconcilers || []} />
+        </div>
+      ),
+    },*/
     {
       title: "Status",
       key: "status",

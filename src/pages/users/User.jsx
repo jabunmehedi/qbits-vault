@@ -12,6 +12,7 @@ import UserViewDrawer from "../../components/user/UserViewDrawer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePermissions } from "../../hooks/usePermissions";
 import { useSelector } from "react-redux";
+import { roleLabel } from "../../utils/roleLabel";
 import { selectAuthUser, selectIsAdmin, selectIsSuperAdmin } from "../../store/authSlice";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -295,7 +296,7 @@ const User = () => {
 
     // ── Role columns — checked based on selected vault's role list ──
     const roleColumns = visibleRoles.map((role) => ({
-      title: role.name.toUpperCase(),
+      title: roleLabel(role.name).toUpperCase(),
       key: role.id,
       className: "text-center",
       render: (row) => {

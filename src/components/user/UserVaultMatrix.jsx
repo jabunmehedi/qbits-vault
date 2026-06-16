@@ -1,4 +1,5 @@
 import { FaCheckCircle } from "react-icons/fa";
+import { roleLabel } from "../../utils/roleLabel";
 
 const UserVaultMatrix = ({
   vaultList,
@@ -70,7 +71,7 @@ const UserVaultMatrix = ({
                 return (
                   <div key={role.id} onClick={() => onToggleRole(role)} className={`rounded-3xl p-4 flex items-center capitalize justify-between cursor-pointer transition-all border ${isEnabled ? "bg-[#1a73e8] text-white border-[#1a73e8]" : "bg-white border-gray-200 hover:border-gray-300"}`}>
                     <div>
-                      <p className="font-bold">{role?.name}</p>
+                      <p className="font-bold">{roleLabel(role?.name)}</p>
                       <p className="text-xs opacity-75">{isEnabled ? "Enabled" : "Disabled"}</p>
                     </div>
                     <div className={`w-8 h-8 rounded-2xl flex items-center justify-center text-xl ${isEnabled ? "" : "bg-gray-100"}`}>
