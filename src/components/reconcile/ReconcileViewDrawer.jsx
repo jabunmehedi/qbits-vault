@@ -274,15 +274,25 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
 
     if (!scannedCode || !canPerformCounting() || submittedBags[bag.id]) return;
 
+    // The bag must be complete before a scan is accepted: amount entered, and if
+    // it's a variance, a note added. Until then the scan is rejected and the
+    // scanned value is not retained.
+    if (!isBagAmountEntered(bag)) {
+      setBagScanInputs((prev) => ({ ...prev, [bag.id]: { value: "", status: "no-amount" } }));
+      return;
+    }
+    if (isBagMismatched(bag) && !bagNotes[bag.id]) {
+      setBagScanInputs((prev) => ({ ...prev, [bag.id]: { value: "", status: "no-note" } }));
+      return;
+    }
+
+    // Bag is ready — confirm the barcode and auto-submit on a match.
     // QR encodes the cash-in transaction id; fall back to the bag barcode for manual entry.
     const matchesScan = normalizeScanValue(bag.tranId) === scannedCode || normalizeScanValue(bag.bagNo) === scannedCode;
 
-    // Keep the scanned barcode value in the field either way (matched or not).
     if (matchesScan) {
-      // Scan confirms the bag matches its expected balance — fill it and auto-submit.
-      handleInputChange(rackIndex, bagIndex, "amount", bag.expectedAmount);
       setBagScanInputs((prev) => ({ ...prev, [bag.id]: { value: rawValue, status: "success" } }));
-      submitBagToApi(rackIndex, bagIndex, bag.expectedAmount);
+      submitBagToApi(rackIndex, bagIndex);
     } else {
       setBagScanInputs((prev) => ({ ...prev, [bag.id]: { value: rawValue, status: "error" } }));
     }
@@ -546,7 +556,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                     </div>
                   )}
 
-                  <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 flex items-center space-x-6">
+                  {/*<div className="bg-gray-50 border border-gray-100 rounded-xl p-4 flex items-center space-x-6">
                     <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Validate By:</span>
                     <label className="flex items-center space-x-2 text-sm text-gray-600 font-medium cursor-pointer">
                       <input
@@ -558,7 +568,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                       />
                       <span>Amount</span>
                     </label>
-                    {/* Weight validation temporarily disabled
+                    { Weight validation temporarily disabled
                     <label className="flex items-center space-x-2 text-sm text-gray-600 font-medium cursor-pointer">
                       <input
                         type="checkbox"
@@ -569,8 +579,8 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                       />
                       <span>Weight</span>
                     </label>
-                    */}
-                  </div>
+                    }
+                  </div>*/}
 
                   {racks.map((rack, rackIndex) => {
                     const rackDone = isRackFullyDone(rack);
@@ -639,6 +649,8 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Scan</label>
                                       {scanState?.status === "success" && <span className="text-[10px] font-bold text-emerald-600">✓</span>}
                                       {scanState?.status === "error" && <span className="text-[10px] font-bold text-red-500">No match</span>}
+                                      {scanState?.status === "no-amount" && <span className="text-[10px] font-bold text-amber-500">Enter amount first</span>}
+                                      {scanState?.status === "no-note" && <span className="text-[10px] font-bold text-amber-500">Add note first</span>}
                                     </div>
                                     <div className="relative">
                                       <input
@@ -656,9 +668,11 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                                         className={`w-full border rounded-lg pl-2 pr-9 py-2 text-sm font-mono text-slate-700 outline-none focus:ring-2 disabled:bg-gray-50 disabled:text-gray-400 ${
                                           scanState?.status === "error"
                                             ? "border-red-400 focus:border-red-500 focus:ring-red-100"
-                                            : scanState?.status === "success"
-                                              ? "border-emerald-400 focus:border-emerald-500 focus:ring-emerald-100"
-                                              : "border-slate-200 focus:border-[#1a73e8] focus:ring-blue-100"
+                                            : scanState?.status === "no-amount" || scanState?.status === "no-note"
+                                              ? "border-amber-400 focus:border-amber-500 focus:ring-amber-100"
+                                              : scanState?.status === "success"
+                                                ? "border-emerald-400 focus:border-emerald-500 focus:ring-emerald-100"
+                                                : "border-slate-200 focus:border-[#1a73e8] focus:ring-blue-100"
                                         }`}
                                       />
                                       <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none">

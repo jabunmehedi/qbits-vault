@@ -318,7 +318,7 @@ const Reconcile = () => {
         return (
           <span
             onClick={hasNotes ? () => setVarianceNotesModal({ bags: bagsWithNotes, reconcileTranId: row.reconcile_tran_id }) : undefined}
-            className={`${hasVariance ? (variance < 0 ? "text-red-500" : "text-green-500") : "text-slate-300"} ${hasNotes ? "underline decoration-dotted cursor-pointer" : ""}`}
+            className={`${hasVariance ? (variance <= 0 ? "text-green-500" : "text-red-500") : "text-slate-300"} ${hasNotes ? "underline decoration-dotted cursor-pointer" : ""}`}
           >
             {hasVariance ? `৳${fmt(variance)}` : "—"}
           </span>

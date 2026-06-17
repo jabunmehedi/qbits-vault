@@ -163,7 +163,7 @@ const CashOut = () => {
       const response = await GetCashOutLedger(cashOut.id);
       if (!response.success) throw new Error(response.message || "Failed to fetch ledger data");
 
-      const { vault, verifiers, approvers, denominations, bag_numbers, cash_in_tran_id } = response.data;
+      const { vault, verifiers, approvers, custodians, denominations, bag_numbers, cash_in_tran_id } = response.data;
       const cashOutAmount = parseFloat(cashOut.cash_out_amount || cashOut.request_amount || 0);
 
       const amountFmt = (n) => parseFloat(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2 });
@@ -433,6 +433,25 @@ const CashOut = () => {
           </div>`}
       </div>
     </div>
+
+    ${custodians?.length > 0 ? `
+    <!-- Custodians -->
+    <div class="section">
+      <div class="section-hd">
+        <div class="section-hd-left">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Custodians
+        </div>
+      </div>
+      <div class="section-body">
+        ${custodians.map((c, i) => `<div class="approval-row" style="grid-template-columns:18px 1fr 1fr 1fr">
+            <span class="approval-num">${i + 1}:</span>
+            <div class="field-row" style="margin-bottom:0"><span class="field-label" style="min-width:auto">Name:</span><span class="field-line">${c?.name || ""}</span></div>
+            <div class="field-row" style="margin-bottom:0"><span class="field-label" style="min-width:auto">Holding (BDT):</span><span class="field-line">${amountFmt(c?.amount)}</span></div>
+            <div class="field-row" style="margin-bottom:0"><span class="field-label" style="min-width:auto">Received On:</span><span class="field-line">${c?.verified_at || "Pending"}</span></div>
+          </div>`).join("")}
+      </div>
+    </div>` : ""}
 
     <!-- Approvals -->
     <div class="section">
