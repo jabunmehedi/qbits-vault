@@ -6,7 +6,6 @@ import { GetReconciles } from "../../services/Reconcile";
 import { ArrowLeft, Building2, Landmark, Loader2, Plus, Scale, Wallet, WalletCards } from "lucide-react";
 import { useSelector } from "react-redux";
 import ReconcileViewDrawer from "../../components/reconcile/ReconcileViewDrawer";
-import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
 import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
 import { GetVaults } from "../../services/Vault";
 import dayjs from "dayjs";
@@ -22,6 +21,11 @@ const fmt = (n) => Number(n || 0).toLocaleString(undefined, { minimumFractionDig
 const vaultBalance = (vault) => (vault?.bags || []).reduce((sum, bag) => sum + parseFloat(bag.current_amount || 0), 0);
 const bagDifference = (bag) => Number(bag?.pivot?.difference ?? 0);
 const reconcileVariance = (row) => {
+  // Variance = expected − counted, so it always agrees with the Expected and
+  // Counted columns (including bags that weren't counted).
+  if (row?.expected_balance != null && row?.counted_balance != null) {
+    return Number(row.expected_balance) - Number(row.counted_balance);
+  }
   const bagVariance = (row?.variance_bags || []).reduce((sum, bag) => sum + bagDifference(bag), 0);
   if (bagVariance !== 0) return bagVariance;
   return row?.variance;

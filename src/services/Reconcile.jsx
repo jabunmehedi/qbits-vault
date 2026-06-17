@@ -93,6 +93,7 @@ export const CompleteReconciliation = async (id, data) => {
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);
+    return error?.response?.data || { success: false };
   }
 };
 export const CheckReconcile = async (vaultId) => {

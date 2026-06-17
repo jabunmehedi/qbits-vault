@@ -15,6 +15,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const [racks, setRacks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [submittingBagId, setSubmittingBagId] = useState(null);
+  // eslint-disable-next-line no-unused-vars -- setter used by the Validate By toggle, currently commented out
   const [validateBy, setValidateBy] = useState({ amount: true /*, weight: false */ });
   const [reconcileVerified, setReconcileVerified] = useState();
   const [reconclieStatus, setReconcileStatus] = useState();
@@ -188,8 +189,22 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
           const bagsArray = res?.data?.vault?.bags || [];
           const varianceBagsArray = res?.data?.variance_bags || [];
 
-          setRacks(parseBackendBags(bagsArray, varianceBagsArray));
-          setSubmittedBags(determineSubmittedBags(bagsArray, varianceBagsArray));
+          const parsedRacks = parseBackendBags(bagsArray, varianceBagsArray);
+          const submitted = determineSubmittedBags(bagsArray, varianceBagsArray);
+          setRacks(parsedRacks);
+          setSubmittedBags(submitted);
+
+          // Restore the scanned value for already-done bags so it stays visible
+          // after the drawer is closed and reopened.
+          const restoredScans = {};
+          parsedRacks.forEach((rack) =>
+            rack.bags.forEach((bag) => {
+              if (submitted[bag.id]) {
+                restoredScans[bag.id] = { value: bag.tranId || bag.bagNo || "", status: "success" };
+              }
+            })
+          );
+          setBagScanInputs(restoredScans);
         })
         .catch((err) => console.error("Error loading reconciliation details:", err))
         .finally(() => setLoading(false));
@@ -275,14 +290,14 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     if (!scannedCode || !canPerformCounting() || submittedBags[bag.id]) return;
 
     // The bag must be complete before a scan is accepted: amount entered, and if
-    // it's a variance, a note added. Until then the scan is rejected and the
-    // scanned value is not retained.
+    // it's a variance, a note added. The scanned value is kept visible either way
+    // so it's clear the scan was captured — only the submit is held back.
     if (!isBagAmountEntered(bag)) {
-      setBagScanInputs((prev) => ({ ...prev, [bag.id]: { value: "", status: "no-amount" } }));
+      setBagScanInputs((prev) => ({ ...prev, [bag.id]: { value: rawValue, status: "no-amount" } }));
       return;
     }
     if (isBagMismatched(bag) && !bagNotes[bag.id]) {
-      setBagScanInputs((prev) => ({ ...prev, [bag.id]: { value: "", status: "no-note" } }));
+      setBagScanInputs((prev) => ({ ...prev, [bag.id]: { value: rawValue, status: "no-note" } }));
       return;
     }
 
@@ -300,17 +315,17 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
 
   const isBagMismatched = (bag) => {
     const amountVal = bag.amount === "" ? 0 : Number(bag.amount);
-    // const weightVal = bag.weight === "" ? 0 : Number(bag.weight);
-
-    const amountMismatch = validateBy.amount && amountVal !== bag.expectedAmount;
-    // const weightMismatch = validateBy.weight && weightVal !== bag.expectedWeight;
-    return amountMismatch; // || weightMismatch;
+    // Compare to 2-decimal precision so an exactly-equal amount is never flagged
+    // as a variance due to floating-point/string differences.
+    const amountMismatch = validateBy.amount && Math.round(amountVal * 100) !== Math.round((Number(bag.expectedAmount) || 0) * 100);
+    return amountMismatch;
   };
 
   // A bag is "done-able" once its amount is entered and, if it mismatches the
   // expected balance, a discrepancy note has been saved for it.
   const isBagAmountEntered = (bag) => !validateBy.amount || bag.amount !== "";
 
+  // eslint-disable-next-line no-unused-vars -- used by the per-bag Done button, currently commented out
   const isBagReadyToDone = (bag) => {
     if (!isBagAmountEntered(bag)) return false;
     if (isBagMismatched(bag)) return !!bagNotes[bag.id];
@@ -375,10 +390,17 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     };
 
     CompleteReconciliation(reconcileId, payload)
-      .then(() => {
+      .then((saveRes) => {
+        // Don't mark the bag done if the save failed — otherwise the audit could
+        // be finalized with bags that were never recorded (counted/variance wrong).
+        if (saveRes && saveRes.success === false) {
+          addToast({ type: "error", message: saveRes.message || "Failed to save bag. Please try again." });
+          return null;
+        }
         return ViewReconcile(reconcileId);
       })
       .then((refreshRes) => {
+        if (!refreshRes) return;
         const bagsArray = refreshRes?.data?.vault?.bags || [];
         const varianceBagsArray = refreshRes?.data?.variance_bags || [];
 
@@ -409,6 +431,8 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
 
   const handleStartAuditSession = () => {
     setCurrentStep("counting");
+    // The user starting the audit becomes started_by, so they may end it.
+    setIsAllowedToEnd(true);
     StartReconciliation(reconcileId).then(() => {
       refetch();
     });
@@ -417,10 +441,26 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   // Re-pull verifier-related state after a verify/reject action.
   const refreshVerifierState = async () => {
     const res = await ViewReconcile(reconcileId);
-    setReconcileVerified(res?.data?.verifier_status);
-    setReconcileStatus(res?.data?.status);
-    setReconcileData(res?.data || null);
-    setRequiredVerifiers(res?.data?.required_verifiers || []);
+    if (!res?.data) return;
+
+    setReconcileVerified(res.data.verifier_status);
+    setReconcileStatus(res.data.status);
+    setReconcileData(res.data);
+    setRequiredVerifiers(res.data.required_verifiers || []);
+
+    // Re-derive end permission: started_by may have been set after this drawer
+    // first loaded (e.g. the user started the audit in this same session).
+    if (res.data.started_by === user?.id) {
+      setIsAllowedToEnd(true);
+    }
+
+    // Also refresh bags/submitted state so the final-submit gate re-evaluates
+    // consistently right after verify (otherwise it can stay disabled until the
+    // drawer is reopened).
+    const bagsArray = res.data.vault?.bags || [];
+    const varianceBagsArray = res.data.variance_bags || [];
+    setRacks(parseBackendBags(bagsArray, varianceBagsArray));
+    setSubmittedBags((prev) => ({ ...prev, ...determineSubmittedBags(bagsArray, varianceBagsArray) }));
   };
 
   const handleVerify = async () => {
@@ -607,7 +647,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                             const amountError = amountEntered && validateBy.amount && bag.amount !== bag.expectedAmount;
                             const mismatch = isBagMismatched(bag);
                             const hasNoteSaved = !!bagNotes[bag.id];
-                            const readyToDone = isBagReadyToDone(bag);
                             const scanState = bagScanInputs[bag.id];
 
                             return (
@@ -716,15 +755,17 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                                         >
                                           {hasNoteSaved ? "Edit Note" : "Note"}
                                         </button>
+                                        {/* Done button commented out for now — bags are completed via barcode scan.
                                         <button
                                           onClick={() => submitBagToApi(rackIndex, bagIndex)}
-                                          disabled={!readyToDone}
+                                          disabled={!isBagReadyToDone(bag)}
                                           className={`text-xs font-semibold py-1.5 px-4 rounded-lg transition-colors ${
-                                            readyToDone ? "bg-green-600 text-white hover:bg-green-700 cursor-pointer" : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                            isBagReadyToDone(bag) ? "bg-green-600 text-white hover:bg-green-700 cursor-pointer" : "bg-gray-200 text-gray-400 cursor-not-allowed"
                                           }`}
                                         >
                                           Done
                                         </button>
+                                        */}
                                       </>
                                     )
                                   )}
