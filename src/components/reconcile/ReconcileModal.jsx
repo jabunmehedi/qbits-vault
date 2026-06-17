@@ -9,7 +9,7 @@ import { useToast } from "../../hooks/useToast";
 import { useSelector } from "react-redux";
 import { selectAuthUser } from "../../store/authSlice";
 
-const ReconcileModal = ({ isClose, refetch, reconcileId, defaultVaultId }) => {
+const ReconcileModal = ({ isClose, refetch, reconcileId, defaultVaultId, onCreated }) => {
   const [selectedVaultId, setSelectedVaultId] = useState(null);
   const [latestReconcileData, setLatestReconcileData] = useState([]);
   const [vaults, setVaults] = useState([]);
@@ -112,6 +112,10 @@ const ReconcileModal = ({ isClose, refetch, reconcileId, defaultVaultId }) => {
           addToast({ type: "error", message: res?.message || "Failed to start reconciliation. Please try again." });
           return;
         }
+        await refetch();
+        isClose();
+        onCreated?.(selectedVaultId);
+        return;
       }
 
       await refetch();

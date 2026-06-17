@@ -658,7 +658,7 @@ const fetchCashInsData = useCallback(() => {
       },
     },
     {
-      title: "Cashers",
+      title: "Cashiers",
       key: "required_approvers",
       className: "w-[10%] text-center",
       render: (row) => (

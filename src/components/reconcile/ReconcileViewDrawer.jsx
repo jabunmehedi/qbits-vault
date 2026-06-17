@@ -18,6 +18,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   // eslint-disable-next-line no-unused-vars -- setter used by the Validate By toggle, currently commented out
   const [validateBy, setValidateBy] = useState({ amount: true /*, weight: false */ });
   const [reconcileVerified, setReconcileVerified] = useState();
+  const [canSubmitFromApi, setCanSubmitFromApi] = useState(false);
   const [reconclieStatus, setReconcileStatus] = useState();
   const [targetVaultId, setTargetVaultId] = useState(null);
   const [scheduledTimestamp, setScheduledTimestamp] = useState(null);
@@ -28,6 +29,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const [bagScanInputs, setBagScanInputs] = useState({});
   const [reconcileData, setReconcileData] = useState(null);
   const [requiredVerifiers, setRequiredVerifiers] = useState([]);
+  const [requiredReconcilers, setRequiredReconcilers] = useState([]);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
 
@@ -170,10 +172,12 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
             setCurrentStep("counting");
           }
           setReconcileVerified(res?.data?.verifier_status);
+          setCanSubmitFromApi(res?.data?.can_submit ?? false);
           setReconcileStatus(res?.data?.status);
           setTargetVaultId(res?.data?.vault_id);
           setReconcileData(res?.data || null);
           setRequiredVerifiers(res?.data?.required_verifiers || []);
+          setRequiredReconcilers(res?.data?.required_reconcilers || []);
 
           if (res?.data?.started_by === user?.id) {
             setIsAllowedToEnd(true);
@@ -444,9 +448,11 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     if (!res?.data) return;
 
     setReconcileVerified(res.data.verifier_status);
+    setCanSubmitFromApi(res.data.can_submit ?? false);
     setReconcileStatus(res.data.status);
     setReconcileData(res.data);
     setRequiredVerifiers(res.data.required_verifiers || []);
+    setRequiredReconcilers(res.data.required_reconcilers || []);
 
     // Re-derive end permission: started_by may have been set after this drawer
     // first loaded (e.g. the user started the audit in this same session).
@@ -504,17 +510,38 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const scheduleStatus = getScheduleStatus();
 
   const allBagsDone = racks.length > 0 && racks.every((rack) => rack.bags.every((bag) => submittedBags[bag.id]));
-  const isPendingVerifier = requiredVerifiers.some((v) => v.user_id === user?.id && !v.verified);
+  const currentUserId = Number(user?.id);
+  const hasCurrentUserVerified =
+    requiredVerifiers.some((v) => Number(v.user_id) === currentUserId && !!v.verified) ||
+    requiredReconcilers.some((v) => Number(v.user_id) === currentUserId && !!v.verified);
+  const isPendingVerifier =
+    !hasCurrentUserVerified &&
+    (requiredVerifiers.some((v) => Number(v.user_id) === currentUserId && !v.verified) ||
+      requiredReconcilers.some((v) => Number(v.user_id) === currentUserId && !v.verified));
+  const canVerify = (() => {
+    if (isSuperAdmin) return true;
+    if (!targetVaultId || !user?.vault_assignments) return false;
+    const activeAssignment = user.vault_assignments.find((assign) => Number(assign.vault_id) === Number(targetVaultId) && assign.status === "active");
+    const reconcilerRoleId = user?.roles?.find((role) => role?.name?.toLowerCase() === "reconciler")?.id;
+    return activeAssignment?.roles?.some((roleId) => Number(roleId) === reconcilerRoleId) || false;
+  })();
   const canShowVerifyButton =
-    allBagsDone && isPendingVerifier && reconcileVerified !== "verified" && reconcileVerified !== "rejected";
+    canVerify && allBagsDone && isPendingVerifier && reconcileVerified !== "verified" && reconcileVerified !== "rejected";
 
-  const canSubmitReconcileButton = isAllowedToEnd && isAuditReadyForFinalSubmit();
+  const canEndAudit = (() => {
+    if (isSuperAdmin) return true;
+    if (!targetVaultId || !user?.vault_assignments) return false;
+    const activeAssignment = user.vault_assignments.find((assign) => Number(assign.vault_id) === Number(targetVaultId) && assign.status === "active");
+    const auditInitiatorRoleId = user?.roles?.find((role) => role?.name?.toLowerCase() === "audit initiator")?.id;
+    return activeAssignment?.roles?.some((roleId) => Number(roleId) === auditInitiatorRoleId) || false;
+  })();
+  const canSubmitReconcileButton = canEndAudit && allBagsDone && (canSubmitFromApi || reconcileVerified === "verified");
 
   return (
     <Drawer
       isOpen={isOpen}
       onClose={onClose}
-      className="max-w-xl"
+      className="max-w-2xl"
       title={
         <div className="flex flex-col">
           <span className="text-black">Audit Process</span>

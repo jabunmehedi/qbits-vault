@@ -44,7 +44,8 @@ const Vault = () => {
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
-  const { hasPermission } = usePermissions();
+  const { hasPermission, hasRole } = usePermissions();
+  const canCreateBag = isSuperAdmin || hasRole("bag create");
 
   const {
     register,
@@ -126,16 +127,16 @@ const Vault = () => {
       }
     }
 
-    let maxSeq = 0;
-    bags.forEach((bag) => {
-      const parts = bag.barcode.split("_");
-      if (parts.length === 2) {
-        const num = parseInt(parts[1], 10);
-        if (!isNaN(num) && num > maxSeq) maxSeq = num;
-      }
-    });
-
-    const nextNumber = maxSeq + 1;
+    const usedSeqs = new Set(
+      bags
+        .map((bag) => {
+          const parts = bag.barcode.split("_");
+          return parts.length === 2 ? parseInt(parts[1], 10) : NaN;
+        })
+        .filter((n) => !isNaN(n))
+    );
+    let nextNumber = 1;
+    while (usedSeqs.has(nextNumber)) nextNumber++;
     const n = String(nextNumber).padStart(3, "0");
     const humanBarcode = `${vaultCode}_${n}`;
     const year = new Date().getFullYear();
@@ -692,6 +693,7 @@ const Vault = () => {
           bags={bags}
           setBags={setBags}
           addBag={addBag}
+          canCreateBag={canCreateBag}
           setRackErrors={setRackErrors}
           rackErrors={rackErrors}
           removeBag={removeBag}

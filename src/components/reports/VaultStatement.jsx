@@ -1,8 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowDownCircle, ArrowUpCircle, Landmark, Loader2, RefreshCw, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Landmark, Loader2, RefreshCw, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { GetVaultStatement } from "../../services/Reports";
 import DataTable from "../global/dataTable/DataTable";
-import AppButton from "../global/AppButton";
 
 const fmt = (n) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
 
@@ -100,19 +99,14 @@ const VaultStatement = ({ vault, timeline, onBack }) => {
       <div className="bg-slate-50/60 border-x border-t border-slate-200 rounded-t-2xl px-6 py-4 shrink-0">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <AppButton variant="primary" onClick={onBack} className="px-4 py-2 text-xs">
-              <ArrowLeft size={15} /> Back
-            </AppButton>
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-blue-50 text-[#1a73e8] flex items-center justify-center">
-                <Landmark size={20} />
-              </div>
-              <div>
-                <span className="inline-block font-mono text-[10px] font-bold text-[#1a73e8] bg-blue-50 px-1.5 py-0.5 rounded">
-                  #{vault.vault_code || vault.id}
-                </span>
-                <h3 className="text-base font-black text-[#1a2b4b] mt-0.5">{vault.name}</h3>
-              </div>
+            <div className="w-11 h-11 rounded-xl bg-blue-50 text-[#1a73e8] flex items-center justify-center">
+              <Landmark size={20} />
+            </div>
+            <div>
+              <span className="inline-block font-mono text-[10px] font-bold text-[#1a73e8] bg-blue-50 px-1.5 py-0.5 rounded">
+                #{vault.vault_code || vault.id}
+              </span>
+              <h3 className="text-base font-black text-[#1a2b4b] mt-0.5">{vault.name}</h3>
             </div>
           </div>
 

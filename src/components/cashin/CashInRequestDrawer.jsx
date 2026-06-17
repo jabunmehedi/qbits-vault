@@ -16,6 +16,7 @@ import { fetchAuthUser, selectAuthUser } from "../../store/authSlice";
 import VaultSelect from "./VaultSelect";
 import { AddBagToVault } from "../../services/Vault";
 import { useToast } from "../../hooks/useToast";
+import BagRequestModal from "./BagRequestModal";
 
 const DENOM_NOTES = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
 const INITIAL_DENOMINATIONS = Object.fromEntries(DENOM_NOTES.map((n) => [n, 0]));
@@ -36,6 +37,8 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
   const [selectedVault, setSelectedVault] = useState(null);
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
+  const [showBagRequestModal, setShowBagRequestModal] = useState(false);
+  const [bagCheckMessage, setBagCheckMessage] = useState("");
 
   const selectionTouchedIdsRef = useRef(new Set());
 
@@ -118,6 +121,10 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     if (!user?.vault_assignments) return;
 
     const active = user.vault_assignments.filter((v) => v.status === "active");
+    if (user.default_vault_id) {
+      const defaultVault = active.find((v) => v.vault?.id === user.default_vault_id);
+      if (defaultVault) { setSelectedVault(defaultVault); return; }
+    }
     if (active.length === 1) {
       setSelectedVault(active[0]);
     } else {
@@ -191,10 +198,11 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
         const canCreate = !!data?.message?.bag_create_role;
         const msgText = data?.message?.message || "No bag available for cash-in.";
 
-        // No bag available AND the user can't create one — stop here, don't advance.
+        // No bag available AND the user can't create one — show the request modal.
         // (If they can create a bag, let them continue and create + submit at the end.)
         if (!canCreate) {
-          addToast({ type: "warning", message: msgText });
+          setBagCheckMessage(msgText);
+          setShowBagRequestModal(true);
           return;
         }
       }
@@ -703,6 +711,18 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
           message={depositError}
           onBagCreated={handleBagCreated}
           totalRacks={parseInt(selectedVault?.vault?.total_racks, 10) || 0}
+        />
+      )}
+
+      {showBagRequestModal && (
+        <BagRequestModal
+          isOpen={showBagRequestModal}
+          onClose={() => setShowBagRequestModal(false)}
+          onSuccess={handleClose}
+          vaultId={selectedVault?.vault?.id}
+          vaultName={selectedVault?.vault?.name}
+          userId={user?.id}
+          message={bagCheckMessage}
         />
       )}
     </>

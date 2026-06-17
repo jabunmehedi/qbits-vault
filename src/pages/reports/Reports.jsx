@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, Loader2 } from "lucide-react";
+import { ArrowLeft, Calendar, Loader2 } from "lucide-react";
 import { GetVaults } from "../../services/Vault";
 import { useSelector } from "react-redux";
 import { useSearchParams } from "react-router-dom";
@@ -87,11 +87,14 @@ const Reports = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/*
-            Ledger mode is temporarily disabled until the cursor-paginated
-            ledger API contract is finalized.
-          */}
-
+          {activeVault && (
+            <button
+              onClick={handleBackToVaultList}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:border-[#1a73e8] hover:text-[#1a73e8] transition-all cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back
+            </button>
+          )}
           <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm">
             <Calendar size={14} className="text-slate-400" />
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Timeline:</span>

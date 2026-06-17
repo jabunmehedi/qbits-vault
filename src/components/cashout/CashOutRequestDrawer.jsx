@@ -71,12 +71,16 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
     if (!user?.vault_assignments) return;
 
     const active = user.vault_assignments.filter((v) => v.status === "active");
+    if (user.default_vault_id) {
+      const defaultVault = active.find((v) => v.vault?.id === user.default_vault_id);
+      if (defaultVault) { setSelectedVault(defaultVault); return; }
+    }
     if (active.length === 1) {
       setSelectedVault(active[0]);
     } else {
       setSelectedVault(null);
     }
-  }, [isEditMode, user?.vault_assignments]);
+  }, [isEditMode, user?.vault_assignments, user?.default_vault_id]);
 
   // ── Fetch available cash-out bags (cursor-paginated, infinite scroll) ──
   const vaultId = selectedVault?.vault?.id;

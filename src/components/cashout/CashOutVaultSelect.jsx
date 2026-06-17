@@ -28,25 +28,22 @@ const CashOutVaultSelect = ({ vaults, selectedVault, onSelect, defaultVault, err
       });
   }, [vaults, defaultVault]);
 
-  const isSingleVault = activeVaults.length === 1;
-
   return (
     <div className="relative w-full min-w-0" ref={containerRef}>
       <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase mb-1 ml-1">Vault</p>
       <button
-        onClick={() => !isSingleVault && setIsOpen(!isOpen)}
-        disabled={isSingleVault}
+        onClick={() => setIsOpen(!isOpen)}
         className={`w-full flex items-center justify-between px-4 py-2.5 bg-[#F8FAFC] border ${
           error ? "border-red-300" : "border-slate-200"
-        } rounded-xl transition-all group ${isSingleVault ? "cursor-default" : "hover:border-[#1a73e8]"}`}
+        } rounded-xl transition-all group hover:border-[#1a73e8]`}
       >
         <div className="flex items-center gap-2 overflow-hidden">
-          <MdOutlineAccountBalanceWallet className={`transition-colors ${isSingleVault ? "text-slate-400" : "text-slate-400 group-hover:text-[#1a73e8]"}`} size={18} />
+          <MdOutlineAccountBalanceWallet className="text-slate-400 group-hover:text-[#1a73e8] transition-colors" size={18} />
           <span className={`text-sm font-semibold truncate ${selectedVault ? "text-slate-700" : "text-slate-400"}`}>
             {selectedVault ? selectedVault.vault.name : "Select Vault"}
           </span>
         </div>
-        {!isSingleVault && <ChevronDown className="text-slate-400 w-4 h-4" />}
+        <ChevronDown className="text-slate-400 w-4 h-4" />
       </button>
 
       <AnimatePresence>

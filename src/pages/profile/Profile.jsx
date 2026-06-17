@@ -77,7 +77,7 @@ const Profile = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const selectedVaultDetails = user?.vault_assignments?.find((v) => v?.vault_id === Number(defaultVault));
+  const selectedVaultDetails = user?.vault_assignments?.find((v) => v?.vault_id === Number(defaultVault) && v?.status === "active");
 
   const tabs = [
     { id: "profile", label: "Profile Details", icon: User },
@@ -507,7 +507,9 @@ const Profile = () => {
                       dropdownOpen ? "border-[#1a73e8] ring-2 ring-[#1a73e8]/10" : "border-slate-200 hover:border-slate-300"
                     }`}
                   >
-                    <span className="truncate">{selectedVaultDetails?.vault?.name}</span>
+                    <span className={`truncate ${!selectedVaultDetails ? "text-slate-400" : ""}`}>
+                      {selectedVaultDetails?.vault?.name || "Select a vault"}
+                    </span>
                     <ChevronDown
                       className={`w-4 h-4 text-slate-400 transition-transform duration-200 flex-shrink-0 ml-2 ${
                         dropdownOpen ? "rotate-180 text-[#1a73e8]" : ""

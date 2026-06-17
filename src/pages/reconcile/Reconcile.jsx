@@ -40,6 +40,7 @@ const auditEndAt = (row) =>
 
 const Reconcile = () => {
   const [reconcileData, setReconcileData] = useState([]);
+  const [latestReconcileByVault, setLatestReconcileByVault] = useState({});
   const [vaults, setVaults] = useState([]);
   const [vaultsLoading, setVaultsLoading] = useState(true);
   const [openReconcileModel, setOpenReconcileModel] = useState();
@@ -64,6 +65,26 @@ const Reconcile = () => {
       })
       .finally(() => setVaultsLoading(false));
   }, []);
+
+  const fetchLatestReconcileByVault = useCallback(() => {
+    GetReconciles({ per_page: 200 }).then((res) => {
+      const items = res?.data?.data ?? [];
+      const map = {};
+      items.forEach((r) => {
+        const vid = String(r.vault_id || r.vault?.id);
+        if (!map[vid]) map[vid] = r;
+      });
+      setLatestReconcileByVault(map);
+    });
+  }, []);
+
+  useEffect(() => {
+    fetchLatestReconcileByVault();
+  }, [fetchLatestReconcileByVault]);
+
+  useEffect(() => {
+    if (!activeVaultId) fetchLatestReconcileByVault();
+  }, [activeVaultId, fetchLatestReconcileByVault]);
 
   const filteredVaults = useMemo(() => {
     if (isSuperAdmin) return vaults;
@@ -184,7 +205,19 @@ const Reconcile = () => {
             <p className="text-[11px] font-semibold text-slate-400 mt-0.5 truncate">{activeVault.address || "No address recorded"}</p>
           </div>
           {latestReconcile && (
-            <span className="capitalize text-xs px-2.5 py-1 rounded-full bg-blue-50 border border-blue-100 text-[#1a73e8] font-bold">
+            <span className={`capitalize text-xs px-2.5 py-1 rounded-full border font-bold ${
+              latestReconcile.status === "pending"
+                ? "bg-yellow-50 border-yellow-200 text-yellow-600"
+                : latestReconcile.status === "counting"
+                ? "bg-blue-50 border-blue-200 text-[#1a73e8]"
+                : latestReconcile.status === "counted"
+                ? "bg-blue-50 border-blue-200 text-[#1a73e8]"
+                : latestReconcile.status === "completed"
+                ? "bg-green-50 border-green-200 text-green-500"
+                : latestReconcile.status === "expired"
+                ? "bg-red-50 border-red-200 text-red-500"
+                : "bg-orange-50 border-orange-200 text-orange-500"
+            }`}>
               Latest: {latestReconcile.status}
             </span>
           )}
@@ -243,41 +276,62 @@ const Reconcile = () => {
         </div>
 
         <div className="p-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredVaults.map((vault) => (
-            <button
-              key={vault.id}
-              type="button"
-              onClick={() => handleSelectVault(vault)}
-              className="group text-left cursor-pointer bg-white border border-slate-200 rounded-2xl p-5 hover:border-[#1a73e8] hover:shadow-lg hover:shadow-blue-50 transition-all duration-200"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-11 h-11 shrink-0 rounded-xl bg-blue-50 text-[#1a73e8] flex items-center justify-center group-hover:bg-[#1a73e8] group-hover:text-white transition-colors">
-                    <Landmark size={20} />
+          {filteredVaults.map((vault) => {
+            const latestRec = latestReconcileByVault[String(vault.id)];
+            const activeStatus = latestRec && latestRec.status !== "completed" ? latestRec.status : null;
+            return (
+              <button
+                key={vault.id}
+                type="button"
+                onClick={() => handleSelectVault(vault)}
+                className="group text-left cursor-pointer bg-white border border-slate-200 rounded-2xl p-5 hover:border-[#1a73e8] hover:shadow-lg hover:shadow-blue-50 transition-all duration-200"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-11 h-11 shrink-0 rounded-xl bg-blue-50 text-[#1a73e8] flex items-center justify-center group-hover:bg-[#1a73e8] group-hover:text-white transition-colors">
+                      <Landmark size={20} />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="inline-block font-mono text-[10px] font-bold text-[#1a73e8] bg-blue-50 px-1.5 py-0.5 rounded">
+                        #{vault.vault_code || vault.id}
+                      </span>
+                      <h4 className="text-base font-black text-[#1a2b4b] mt-1 truncate">{vault.name}</h4>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <span className="inline-block font-mono text-[10px] font-bold text-[#1a73e8] bg-blue-50 px-1.5 py-0.5 rounded">
-                      #{vault.vault_code || vault.id}
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <span className="bg-emerald-50 border border-emerald-100 text-emerald-600 text-[11px] font-bold px-2.5 py-1 rounded-full">
+                      {vault?.bags?.length || 0} Bag{(vault?.bags?.length || 0) !== 1 ? "s" : ""}
                     </span>
-                    <h4 className="text-base font-black text-[#1a2b4b] mt-1 truncate">{vault.name}</h4>
+                    {activeStatus && (
+                      <span className={`capitalize text-[11px] font-bold px-2.5 py-1 rounded-full border ${
+                        activeStatus === "pending"
+                          ? "bg-yellow-50 border-yellow-200 text-yellow-600"
+                          : activeStatus === "counting"
+                          ? "bg-blue-50 border-blue-200 text-[#1a73e8]"
+                          : activeStatus === "counted"
+                          ? "bg-blue-50 border-blue-200 text-[#1a73e8]"
+                          : activeStatus === "expired"
+                          ? "bg-red-50 border-red-200 text-red-500"
+                          : "bg-orange-50 border-orange-200 text-orange-500"
+                      }`}>
+                        {activeStatus}
+                      </span>
+                    )}
                   </div>
                 </div>
-                <span className="shrink-0 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[11px] font-bold px-2.5 py-1 rounded-full">
-                  {vault?.bags?.length || 0} Bag{(vault?.bags?.length || 0) !== 1 ? "s" : ""}
-                </span>
-              </div>
 
-              <p className="text-[11px] text-slate-400 font-semibold mt-2.5 ml-0.5 truncate">{vault.address || "No address recorded"}</p>
+                <p className="text-[11px] text-slate-400 font-semibold mt-2.5 ml-0.5 truncate">{vault.address || "No address recorded"}</p>
 
-              <div className="mt-4 pt-4 border-t border-dashed border-slate-200 flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Reconciliation Logs</span>
-                <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-300 group-hover:text-[#1a73e8] transition-colors">
-                  Open
-                  <Building2 className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                </span>
-              </div>
-            </button>
-          ))}
+                <div className="mt-4 pt-4 border-t border-dashed border-slate-200 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Reconciliation Logs</span>
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-300 group-hover:text-[#1a73e8] transition-colors">
+                    Open
+                    <Building2 className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
     );
@@ -548,6 +602,7 @@ const Reconcile = () => {
           defaultVaultId={activeVault?.id}
           isClose={() => setOpenReconcileModel(false)}
           refetch={refetch}
+          onCreated={(vaultId) => handleSelectVault({ id: vaultId })}
         />
       )}
       {openReconcileViewDrawer && (

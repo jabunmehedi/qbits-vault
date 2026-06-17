@@ -17,6 +17,7 @@ const CreateUpdateVault = ({
   bags,
   setBags,
   addBag,
+  canCreateBag,
   setRackErrors,
   rackErrors,
   removeBag,
@@ -119,7 +120,11 @@ const CreateUpdateVault = ({
             {/* Grid Container */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <AnimatePresence mode="popLayout">
-                {bags.map((bag) => {
+                {[...bags].sort((a, b) => {
+                  const seqA = parseInt(a.barcode?.split("_")[1] ?? 0, 10);
+                  const seqB = parseInt(b.barcode?.split("_")[1] ?? 0, 10);
+                  return seqA - seqB;
+                }).map((bag) => {
                   const amount = parseFloat(bag.current_amount || 0);
                   const hasAmt = amount > 0;
                   const isError = deleteErrors.some((e) => e.barcode === bag.barcode);
@@ -191,27 +196,40 @@ const CreateUpdateVault = ({
                 })}
 
                 {/* Add Bag Button Styled as a Card */}
-                <motion.button
-                  layout
-                  onClick={addBag}
-                  type="button"
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.98 }}
-                  className={`flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 rounded-2xl bg-blue-50/30 hover:bg-blue-50 transition-colors min-h-[92px] ${watchedBagLimit > 0 && bags?.length >= watchedBagLimit ? "cursor-not-allowed border-gray-300 bg-gray-100 hover:bg-gray-100" : "cursor-pointer"}`}
-                >
-                  <div className="flex  items-center gap-2 text-blue-400 font-semibold">
-                    <AiOutlinePlus className="w-5 h-5" />
-                    <span className=" text-sm font-bold text-blue-600">
-                      {watchedBagLimit > 0 && bags.length >= watchedBagLimit ? <span className="text-red-400">Limit Reached</span> : "Add New Bag"}
-                    </span>
-                    {watchedBagLimit > 0 && (
-                      <span className="text-[10px] text-gray-400 uppercase mt-1">
-                        {bags.length} / {watchedBagLimit} Used
+                {canCreateBag ? (
+                  <motion.button
+                    layout
+                    onClick={addBag}
+                    type="button"
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 rounded-2xl bg-blue-50/30 hover:bg-blue-50 transition-colors min-h-[92px] ${watchedBagLimit > 0 && bags?.length >= watchedBagLimit ? "cursor-not-allowed border-gray-300 bg-gray-100 hover:bg-gray-100" : "cursor-pointer"}`}
+                  >
+                    <div className="flex  items-center gap-2 text-blue-400 font-semibold">
+                      <AiOutlinePlus className="w-5 h-5" />
+                      <span className=" text-sm font-bold text-blue-600">
+                        {watchedBagLimit > 0 && bags.length >= watchedBagLimit ? <span className="text-red-400">Limit Reached</span> : "Add New Bag"}
                       </span>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-blue-300 mt-1 font-medium">Auto-generated ID with ৳ 0.00 base</p>
-                </motion.button>
+                      {watchedBagLimit > 0 && (
+                        <span className="text-[10px] text-gray-400 uppercase mt-1">
+                          {bags.length} / {watchedBagLimit} Used
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-blue-300 mt-1 font-medium">Auto-generated ID with ৳ 0.00 base</p>
+                  </motion.button>
+                ) : (
+                  <motion.div
+                    layout
+                    className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50 min-h-[92px]"
+                  >
+                    <div className="flex items-center gap-2 text-gray-300 font-semibold">
+                      <AiOutlinePlus className="w-5 h-5" />
+                      <span className="text-sm font-bold text-gray-400">Add New Bag</span>
+                    </div>
+                    <p className="text-[10px] text-gray-300 mt-1 font-medium">No permission to create bags</p>
+                  </motion.div>
+                )}
               </AnimatePresence>
             </div>
           </div>

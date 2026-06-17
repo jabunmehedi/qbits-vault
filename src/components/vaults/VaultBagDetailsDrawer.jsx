@@ -55,19 +55,16 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
       <div className="relative overflow-hidden h-full">
         {/* ── Bag list panel ── */}
         <div className="p-6 pt-0 max-h-[calc(100vh-120px)] overflow-y-auto scrollbar-thin">
-          <div className="mb-6 mt-4 p-4 bg-slate-50/60 border border-slate-200/50 rounded-2xl flex items-center justify-between shadow-2xs">
-            <div>
-              <h3 className="text-xs font-bold tracking-wider text-slate-400 uppercase">Cash Bags</h3>
-              <p className="text-xl font-extrabold text-slate-800 mt-0.5">
-                {vaultBagsDetails.length} Total Node{vaultBagsDetails.length !== 1 ? "s" : ""}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">Aggregated Holdings</p>
-              <p className="text-xl font-black text-emerald-600 mt-0.5">
+          <div className="mb-6 mt-4 px-4 py-3 bg-slate-50/60 border border-slate-200/50 rounded-2xl flex items-center justify-between shadow-2xs">
+            <span className="text-sm font-semibold text-slate-600">
+              Total Bags: <span className="text-slate-800 font-bold">{vaultBagsDetails.length}</span>
+            </span>
+            <span className="text-sm font-semibold text-slate-600">
+              Total Amount:{" "}
+              <span className="text-emerald-600 font-bold">
                 ৳{vaultBagsDetails.reduce((s, b) => s + parseFloat(b.current_amount || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-              </p>
-            </div>
+              </span>
+            </span>
           </div>
 
           {loadingBags ? (
