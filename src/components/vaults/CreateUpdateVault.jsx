@@ -50,7 +50,7 @@ const CreateUpdateVault = ({
                 </li>
               ))}
             </ul>
-            <p className="text-xs text-amber-500 mt-2">Zero the bag amount first, then save again.</p>
+            <p className="text-xs text-amber-500 mt-2">Bags with a balance or transaction history are kept for the audit trail and cannot be deleted.</p>
           </div>
         )}
 
@@ -127,6 +127,8 @@ const CreateUpdateVault = ({
                 }).map((bag) => {
                   const amount = parseFloat(bag.current_amount || 0);
                   const hasAmt = amount > 0;
+                  // Bags with a balance OR any cash-in/cash-out history are locked from deletion.
+                  const isLocked = hasAmt || bag.has_transactions;
                   const isError = deleteErrors.some((e) => e.barcode === bag.barcode);
 
                   return (
@@ -186,7 +188,8 @@ const CreateUpdateVault = ({
                         <button
                           type="button"
                           onClick={() => removeBag(bag.id)}
-                          className={`transition-colors ${hasAmt ? "text-gray-200 cursor-not-allowed" : "text-gray-300 hover:text-red-500"}`}
+                          title={isLocked ? "Bags with a balance or transaction history can't be deleted" : "Remove bag"}
+                          className={`transition-colors ${isLocked ? "text-gray-200 cursor-not-allowed" : "text-gray-300 hover:text-red-500"}`}
                         >
                           <X className="w-5 h-5" />
                         </button>

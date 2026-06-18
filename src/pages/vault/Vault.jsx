@@ -154,7 +154,7 @@ const Vault = () => {
     if (!bag) return;
     const amount = parseFloat(bag.current_amount || 0);
     if (amount > 0) {
-      addToast({ type: "error", message: `Cannot remove "${bag.barcode}" — it holds ৳${amount.toFixed(2)}. Zero the amount first.` });
+      addToast({ type: "error", message: `Cannot remove "${bag.barcode}" — it holds a balance of ৳${amount.toFixed(2)} and can't be deleted.` });
       return;
     }
     // A bag that has any cash-in/cash-out history must be kept for the audit
