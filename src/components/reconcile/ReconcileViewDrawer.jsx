@@ -488,6 +488,30 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     }
   };
 
+  // After a reject the backend wipes the counted values, so the auditor must
+  // re-count from scratch. Unlike refreshVerifierState (which merges), this fully
+  // REPLACES the working state so old "Done" bags/scans/notes don't linger.
+  const reloadAfterReject = async () => {
+    const res = await ViewReconcile(reconcileId);
+    if (!res?.data) return;
+
+    setReconcileVerified(res.data.verifier_status);
+    setCanSubmitFromApi(res.data.can_submit ?? false);
+    setReconcileStatus(res.data.status);
+    setReconcileData(res.data);
+    setRequiredVerifiers(res.data.required_verifiers || []);
+    setRequiredReconcilers(res.data.required_reconcilers || []);
+
+    const bagsArray = res.data.vault?.bags || [];
+    const varianceBagsArray = res.data.variance_bags || [];
+    zeroBagsAutoSubmitRef.current = false;
+    setRacks(parseBackendBags(bagsArray, varianceBagsArray));
+    setSubmittedBags(determineSubmittedBags(bagsArray, varianceBagsArray));
+    setBagScanInputs({});
+    setBagNotes({});
+    setCurrentStep(res.data.status === "pending" ? "intro" : "counting");
+  };
+
   const handleReject = async (note) => {
     setVerifyLoading(true);
     try {
@@ -496,8 +520,8 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
         addToast({ message: res?.message || "Failed to reject reconciliation", type: "error" });
         return;
       }
-      await refreshVerifierState();
-      addToast({ message: "Reconciliation rejected", type: "success" });
+      await reloadAfterReject();
+      addToast({ message: "Reconciliation rejected. Auditor must re-count.", type: "success" });
       refetch?.();
     } catch (err) {
       console.error("Failed to reject reconciliation:", err);
