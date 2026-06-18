@@ -38,6 +38,17 @@ const auditEndAt = (row) =>
   row?.expected_completion_at ||
   (row?.status === "completed" ? row?.updated_at : null);
 
+// A pending reconcile whose scheduled window (+6hrs) has passed is shown as expired.
+const isScheduleExpired = (row) => {
+  if (row?.status !== "pending" || !row?.from_date) return false;
+  const cleanDateStr = row.from_date.split("T")[0];
+  const cleanTimeStr = row?.audit_time || "00:00:00";
+  const targetSchedule = dayjs(`${cleanDateStr} ${cleanTimeStr}`, "YYYY-MM-DD HH:mm:ss");
+  return dayjs().diff(targetSchedule, "hour", true) > 6;
+};
+
+const displayStatus = (row) => (isScheduleExpired(row) ? "expired" : row?.status);
+
 const Reconcile = () => {
   const [reconcileData, setReconcileData] = useState([]);
   const [latestReconcileByVault, setLatestReconcileByVault] = useState({});
@@ -444,48 +455,34 @@ const Reconcile = () => {
       title: "Status",
       key: "status",
       className: "w-[9%]",
-      render: (row) => (
-        <span
-          className={`capitalize text-xs ${
-            row?.status === "pending"
-              ? "bg-yellow-50 border border-yellow-200 text-yellow-600"
-              : row?.status === "completed"
-                ? "bg-green-50 border border-green-200 text-green-500"
-                : row?.status === "counted"
-                  ? "bg-blue-50 border border-blue-200 text-[#1a73e8]"
-                  : row?.status === "expired"
-                    ? "bg-red-50 border border-red-200 text-red-500"
-                    : "bg-orange-50 border border-orange-200 text-orange-500"
-          } px-2.5 py-1 rounded-full`}
-        >
-          {row?.status}
-        </span>
-      ),
+      render: (row) => {
+        const status = displayStatus(row);
+        return (
+          <span
+            className={`capitalize text-xs ${
+              status === "pending"
+                ? "bg-yellow-50 border border-yellow-200 text-yellow-600"
+                : status === "completed"
+                  ? "bg-green-50 border border-green-200 text-green-500"
+                  : status === "counted"
+                    ? "bg-blue-50 border border-blue-200 text-[#1a73e8]"
+                    : status === "expired"
+                      ? "bg-red-50 border border-red-200 text-red-500"
+                      : "bg-orange-50 border border-orange-200 text-orange-500"
+            } px-2.5 py-1 rounded-full`}
+          >
+            {status}
+          </span>
+        );
+      },
     },
     {
       title: "Action",
       key: "actions",
       className: "w-[9%]",
       render: (row) => {
-        // ─── Calculate Leftover Time Window ─────────────────
-        const cleanDateStr = row?.from_date ? row.from_date.split("T")[0] : null;
-        const cleanTimeStr = row?.audit_time || "00:00:00";
-
-        let showReschedule = false;
-
-        if (row?.status === "pending" && cleanDateStr) {
-          // Combine Date and Time into a single comprehensive target timestamp
-          const targetSchedule = dayjs(`${cleanDateStr} ${cleanTimeStr}`, "YYYY-MM-DD HH:mm:ss");
-          const now = dayjs();
-
-          // Calculate the exact hours remaining between right now and the audit schedule target
-          const hoursRemaining = targetSchedule.diff(now, "hour", true);
-
-          // Show only if the schedule is still ahead in the future AND there are more than 6 hours left
-          if (hoursRemaining >= 6) {
-            showReschedule = true;
-          }
-        }
+        // Reschedule is offered once a pending reconcile's scheduled window expires.
+        const showReschedule = isScheduleExpired(row);
 
         return (
           <div className="flex gap-2 py-2">

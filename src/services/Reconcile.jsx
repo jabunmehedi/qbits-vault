@@ -79,12 +79,13 @@ export const StartReconciliation = async (id) => {
     console.error(error?.response?.data?.message);
   }
 };
-export const EndReconciliation = async (id) => {
+export const EndReconciliation = async (id, note = "") => {
   try {
-    const response = await axiosConfig.post(`/reconcile/end/${id}`);
+    const response = await axiosConfig.post(`/reconcile/end/${id}`, note ? { note } : {});
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);
+    return error?.response?.data;
   }
 };
 export const CompleteReconciliation = async (id, data) => {

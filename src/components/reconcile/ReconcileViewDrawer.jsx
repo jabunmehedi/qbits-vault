@@ -32,6 +32,8 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const [requiredReconcilers, setRequiredReconcilers] = useState([]);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
+  const [forceSubmitModal, setForceSubmitModal] = useState({ isOpen: false, note: "" });
+  const [forceSubmitLoading, setForceSubmitLoading] = useState(false);
 
   // Guards the one-time auto-submit of empty (expected 0) bags per reconcile load.
   const zeroBagsAutoSubmitRef = useRef(false);
@@ -71,6 +73,9 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
 
   // 2. Auditor / Reconciler Check (Step 2: Bag Data Inputs and Save Submission Capabilities)
   const canPerformCounting = () => {
+    // Once the scheduled audit window has expired, counting is locked for everyone
+    // — the only remaining action is the initiator's force-submit with a note.
+    if (getScheduleStatus() === "expired") return false;
     if (isSuperAdmin) return true;
     if (!targetVaultId || !user?.vault_assignments) return false;
 
@@ -433,6 +438,28 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     }
   };
 
+  // Force-submit with a mandatory note (initiator override after window expiry).
+  const handleForceSubmit = async () => {
+    const note = forceSubmitModal.note.trim();
+    if (!note) return;
+    setForceSubmitLoading(true);
+    try {
+      const res = await EndReconciliation(reconcileId, note);
+      if (res && res.success === false) {
+        addToast({ message: res.message || "Failed to submit reconciliation", type: "error" });
+        return;
+      }
+      addToast({ message: "Reconciliation submitted successfully", type: "success" });
+      refetch?.();
+      onClose();
+    } catch (error) {
+      console.error("Failed to force-submit reconciliation:", error);
+    } finally {
+      setForceSubmitLoading(false);
+      setForceSubmitModal({ isOpen: false, note: "" });
+    }
+  };
+
   const handleStartAuditSession = () => {
     setCurrentStep("counting");
     // The user starting the audit becomes started_by, so they may end it.
@@ -561,6 +588,11 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   })();
   const canSubmitReconcileButton = canEndAudit && allBagsDone && (canSubmitFromApi || reconcileVerified === "verified");
 
+  // Initiator/super-admin override: once the scheduled audit window has expired,
+  // they can force-submit the in-progress reconcile with a mandatory note,
+  // bypassing the verification workflow entirely.
+  const canForceSubmit = canEndAudit && reconclieStatus === "counting" && scheduleStatus === "expired";
+
   return (
     <Drawer
       isOpen={isOpen}
@@ -641,9 +673,23 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                     <span className="text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-600 uppercase rounded tracking-wider">Active Counting</span>
                   </div>
 
-                  {!canPerformCounting() && (
+                  {!canPerformCounting() && scheduleStatus !== "expired" && (
                     <div className="bg-amber-50 border border-amber-200 text-amber-700 text-xs rounded-xl p-3.5 font-medium">
                       🔒 Read-Only Mode: You don&apos;t have Auditor permissions assigned to this specific vault location.
+                    </div>
+                  )}
+
+                  {scheduleStatus === "expired" && reconclieStatus !== "completed" && (
+                    <div className="bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl p-3.5 font-medium">
+                      🛑 Audit window expired — the scheduled session closed (+6hrs passed).
+                      {canForceSubmit && " You can submit this reconciliation with a note, bypassing verification."}
+                    </div>
+                  )}
+
+                  {reconclieStatus === "completed" && reconcileData?.notes && (
+                    <div className="bg-orange-50 border border-orange-200 text-orange-700 text-xs rounded-xl p-3.5 font-medium">
+                      <span className="font-bold uppercase tracking-wider block text-[10px] text-orange-500 mb-1">Submission Note</span>
+                      {reconcileData.notes}
                     </div>
                   )}
 
@@ -843,7 +889,14 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                       Cancel
                     </button>
 
-                    {canShowVerifyButton ? (
+                    {canForceSubmit ? (
+                      <button
+                        onClick={() => setForceSubmitModal({ isOpen: true, note: "" })}
+                        className="flex-1 py-2.5 px-4 font-bold text-sm rounded-xl transition-all bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-200 cursor-pointer"
+                      >
+                        Submit with Note
+                      </button>
+                    ) : canShowVerifyButton ? (
                       <VerifyButton
                         handleSubmit={handleVerify}
                         handleReject={handleReject}
@@ -921,6 +974,45 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                   Submit Note
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {forceSubmitModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 mx-4">
+            <div>
+              <h3 className="text-base font-bold text-gray-800">Submit Reconciliation with Note</h3>
+              <p className="text-xs text-gray-400 mt-0.5">
+                The scheduled audit window has expired. Provide a reason to submit this reconciliation now — this will complete it without the verification workflow.
+              </p>
+            </div>
+            <textarea
+              rows={4}
+              value={forceSubmitModal.note}
+              onChange={(e) => setForceSubmitModal({ ...forceSubmitModal, note: e.target.value })}
+              placeholder="Explain why this reconciliation is being submitted without verification..."
+              className="w-full border border-gray-200 text-gray-700 rounded-lg p-3 text-sm outline-none resize-none font-medium focus:ring-2 focus:ring-orange-100 focus:border-orange-500"
+            />
+            <div className="flex space-x-3 justify-end text-sm font-medium">
+              <button
+                onClick={() => setForceSubmitModal({ isOpen: false, note: "" })}
+                className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleForceSubmit}
+                disabled={!forceSubmitModal.note.trim() || forceSubmitLoading}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  forceSubmitModal.note.trim() && !forceSubmitLoading
+                    ? "bg-orange-500 hover:bg-orange-600 text-white cursor-pointer"
+                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                }`}
+              >
+                {forceSubmitLoading ? "Submitting..." : "Submit"}
+              </button>
             </div>
           </div>
         </div>
