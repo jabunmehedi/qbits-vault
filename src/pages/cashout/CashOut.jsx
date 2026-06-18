@@ -19,10 +19,9 @@ import { GetCashOutLedger } from "../../services/Ledger";
 import CashOutDetails from "../../components/cashout/CashOutDetails";
 import CashOutCustodianModal from "../../components/cashout/CashOutCustodianModal";
 import { HiDotsHorizontal } from "react-icons/hi";
-import BagDetailsDrawer from "../../components/cashout/bagDetailsDrawer.jsx/BagDetailsDrawer";
 import CustodianAvatar from "../../components/cashout/CustodianAvatar";
 
-const ExpandableBagIds = ({ bags, isExpanded, onToggle, onIdClick }) => {
+const ExpandableBagIds = ({ bags, isExpanded, onToggle }) => {
   if (!bags || bags.length === 0) return <span className="text-gray-400">—</span>;
 
   const previewbags = bags.cash_out_bags.slice(0, 2);
@@ -34,9 +33,8 @@ const ExpandableBagIds = ({ bags, isExpanded, onToggle, onIdClick }) => {
       <div className="flex flex-wrap gap-x-1 items-center">
         {previewbags?.map((bag, i) => (
           <span
-            onClick={() => onIdClick(bag)}
             key={bag.id || `preview-${i}`}
-            className="whitespace-nowrap font-semibold bg-white rounded-md px-2 py-1 border border-gray-200 hover:bg-indigo-50 cursor-pointer"
+            className="whitespace-nowrap"
           >
             {bag?.bag?.barcode} - RN#{bag?.bag?.rack_number}
             {i === previewbags.length - 1 && !hasMore ? "" : ","}
@@ -66,10 +64,9 @@ const ExpandableBagIds = ({ bags, isExpanded, onToggle, onIdClick }) => {
           {extrabags.map((bag, i) => (
             <span
               key={bag.id || `extra-${i}`}
-              onClick={() => onIdClick(bag)}
-              className="whitespace-nowrap font-semibold bg-white rounded-md px-2 py-1 border border-gray-200 hover:bg-indigo-50 cursor-pointer"
+              className="whitespace-nowrap"
             >
-              {bag?.bag?.barcode} - RN
+              {bag?.bag?.barcode} - RN#{bag?.bag?.rack_number}
               {i === extrabags.length - 1 ? "" : ","}
             </span>
           ))}
@@ -97,7 +94,6 @@ const CashOut = () => {
   const [selectedRows, setSelectedRows] = useState([]);
   const [cashOuts, setCashOuts] = useState([]);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [selectedBags, setSelectedBags] = useState([]);
   const [editCashOutData, setEditCashOutData] = useState(null);
   const [openCashOutReqDrawer, setOpenCashOutReqDrawer] = useState(false);
   const [selectedBagsTotalAmount, setSelectedBagsTotalAmount] = useState(0);
@@ -106,7 +102,6 @@ const CashOut = () => {
   const [activeVerifyId, setActiveVerifyId] = useState(null);
   const [activeApproveId, setActiveApproveId] = useState(null);
   const [activeActionMenuId, setActiveActionMenuId] = useState(null);
-  const [openBagDetailsDrawer, setOpenBagDetailsDrawer] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -630,11 +625,6 @@ const CashOut = () => {
     }
   };
 
-  const handleOpenDetails = (bag) => {
-    setSelectedBags(bag);
-    setOpenBagDetailsDrawer(true);
-  };
-
   const columnsCashOutLists = [
     {
       title: "Vault name",
@@ -653,7 +643,7 @@ const CashOut = () => {
       key: "customer.name",
       className: "w-[22%]",
       render: (row) => (
-        <ExpandableBagIds bags={row} onIdClick={(bag) => handleOpenDetails(bag)} isExpanded={!!expandedRows[row.id]} onToggle={(e) => toggleRow(row.id, e)} />
+        <ExpandableBagIds bags={row} isExpanded={!!expandedRows[row.id]} onToggle={(e) => toggleRow(row.id, e)} />
       ),
     },
     {
@@ -979,8 +969,6 @@ const CashOut = () => {
       {openCashOutReqDrawer && (
         <CashOutRequestDrawer isOpen={openCashOutReqDrawer} onClose={() => setOpenCashOutReqDrawer(false)} refetch={refetch} editData={editCashOutData} />
       )}
-
-      {openBagDetailsDrawer && <BagDetailsDrawer bag={selectedBags} isOpen={openBagDetailsDrawer} onClose={() => setOpenBagDetailsDrawer(false)} />}
 
       <CashOutConfirmationModal
         showConfirmModal={showConfirmModal}

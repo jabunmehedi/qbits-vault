@@ -10,6 +10,12 @@ import { QrCode, CheckCircle2 } from "lucide-react";
 import VerifyButton from "../verifyButton/VerifyButton";
 import ReconclieDetails from "./ReconclieDetails";
 
+// Hardware barcode scanners emit their characters as a very fast keystroke burst
+// (typically a few ms apart). A human typing on a keyboard can't keep gaps this
+// small, so any inter-keystroke gap above this threshold marks the entry as manual.
+const SCAN_MAX_GAP_MS = 50;
+const SCAN_MIN_LENGTH = 4;
+
 const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, refetch }) => {
   const [currentStep, setCurrentStep] = useState("intro");
   const [racks, setRacks] = useState([]);
@@ -28,7 +34,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const [noteModal, setNoteModal] = useState({ isOpen: false, rackIndex: null, bagIndex: null, noteText: "", isReadOnly: false });
   const [bagScanInputs, setBagScanInputs] = useState({});
   const [reconcileData, setReconcileData] = useState(null);
-  const [requiredVerifiers, setRequiredVerifiers] = useState([]);
   const [requiredReconcilers, setRequiredReconcilers] = useState([]);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
@@ -37,6 +42,10 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
 
   // Guards the one-time auto-submit of empty (expected 0) bags per reconcile load.
   const zeroBagsAutoSubmitRef = useRef(false);
+
+  // Per-bag keystroke timing used to tell a hardware scan from manual typing.
+  // bagId -> { lastTs, maxGap, count }
+  const scanTimingRef = useRef({});
 
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const user = useSelector(selectAuthUser);
@@ -181,7 +190,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
           setReconcileStatus(res?.data?.status);
           setTargetVaultId(res?.data?.vault_id);
           setReconcileData(res?.data || null);
-          setRequiredVerifiers(res?.data?.required_verifiers || []);
           setRequiredReconcilers(res?.data?.required_reconcilers || []);
 
           if (res?.data?.started_by === user?.id) {
@@ -286,8 +294,45 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
 
   const normalizeScanValue = (value) => String(value || "").trim().toLowerCase();
 
-  const updateBagScanInput = (bagId, value) => {
-    setBagScanInputs((prev) => ({ ...prev, [bagId]: { value, status: null } }));
+  // ── Scanner-only input ──
+  // The scan field's value is fully owned here: native typing and paste are blocked
+  // in the input, and only characters that arrive as a fast scanner burst are
+  // appended to the buffer. A slow (human) gap discards whatever was buffered, so
+  // manual typing can never build up a usable value.
+  const resetScanTiming = (bagId) => {
+    delete scanTimingRef.current[bagId];
+  };
+
+  // Fed one character at a time from the scan field's keydown.
+  const feedScanChar = (bagId, char) => {
+    const now = performance.now();
+    const entry = scanTimingRef.current[bagId] || { lastTs: null, chars: [] };
+    if (entry.lastTs !== null && now - entry.lastTs > SCAN_MAX_GAP_MS) {
+      entry.chars = []; // gap too slow for a scanner — drop the stale buffer
+    }
+    entry.chars.push(char);
+    entry.lastTs = now;
+    scanTimingRef.current[bagId] = entry;
+
+    // Only surface the value once it's a confirmed fast burst (2+ chars). A lone
+    // slow keystroke never reaches this, so manual typing shows nothing at all.
+    if (entry.chars.length >= 2) {
+      setBagScanInputs((prev) => ({ ...prev, [bagId]: { value: entry.chars.join(""), status: null } }));
+    }
+  };
+
+  // Clear the field at the start of a fresh capture so manual keystrokes can't
+  // linger and each scan begins from blank.
+  const startScanCapture = (bagId) => {
+    resetScanTiming(bagId);
+    setBagScanInputs((prev) => ({ ...prev, [bagId]: { value: "", status: null } }));
+  };
+
+  // A buffer only ever holds one uninterrupted fast burst, so a sufficient length
+  // confirms it came from a scanner rather than manual typing.
+  const isLikelyScan = (bagId) => {
+    const entry = scanTimingRef.current[bagId];
+    return !!entry && entry.chars.length >= SCAN_MIN_LENGTH;
   };
 
   const handleBagScanSubmit = (rackIndex, bagIndex) => {
@@ -297,6 +342,14 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     const scannedCode = normalizeScanValue(rawValue);
 
     if (!scannedCode || !canPerformCounting() || submittedBags[bag.id]) return;
+
+    // Reject anything that wasn't produced by a hardware scan — manual typing or
+    // paste. The field is cleared so the user has to scan the bag for real.
+    if (!isLikelyScan(bag.id)) {
+      setBagScanInputs((prev) => ({ ...prev, [bag.id]: { value: "", status: "manual" } }));
+      resetScanTiming(bag.id);
+      return;
+    }
 
     // The bag must be complete before a scan is accepted: amount entered, and if
     // it's a variance, a note added. The scanned value is kept visible either way
@@ -421,6 +474,13 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
           ...freshSubmittedState,
           [bag.id]: true,
         }));
+
+        // Keep verify-gating state fresh so the Verify button can surface as soon
+        // as the last bag is done — without needing to reopen the drawer.
+        setReconcileVerified(refreshRes?.data?.verifier_status);
+        setReconcileStatus(refreshRes?.data?.status);
+        setCanSubmitFromApi(refreshRes?.data?.can_submit ?? false);
+        setRequiredReconcilers(refreshRes?.data?.required_reconcilers || []);
         refetch?.();
       })
       .catch((err) => console.error("Error executing component sync loop:", err))
@@ -478,7 +538,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     setCanSubmitFromApi(res.data.can_submit ?? false);
     setReconcileStatus(res.data.status);
     setReconcileData(res.data);
-    setRequiredVerifiers(res.data.required_verifiers || []);
     setRequiredReconcilers(res.data.required_reconcilers || []);
 
     // Re-derive end permission: started_by may have been set after this drawer
@@ -526,7 +585,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     setCanSubmitFromApi(res.data.can_submit ?? false);
     setReconcileStatus(res.data.status);
     setReconcileData(res.data);
-    setRequiredVerifiers(res.data.required_verifiers || []);
     setRequiredReconcilers(res.data.required_reconcilers || []);
 
     const bagsArray = res.data.vault?.bags || [];
@@ -562,22 +620,26 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
 
   const allBagsDone = racks.length > 0 && racks.every((rack) => rack.bags.every((bag) => submittedBags[bag.id]));
   const currentUserId = Number(user?.id);
-  const hasCurrentUserVerified =
-    requiredVerifiers.some((v) => Number(v.user_id) === currentUserId && !!v.verified) ||
-    requiredReconcilers.some((v) => Number(v.user_id) === currentUserId && !!v.verified);
-  const isPendingVerifier =
-    !hasCurrentUserVerified &&
-    (requiredVerifiers.some((v) => Number(v.user_id) === currentUserId && !v.verified) ||
-      requiredReconcilers.some((v) => Number(v.user_id) === currentUserId && !v.verified));
-  const canVerify = (() => {
-    if (isSuperAdmin) return true;
+
+  // Only reconcilers verify a reconciliation. Whether the user holds the reconciler
+  // role for this vault (mirrors canPerformCounting). Used as a fallback so a
+  // legitimate reconciler still sees the button even if the backend hasn't yet
+  // snapshotted them into required_reconcilers — the verify endpoint re-syncs and
+  // accepts them on click.
+  const isReconcilerByRole = (() => {
     if (!targetVaultId || !user?.vault_assignments) return false;
     const activeAssignment = user.vault_assignments.find((assign) => Number(assign.vault_id) === Number(targetVaultId) && assign.status === "active");
     const reconcilerRoleId = user?.roles?.find((role) => role?.name?.toLowerCase() === "reconciler")?.id;
     return activeAssignment?.roles?.some((roleId) => Number(roleId) === reconcilerRoleId) || false;
   })();
+
+  const hasCurrentUserVerified = requiredReconcilers.some((v) => Number(v.user_id) === currentUserId && !!v.verified);
+  const isInRequiredReconcilers = requiredReconcilers.some((v) => Number(v.user_id) === currentUserId);
+  // The current user is a pending reconciler when they haven't verified yet and
+  // are either already in the required list or hold the reconciler role here.
+  const isPendingReconciler = !hasCurrentUserVerified && (isInRequiredReconcilers || isReconcilerByRole);
   const canShowVerifyButton =
-    canVerify && allBagsDone && isPendingVerifier && reconcileVerified !== "verified" && reconcileVerified !== "rejected";
+    isPendingReconciler && allBagsDone && reconcileVerified !== "verified" && reconcileVerified !== "rejected";
 
   const canEndAudit = (() => {
     if (isSuperAdmin) return true;
@@ -781,28 +843,34 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
 
                                   {/* Scan */}
                                   <div>
-                                    <div className="flex justify-between items-center mb-1">
-                                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Scan</label>
-                                      {scanState?.status === "success" && <span className="text-[10px] font-bold text-emerald-600">✓</span>}
-                                      {scanState?.status === "error" && <span className="text-[10px] font-bold text-red-500">No match</span>}
-                                      {scanState?.status === "no-amount" && <span className="text-[10px] font-bold text-amber-500">Enter amount first</span>}
-                                      {scanState?.status === "no-note" && <span className="text-[10px] font-bold text-amber-500">Add note first</span>}
-                                    </div>
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Scan</label>
                                     <div className="relative">
                                       <input
                                         type="text"
                                         placeholder="Scan Barcode..."
                                         value={scanState?.value || ""}
                                         disabled={isBagSubmitted || !canPerformCounting()}
-                                        onChange={(e) => updateBagScanInput(bag.id, e.target.value)}
+                                        onFocus={() => startScanCapture(bag.id)}
+                                        onPaste={(e) => e.preventDefault()}
+                                        // Value is driven entirely by the scanner buffer (feedScanChar),
+                                        // so onChange is an intentional no-op to keep the input controlled.
+                                        onChange={() => {}}
                                         onKeyDown={(e) => {
                                           if (e.key === "Enter") {
                                             e.preventDefault();
                                             handleBagScanSubmit(rackIndex, bagIndex);
+                                            return;
+                                          }
+                                          // Block native typing: every printable character is captured and
+                                          // routed through the burst-timing buffer instead. Manual (slow)
+                                          // keystrokes get discarded, so only a real scan fills the field.
+                                          if (e.key.length === 1) {
+                                            e.preventDefault();
+                                            feedScanChar(bag.id, e.key);
                                           }
                                         }}
                                         className={`w-full border rounded-lg pl-2 pr-9 py-2 text-sm font-mono text-slate-700 outline-none focus:ring-2 disabled:bg-gray-50 disabled:text-gray-400 ${
-                                          scanState?.status === "error"
+                                          scanState?.status === "error" || scanState?.status === "manual"
                                             ? "border-red-400 focus:border-red-500 focus:ring-red-100"
                                             : scanState?.status === "no-amount" || scanState?.status === "no-note"
                                               ? "border-amber-400 focus:border-amber-500 focus:ring-amber-100"
@@ -814,6 +882,14 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                                       <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none">
                                         <QrCode size={16} />
                                       </span>
+                                    </div>
+                                    {/* Validation feedback sits below the input */}
+                                    <div className="min-h-[14px] mt-1">
+                                      {scanState?.status === "success" && <span className="text-[10px] font-bold text-emerald-600">✓ Scanned</span>}
+                                      {scanState?.status === "error" && <span className="text-[10px] font-bold text-red-500">No match</span>}
+                                      {scanState?.status === "no-amount" && <span className="text-[10px] font-bold text-amber-500">Enter amount first</span>}
+                                      {scanState?.status === "no-note" && <span className="text-[10px] font-bold text-amber-500">Add note first</span>}
+                                      {scanState?.status === "manual" && <span className="text-[10px] font-bold text-red-500">Use scanner — manual entry blocked</span>}
                                     </div>
                                   </div>
                                 </div>
@@ -896,33 +972,43 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                       >
                         Submit with Note
                       </button>
-                    ) : canShowVerifyButton ? (
-                      <VerifyButton
-                        handleSubmit={handleVerify}
-                        handleReject={handleReject}
-                        isOpen={verifyOpen}
-                        isLoading={verifyLoading}
-                        setOpen={setVerifyOpen}
-                        className="max-w-xl"
-                        wrapperClassName="flex-1"
-                        triggerClassName="w-full py-2.5 px-4 text-sm"
-                        title="Verify"
-                        rejectTitle="Reject this reconciliation?"
-                      >
-                        <ReconclieDetails reconcile={reconcileData} />
-                      </VerifyButton>
                     ) : (
-                      <button
-                        disabled={!canSubmitReconcileButton}
-                        onClick={handleFinalSubmit}
-                        className={`flex-1 py-2.5 px-4 font-bold text-sm rounded-xl transition-all ${
-                          canSubmitReconcileButton
-                            ? "bg-[#1a73e8] hover:bg-blue-600 text-white shadow-lg shadow-blue-200 cursor-pointer"
-                            : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                        }`}
-                      >
-                        Submit Audit Reconcile
-                      </button>
+                      <>
+                        {/* Verify and Submit can appear together: a reconciler who is
+                            also the audit initiator verifies, then submits. Once every
+                            reconciler has verified, the Verify button drops away and the
+                            read-only view is all that remains for non-submitters. */}
+                        {canShowVerifyButton && (
+                          <VerifyButton
+                            handleSubmit={handleVerify}
+                            handleReject={handleReject}
+                            isOpen={verifyOpen}
+                            isLoading={verifyLoading}
+                            setOpen={setVerifyOpen}
+                            className="max-w-xl"
+                            wrapperClassName="flex-1"
+                            triggerClassName="w-full py-2.5 px-4 text-sm"
+                            title="Verify"
+                            rejectTitle="Reject this reconciliation?"
+                          >
+                            <ReconclieDetails reconcile={reconcileData} />
+                          </VerifyButton>
+                        )}
+
+                        {canEndAudit && (
+                          <button
+                            disabled={!canSubmitReconcileButton}
+                            onClick={handleFinalSubmit}
+                            className={`flex-1 py-2.5 px-4 font-bold text-sm rounded-xl transition-all ${
+                              canSubmitReconcileButton
+                                ? "bg-[#1a73e8] hover:bg-blue-600 text-white shadow-lg shadow-blue-200 cursor-pointer"
+                                : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                            }`}
+                          >
+                            Submit Audit Reconcile
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 )}

@@ -210,7 +210,7 @@ const Reconcile = () => {
 
     return (
       <div className="bg-white border-x border-t border-slate-200 rounded-t-2xl overflow-hidden shrink-0">
-        <div className="bg-slate-50/60 border-b border-slate-100 px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+        {/*<div className="bg-slate-50/60 border-b border-slate-100 px-6 py-3 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide">Vault Reconciliation Summary</h3>
             <p className="text-[11px] font-semibold text-slate-400 mt-0.5 truncate">{activeVault.address || "No address recorded"}</p>
@@ -232,7 +232,7 @@ const Reconcile = () => {
               Latest: {latestReconcile.status}
             </span>
           )}
-        </div>
+        </div>*/}
 
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 p-4">
           {summaryCards.map((item) => {

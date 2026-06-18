@@ -33,7 +33,7 @@ const Drawer = ({ isOpen, onClose, children, title = "Drawer", className }) => {
               stiffness: 220,
               mass: 0.8,
             }}
-            className={cn("fixed right-0 top-0 h-full w-[40%] bg-white z-[70] shadow-2xl overflow-hidden flex flex-col", className)}
+            className={cn("fixed right-0 top-0 h-full w-[50%] bg-white z-[70] shadow-2xl overflow-hidden flex flex-col", className)}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-3">
