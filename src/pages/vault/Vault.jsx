@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import DataTable from "../../components/global/dataTable/DataTable";
 import { CreateVault, DeleteVault, GetVault, GetVaults, UpdateVault } from "../../services/Vault";
-import dayjs from "dayjs";
-import { AnimatePresence, motion } from "framer-motion";
 import { useForm } from "react-hook-form";
-import { ChevronRight, Plus, Loader2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import toast from "react-hot-toast";
 import { useToast } from "../../hooks/useToast";
 import { useSearchParams } from "react-router-dom";
 import VaultBagDetailsDrawer from "../../components/vaults/VaultBagDetailsDrawer";
 import CreateUpdateVault from "../../components/vaults/CreateUpdateVault";
+import VaultCardList from "../../components/vaults/VaultCardList";
 import { useSelector } from "react-redux";
 import { selectIsSuperAdmin } from "../../store/authSlice";
 import { usePermissions } from "../../hooks/usePermissions";
@@ -39,9 +37,6 @@ const Vault = () => {
   const [isApiDeleting, setIsApiDeleting] = useState(false);
   const [paginationData, setPaginationData] = useState();
   const currentPage = parseInt(searchParams.get("page") || "1");
-
-  const [activeActionMenuId, setActiveActionMenuId] = useState(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const { hasPermission, hasRole } = usePermissions();
@@ -159,7 +154,13 @@ const Vault = () => {
     if (!bag) return;
     const amount = parseFloat(bag.current_amount || 0);
     if (amount > 0) {
-      alert(`Cannot remove "${bag.barcode}" — it has ৳${amount.toFixed(2)}. Zero the amount first.`);
+      addToast({ type: "error", message: `Cannot remove "${bag.barcode}" — it holds ৳${amount.toFixed(2)}. Zero the amount first.` });
+      return;
+    }
+    // A bag that has any cash-in/cash-out history must be kept for the audit
+    // trail, even once its balance is back to zero.
+    if (bag.has_transactions) {
+      addToast({ type: "error", message: `Cannot remove "${bag.barcode}" — it has cash-in/cash-out history and can't be deleted.` });
       return;
     }
     setBags(bags.filter((b) => b.id !== id));
@@ -222,6 +223,7 @@ const Vault = () => {
         bag_identifier_barcode: bag.bag_identifier_barcode || "",
         rack_number: String(bag.rack_number || ""),
         current_amount: String(parseFloat(bag.current_amount || 0)),
+        has_transactions: !!bag.has_transactions,
       }));
 
       setBags(existingBags);
@@ -440,19 +442,6 @@ const Vault = () => {
     });
   };
 
-  useEffect(() => {
-    const handleOutsideClick = () => {
-      setActiveActionMenuId(null);
-      setDeleteConfirmId(null);
-    };
-    if (activeActionMenuId !== null) {
-      window.addEventListener("click", handleOutsideClick);
-    }
-    return () => {
-      window.removeEventListener("click", handleOutsideClick);
-    };
-  }, [activeActionMenuId]);
-
   const handleDeleteSubmit = async (id) => {
     setIsApiDeleting(true);
     try {
@@ -473,180 +462,10 @@ const Vault = () => {
     }
   };
 
-  // ── Table columns ─────────────────────────────────────────────────────────────
-  const columns = [
-    {
-      title: "Vault Code",
-      key: "vault_code",
-      className: "w-24 text-start",
-      render: (row) => <span className="text-[#1a73e8] font-semibold">{row.vault_code}</span>,
-    },
-    { title: "Name", key: "name", className: "w-40 text-start", render: (row) => <span>{row.name}</span> },
-    { title: "Address", key: "address", className: "w-32 text-start", render: (row) => <span>{row.address}</span> },
-    {
-      title: "Balance (৳)",
-      key: "balance",
-      className: "w-32 text-start",
-      render: (row) => (
-        <span>{row?.bags?.reduce((s, b) => s + parseFloat(b.current_amount || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-      ),
-    },
-    { title: "Racks", key: "total_racks", className: "w-18 text-start", render: (row) => <span>{row.total_racks || "-"}</span> },
-    {
-      title: "Bags",
-      key: "total_bags",
-      className: "!w-[140px] text-start",
-      render: (row) => {
-        const count = row.bags?.length || 0;
-        return (
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => openVaultDrawer(row)}
-            className="min-w-[112px] px-2.5 py-1.5 bg-green-50 border border-green-200 cursor-pointer text-green-500 text-xs rounded-full inline-flex items-center justify-center gap-1 whitespace-nowrap"
-          >
-            <span>{count} Bag{count !== 1 ? "s" : ""}</span>
-            <ChevronRight className="w-4 h-4" />
-          </motion.button>
-        );
-      },
-    },
-    {
-      title: "Last Cash In",
-      key: "last_cash_in",
-      className: "w-34 text-start",
-      render: (row) => (
-        <div className="flex flex-col">
-          <span>{row.last_cash_in ? dayjs(row.last_cash_in).format("DD MMM, YYYY HH:mm A") : "—"}</span>
-        </div>
-      ),
-    },
-    {
-      title: "Last Cash Out",
-      key: "last_cash_out",
-      className: "w-34 text-start",
-      render: (row) => (
-        <div className="flex flex-col">
-          <span>{row.last_cash_out ? dayjs(row.last_cash_out).format("DD MMM, YYYY HH:mm A") : "—"}</span>
-        </div>
-      ),
-    },
-    {
-      title: "Status",
-      key: "status",
-      className: "w-32 text-start",
-      render: () => <span className="bg-blue-50 text-xs text-[#1a73e8] border border-blue-200 py-1 px-2 rounded-full">Active</span>,
-    },
-    {
-      title: "Action",
-      key: "actions",
-      className: "w-14 relative",
-      noClip: true,
-      render: (row) => {
-        const isMenuOpen = activeActionMenuId === row.id;
-        const isConfirmingDelete = deleteConfirmId === row.id;
-
-        const toggleMenu = (e) => {
-          e.stopPropagation();
-          setActiveActionMenuId(isMenuOpen ? null : row.id);
-          setDeleteConfirmId(null);
-        };
-
-        const handleDeleteClick = (e) => {
-          e.stopPropagation(); // Stop parent triggers
-          setDeleteConfirmId(row.id); // Shift dropdown view into inline verification mode
-        };
-
-        const handleCancelDelete = (e) => {
-          e.stopPropagation();
-          setDeleteConfirmId(null);
-        };
-
-        return (
-          <div className="relative inline-block text-left">
-            <button
-              onClick={toggleMenu}
-              className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 focus:outline-none transition-colors duration-200 cursor-pointer"
-              aria-label="Actions"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 12c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
-              </svg>
-            </button>
-
-            {isMenuOpen && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: -5 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                transition={{ duration: 0.15 }}
-                className={`absolute right-0 mt-1 bg-white border border-gray-200 divide-y divide-gray-100 rounded-lg shadow-xl z-50 overflow-hidden ${isConfirmingDelete ? "w-44" : "w-36"}`}
-              >
-                <AnimatePresence mode="wait">
-                  {!isConfirmingDelete ? (
-                    <motion.div key="options" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                      {(isSuperAdmin || hasPermission("vault.edit")) && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setActiveActionMenuId(null); openEditModal(row); }}
-                          className="flex items-center w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors gap-2 font-medium cursor-pointer"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                          Edit
-                        </button>
-                      )}
-                      {(isSuperAdmin || hasPermission("vault.delete")) && (
-                        <button
-                          onClick={handleDeleteClick}
-                          className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors gap-2 font-medium cursor-pointer"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          Delete
-                        </button>
-                      )}
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="confirm"
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      className="py-4 text-center"
-                    >
-                      <p className="text-xs text-gray-500 font-medium mb-2">Are you sure?</p>
-                      <div className="flex justify-center gap-2">
-                        <button
-                          onClick={handleCancelDelete}
-                          className="px-2 py-1 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors cursor-pointer"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          disabled={isApiDeleting}
-                          onClick={(e) => { e.stopPropagation(); handleDeleteSubmit(row.id); }}
-                          className="px-2 py-1 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded transition-colors cursor-pointer"
-                        >
-                          {isApiDeleting ? <Loader2 className="w-4 h-4 mx-2 animate-spin" /> : "Confirm"}
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            )}
-          </div>
-        );
-      },
-    },
-  ];
-
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
+    <div className="h-[calc(100vh-16px)] flex flex-col min-h-0">
+      <div className="mb-6 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-10 bg-[#1a2b4b] rounded-full" />
           <div>
@@ -677,7 +496,17 @@ const Vault = () => {
         )}
       </div>
 
-      <DataTable columns={columns} data={vaults} paginationData={paginationData} changePage={handlePageChange} className="h-[calc(100vh-120px)]" compact />
+      <VaultCardList
+        vaults={vaults}
+        paginationData={paginationData}
+        changePage={handlePageChange}
+        onOpenDrawer={openVaultDrawer}
+        onEdit={openEditModal}
+        onDelete={handleDeleteSubmit}
+        canEdit={isSuperAdmin || hasPermission("vault.edit")}
+        canDelete={isSuperAdmin || hasPermission("vault.delete")}
+        isApiDeleting={isApiDeleting}
+      />
 
       {/* ── Create / Edit Modal ── */}
       {isOpenModal && (

@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus, Loader2 } from "lucide-react";
 import DataTable from "../../components/global/dataTable/DataTable";
+import CashFilters from "../../components/global/cashFilters/CashFilters";
+import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 import { AnimatePresence, motion } from "framer-motion";
 import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
 import dayjs from "dayjs";
@@ -87,6 +89,8 @@ const ExpandableBagIds = ({ bags, isExpanded, onToggle, onIdClick }) => {
   );
 };
 
+const DEFAULT_FILTERS = { search: "", from_date: "", to_date: "", preset: "all", per_page: 500, page: 1 };
+
 const CashOut = () => {
   const [vaults, setVaults] = useState([]);
   const [selectedVaultId, setSelectedVaultId] = useState(null);
@@ -112,6 +116,9 @@ const CashOut = () => {
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
 
   const { addToast } = useToast();
+  const { filters, updateFilters, resetFilters } = usePersistedFilters("cashout_filters", DEFAULT_FILTERS);
+  const [paginationData, setPaginationData] = useState({});
+  const [loading, setLoading] = useState(false);
 
   const toggleRow = (rowId, e) => {
     e.stopPropagation();
@@ -123,26 +130,37 @@ const CashOut = () => {
     GetVaults().then((res) => setVaults(res.data?.data || []));
   }, []);
 
-  const fetchCashOutLits = async () => {
-    const res = await GetCashOuts();
-    setCashOuts(res?.data?.data || []);
-  };
+  const fetchCashOutLits = useCallback(() => {
+    setLoading(true);
+    GetCashOuts({
+      search: filters.search || undefined,
+      from_date: filters.from_date || undefined,
+      to_date: filters.to_date || undefined,
+      per_page: filters.per_page,
+      page: filters.page,
+    })
+      .then((res) => {
+        setCashOuts(res?.data?.data || []);
+        setPaginationData(res?.data?.pagination || {});
+      })
+      .catch((err) => {
+        console.error("Error fetching cash-outs:", err);
+        setCashOuts([]);
+        setPaginationData({});
+      })
+      .finally(() => setLoading(false));
+  }, [filters]);
 
   useEffect(() => {
     fetchCashOutLits();
-  }, []);
+  }, [fetchCashOutLits]);
 
   const refetch = () => {
     fetchCashOutLits();
   };
 
-  const cashOutPagination = {
-    current_page: 1,
-    per_page: cashOuts.length || 1,
-    total: cashOuts.length || 0,
-    prev_page_url: null,
-    next_page_url: null,
-    last_page: 1,
+  const handlePageChange = (page) => {
+    updateFilters({ page }, { resetPage: false });
   };
 
   useEffect(() => {
@@ -719,7 +737,7 @@ const CashOut = () => {
       },
     },
     {
-      title: "Approvals",
+      title: "Cashiers",
       key: "required_verifiers",
       className: "w-[11%] text-center",
       render: (row) => {
@@ -942,7 +960,21 @@ const CashOut = () => {
         </div>
       </div>
 
-      <DataTable columns={columnsCashOutLists} data={cashOuts} paginationData={cashOutPagination} changePage={() => {}} className="h-[calc(100vh-100px)]" />
+      <CashFilters
+        filters={filters}
+        onChange={updateFilters}
+        onReset={resetFilters}
+        searchPlaceholder="Search vault, bag, tran ID, amount…"
+      />
+
+      <DataTable
+        columns={columnsCashOutLists}
+        data={cashOuts}
+        paginationData={paginationData}
+        changePage={handlePageChange}
+        isLoading={loading}
+        className="h-[calc(100vh-200px)]"
+      />
 
       {openCashOutReqDrawer && (
         <CashOutRequestDrawer isOpen={openCashOutReqDrawer} onClose={() => setOpenCashOutReqDrawer(false)} refetch={refetch} editData={editCashOutData} />

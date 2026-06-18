@@ -1,8 +1,8 @@
 import axios from "../utils/axiosConfig";
 
-export const GetCashIns = async () => {
+export const GetCashIns = async (params = {}) => {
   try {
-    const response = await axios.get(`/cash-in`);
+    const response = await axios.get(`/cash-in`, { params });
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);
@@ -16,9 +16,9 @@ export const GetCashIn = async (id) => {
     console.error(error?.response?.data?.message);
   }
 };
-export const GetCashOuts = async () => {
+export const GetCashOuts = async (params = {}) => {
   try {
-    const response = await axios.get(`/cash-out`);
+    const response = await axios.get(`/cash-out`, { params });
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);

@@ -18,12 +18,16 @@ import CashInDetails from "../../components/cashin/CashInDetails";
 import { useSelector } from "react-redux";
 import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
 import ApprovalCell from "../../components/cashin/ApprovalCell";
+import CashFilters from "../../components/global/cashFilters/CashFilters";
+import { usePersistedFilters } from "../../hooks/usePersistedFilters";
+
+const DEFAULT_FILTERS = { search: "", from_date: "", to_date: "", preset: "all", per_page: 500, page: 1 };
 
 const DENOM_NOTES = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
 const INITIAL_DENOMINATIONS = Object.fromEntries(DENOM_NOTES.map((n) => [n, 0]));
 
 const CashIn = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [, setSearchParams] = useSearchParams();
   const [editCashInData, setEditCashInData] = useState(null);
   const [cashIns, setCashIns] = useState([]);
   const [cashInsLoaded, setCashInsLoaded] = useState(false);
@@ -50,10 +54,17 @@ const CashIn = () => {
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const user = useSelector(selectAuthUser);
   const { addToast } = useToast();
+  const { filters, updateFilters, resetFilters } = usePersistedFilters("cashin_filters", DEFAULT_FILTERS);
 
-const fetchCashInsData = useCallback(() => {
+  const fetchCashInsData = useCallback(() => {
     setLoading(true);
-    GetCashIns()
+    GetCashIns({
+      search: filters.search || undefined,
+      from_date: filters.from_date || undefined,
+      to_date: filters.to_date || undefined,
+      per_page: filters.per_page,
+      page: filters.page,
+    })
       .then((res) => {
         setCashIns(res?.data?.data || []);
         setCashInsLoaded(true);
@@ -66,11 +77,11 @@ const fetchCashInsData = useCallback(() => {
         setPaginationData({});
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [filters]);
 
   useEffect(() => {
     fetchCashInsData();
-  }, []);
+  }, [fetchCashInsData]);
 
   useEffect(() => {
     const handleOutsideClick = () => {
@@ -84,24 +95,7 @@ const fetchCashInsData = useCallback(() => {
   }, [activeActionMenuId]);
 
   const handlePageChange = (page) => {
-    setSearchParams((prev) => {
-      const p = new URLSearchParams(prev);
-      p.set("page", page.toString());
-      return p;
-    });
-  };
-
-  const handleSearch = (term) => {
-    setSearchParams((prev) => {
-      const p = new URLSearchParams(prev);
-      if (term.trim()) {
-        p.set("search", term.trim());
-        p.set("page", "1");
-      } else {
-        p.delete("search");
-      }
-      return p;
-    });
+    updateFilters({ page }, { resetPage: false });
   };
 
   const totalEnteredAmount = selectedRows.reduce((sum, row) => sum + (parseFloat(amounts[row.id]) || 0), 0);
@@ -586,13 +580,13 @@ const fetchCashInsData = useCallback(() => {
     {
       title: "Vault",
       key: "name",
-      className: "w-[8%]",
+      className: "w-[10%]",
       render: (row) => <span className="text-[#1a73e8] font-semibold">{row.vault?.name}</span>,
     },
     {
       title: "Bag",
       key: "bag",
-      className: "w-[8%]",
+      className: "w-[10%]",
       render: (row) => (
         <span>
           {/* {row?.bags?.barcode}-RN{row?.bags?.rack_number} */}
@@ -603,13 +597,13 @@ const fetchCashInsData = useCallback(() => {
     {
       title: "Tran Id",
       key: "tran_id",
-      className: "w-[14%]",
+      className: "w-[16%]",
       render: (row) => <span className="block truncate font-mono">{row?.tran_id}</span>,
     },
     {
       title: "Order Ids",
       key: "orders",
-      className: "w-[31%]",
+      className: "w-[20%]",
       render: (row) => (
         <ExpandableOrderIds
           orders={row?.orders}
@@ -620,19 +614,19 @@ const fetchCashInsData = useCallback(() => {
     {
       title: "Amount",
       key: "cash_in_amount",
-      className: "w-[6%]",
+      className: "w-[8%]",
       render: (row) => <span>{row?.cash_in_amount}</span>,
     },
     {
       title: "Req at",
       key: "created_at",
-      className: "w-[8%]",
+      className: "w-[10%]",
       render: (row) => <span className="whitespace-nowrap">{dayjs(row.created_at).format("DD MMM, YYYY")}</span>,
     },
     {
       title: "Verifiers",
       key: "required_verifiers",
-      className: "w-[10%] text-center",
+      className: "w-[11%] text-center",
       render: (row) => {
         const isVerifierShowButton = row?.required_verifiers?.some((verifier) => verifier?.user_id === user?.id && !verifier?.verified);
         const isRejected = row.verifier_status === "rejected" || row.approver_status === "rejected";
@@ -660,7 +654,7 @@ const fetchCashInsData = useCallback(() => {
     {
       title: "Cashiers",
       key: "required_approvers",
-      className: "w-[10%] text-center",
+      className: "w-[11%] text-center",
       render: (row) => (
         <ApprovalCell
           row={row}
@@ -677,7 +671,7 @@ const fetchCashInsData = useCallback(() => {
       title: "Action",
       key: "actions",
       noClip: true,
-      className: "w-[6%] relative",
+      className: "w-[4%] relative",
       render: (row) => {
         const isLocked = row?.required_verifiers?.some((v) => v?.verified)
           || row?.verifier_status === "rejected"
@@ -816,16 +810,22 @@ const fetchCashInsData = useCallback(() => {
         </div>
       </div>
 
+      <CashFilters
+        filters={filters}
+        onChange={updateFilters}
+        onReset={resetFilters}
+        searchPlaceholder="Search vault, bag, tran ID, order ID, amount…"
+      />
+
       <DataTable
         columns={columns}
         data={cashIns}
         changePage={handlePageChange}
-        onSearch={handleSearch}
         paginationData={paginationData}
         selectedRows={selectedRows}
-        loading={loading}
+        isLoading={loading}
         setSelectedRows={setSelectedRows}
-        className="h-[calc(100vh-80px)]"
+        className="h-[calc(100vh-180px)]"
         compact
       />
       {/* 

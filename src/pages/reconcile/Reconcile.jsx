@@ -3,7 +3,7 @@ import DataTable from "../../components/global/dataTable/DataTable";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GetReconciles } from "../../services/Reconcile";
-import { ArrowLeft, Building2, Landmark, Loader2, Plus, Scale, Wallet, WalletCards } from "lucide-react";
+import { ArrowLeft, Building2, CalendarClock, Eye, Landmark, Loader2, Plus, Scale, Wallet, WalletCards } from "lucide-react";
 import { useSelector } from "react-redux";
 import ReconcileViewDrawer from "../../components/reconcile/ReconcileViewDrawer";
 import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
@@ -480,35 +480,48 @@ const Reconcile = () => {
       title: "Action",
       key: "actions",
       className: "w-[9%]",
+      noClip: true,
       render: (row) => {
         // Reschedule is offered once a pending reconcile's scheduled window expires.
         const showReschedule = isScheduleExpired(row);
 
         return (
-          <div className="flex gap-2 py-2">
+          <div className="flex gap-1 py-2">
             {/* View Button */}
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                setSelectedReconcile(row);
-                setOpenReconcileViewDrawer(true);
-              }}
-              className="p-2 rounded-lg cursor-pointer text-blue-600 transition-all"
-            >
-              <span>View</span>
-            </motion.button>
-
-            {/* Conditional Reschedule Button */}
-            {showReschedule && (isSuperAdmin || hasPermission("reconciliation.reschedule")) && (
+            <div className="relative group/action">
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => handleOpenRescheduleModal(row.id)}
-                className="p-2 rounded-lg cursor-pointer text-orange-600 transition-all"
+                onClick={() => {
+                  setSelectedReconcile(row);
+                  setOpenReconcileViewDrawer(true);
+                }}
+                aria-label="View"
+                className="p-2 rounded-lg cursor-pointer text-blue-600 hover:bg-blue-50 transition-all"
               >
-                <span>Reschedule</span>
+                <Eye className="w-4 h-4" />
               </motion.button>
+              <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-[10px] font-semibold text-white opacity-0 group-hover/action:opacity-100 transition-opacity z-50">
+                View
+              </span>
+            </div>
+
+            {/* Conditional Reschedule Button */}
+            {showReschedule && (isSuperAdmin || hasPermission("reconciliation.reschedule")) && (
+              <div className="relative group/action">
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleOpenRescheduleModal(row.id)}
+                  aria-label="Reschedule"
+                  className="p-2 rounded-lg cursor-pointer text-orange-600 hover:bg-orange-50 transition-all"
+                >
+                  <CalendarClock className="w-4 h-4" />
+                </motion.button>
+                <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-[10px] font-semibold text-white opacity-0 group-hover/action:opacity-100 transition-opacity z-50">
+                  Reschedule
+                </span>
+              </div>
             )}
           </div>
         );
