@@ -314,9 +314,9 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     entry.lastTs = now;
     scanTimingRef.current[bagId] = entry;
 
-    // Only surface the value once it's a confirmed fast burst (2+ chars). A lone
-    // slow keystroke never reaches this, so manual typing shows nothing at all.
-    if (entry.chars.length >= 2) {
+    // Only surface the value once it's a confirmed fast burst (SCAN_MIN_LENGTH chars).
+    // Anything shorter can't be a real scanner output, so the field stays blank.
+    if (entry.chars.length >= SCAN_MIN_LENGTH) {
       setBagScanInputs((prev) => ({ ...prev, [bagId]: { value: entry.chars.join(""), status: null } }));
     }
   };
@@ -355,11 +355,13 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     // it's a variance, a note added. The scanned value is kept visible either way
     // so it's clear the scan was captured — only the submit is held back.
     if (!isBagAmountEntered(bag)) {
-      setBagScanInputs((prev) => ({ ...prev, [bag.id]: { value: rawValue, status: "no-amount" } }));
+      setBagScanInputs((prev) => ({ ...prev, [bag.id]: { value: "", status: "no-amount" } }));
+      resetScanTiming(bag.id);
       return;
     }
     if (isBagMismatched(bag) && !bagNotes[bag.id]) {
-      setBagScanInputs((prev) => ({ ...prev, [bag.id]: { value: rawValue, status: "no-note" } }));
+      setBagScanInputs((prev) => ({ ...prev, [bag.id]: { value: "", status: "no-note" } }));
+      resetScanTiming(bag.id);
       return;
     }
 
@@ -520,13 +522,14 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     }
   };
 
-  const handleStartAuditSession = () => {
-    setCurrentStep("counting");
-    // The user starting the audit becomes started_by, so they may end it.
+  const handleStartAuditSession = async () => {
     setIsAllowedToEnd(true);
-    StartReconciliation(reconcileId).then(() => {
-      refetch();
-    });
+    // Await start so the backend status is "counting" before the auto-submit
+    // useEffect fires — otherwise CompleteReconciliation runs against a "pending"
+    // reconcile and is silently rejected.
+    await StartReconciliation(reconcileId);
+    setCurrentStep("counting");
+    refetch();
   };
 
   // Re-pull verifier-related state after a verify/reject action.
@@ -799,7 +802,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                         </div>
 
                         <div className="p-4 space-y-5">
-                          {rack.bags.map((bag, bagIndex) => {
+                          {rack.bags.filter((bag) => bag.expectedAmount !== 0).map((bag, bagIndex) => {
                             const isBagSubmitted = submittedBags[bag.id];
                             const isBagSaving = submittingBagId === bag.id;
                             const amountEntered = bag.amount !== "";
@@ -852,8 +855,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                                         disabled={isBagSubmitted || !canPerformCounting()}
                                         onFocus={() => startScanCapture(bag.id)}
                                         onPaste={(e) => e.preventDefault()}
-                                        // Value is driven entirely by the scanner buffer (feedScanChar),
-                                        // so onChange is an intentional no-op to keep the input controlled.
                                         onChange={() => {}}
                                         onKeyDown={(e) => {
                                           if (e.key === "Enter") {

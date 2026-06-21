@@ -127,6 +127,7 @@ All routes under `/` require auth via `<PrivateRoute>`. Most also require a name
 - **Cash-In / Cash-Out** — order/bag lifecycle management with drawer UI
 - **Vault Management** — vault CRUD, audit config
 - **Reconciliation** — balance matching with global state (`checkReconcile` slice)
+  > **Note:** The reconcile module no longer uses `reconcile_required_verifiers`. Use **`reconcile_required_reconcilers`** instead (frontend reads the `required_reconcilers` field). `required_verifiers` remains in use only for Cash-In / Cash-Out.
 - **Reports** — charts (Recharts), export/print support
 - **User Management** — CRUD, role assignment
 - **KYC / Verification** — user verification workflow with QR/barcode scanning

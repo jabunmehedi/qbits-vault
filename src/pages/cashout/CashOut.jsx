@@ -8,7 +8,7 @@ import VerifierAvatars from "../../components/global/verifierAvatars.jsx/Verifie
 import dayjs from "dayjs";
 import { GetVaults } from "../../services/Vault";
 import CashOutConfirmationModal from "../../components/cashout/CashOutConfirmationModal";
-import { ApproveCashOut, CustodianVerifyCashReceived, DeleteCashOut, GetCashOut, GetCashOuts, RejectCashOut, VerifyCashOut } from "../../services/Cash";
+import { ApproveCashOut, CustodianRejectCashReceived, CustodianVerifyCashReceived, DeleteCashOut, GetCashOut, GetCashOuts, RejectCashOut, VerifyCashOut } from "../../services/Cash";
 import { useSelector } from "react-redux";
 import { usePermissions } from "../../hooks/usePermissions";
 import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
@@ -252,7 +252,7 @@ const CashOut = () => {
     .content { padding: 14px 16px; }
 
     /* ── Info grid ── */
-    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; margin-bottom: 12px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px 24px; margin-bottom: 12px; }
     .info-item { padding: 2px 0 5px; }
     .info-label { font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 2px; }
     .info-value { font-size: 13px; font-weight: 600; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; display: flex; align-items: center; gap: 5px; min-height: 18px; }
@@ -339,16 +339,16 @@ const CashOut = () => {
         <div class="info-value">${cashOut.vault?.name || vault.name || "—"}</div>
       </div>
       <div class="info-item">
-        <div class="info-label">Cash Out Transaction ID:</div>
-        <div class="info-value" style="font-family:monospace">${cashOut.tran_id || "—"}</div>
-      </div>
-      <div class="info-item">
         <div class="info-label">Vault Code:</div>
         <div class="info-value">${vault.vault_code || "—"}</div>
       </div>
       <div class="info-item">
-        <div class="info-label">Cash In Transaction ID:</div>
-        <div class="info-value" style="font-family:monospace">${cash_in_tran_id || "—"}</div>
+        <div class="info-label">Cash Out Transaction ID:</div>
+        <div class="info-value" style="font-family:monospace">${cashOut.tran_id || "—"}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Bag Number:</div>
+        <div class="info-value">${bagNumber}</div>
       </div>
       <div class="info-item">
         <div class="info-label">Date:</div>
@@ -358,15 +358,15 @@ const CashOut = () => {
         </div>
       </div>
       <div class="info-item">
-        <div class="info-label">Bag Number:</div>
-        <div class="info-value">${bagNumber}</div>
-      </div>
-      <div class="info-item">
         <div class="info-label">Generated Time:</div>
         <div class="info-value">
           ${dayjs().format("HH:mm")}
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         </div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Cash In Transaction ID:</div>
+        <div class="info-value" style="font-family:monospace">${cash_in_tran_id || "—"}</div>
       </div>
       <div class="info-item" style="grid-column: span 2">
         <div class="info-label">Prepared By:</div>
@@ -390,8 +390,8 @@ const CashOut = () => {
           <tr><th>Denomination (BDT)</th><th>Count</th><th>Total (BDT)</th></tr>
         </thead>
         <tbody>
-          ${DENOM_NOTES.map((note) => {
-            const cnt = denomMap[note] || 0;
+          ${DENOM_NOTES.filter((note) => (denomMap[note] || 0) > 0).map((note) => {
+            const cnt = denomMap[note];
             return `<tr>
               <td>${note.toLocaleString("en-US")}</td>
               <td>${cnt}</td>
@@ -603,6 +603,24 @@ const CashOut = () => {
     }
   };
 
+  const handleCustodianReject = async (id, note) => {
+    setVerifyLoading(id);
+    try {
+      const res = await CustodianRejectCashReceived(id, note);
+      if (!res?.success) {
+        addToast({ message: res?.message, type: "error" });
+        return;
+      }
+      fetchCashOutLits();
+      addToast({ message: "Custodian rejected the change amount", type: "success" });
+    } catch (err) {
+      console.error("Failed to reject custodian cash:", err);
+    } finally {
+      setVerifyLoading(null);
+      setActiveCustodianId(null);
+    }
+  };
+
   const handleDeleteSubmit = async (id) => {
     setDeleteLoading(true);
     try {
@@ -635,13 +653,13 @@ const CashOut = () => {
     {
       title: "Tran ID",
       key: "tran_id",
-      className: "w-[14%]",
+      className: "w-[10%]",
       render: (row) => <span className="block truncate font-mono text-gray-400">{row?.tran_id}</span>,
     },
     {
       title: "Bags ID",
       key: "customer.name",
-      className: "w-[22%]",
+      className: "w-[28%]",
       render: (row) => (
         <ExpandableBagIds bags={row} isExpanded={!!expandedRows[row.id]} onToggle={(e) => toggleRow(row.id, e)} />
       ),
@@ -666,14 +684,15 @@ const CashOut = () => {
       render: (row) => <span className="whitespace-nowrap">{dayjs(row.created_at).format("DD MMM, YYYY")}</span>,
     },
     {
-      title: "Verifications",
+      title: "Verifiers",
       key: "required_verifiers",
+      noClip: true,
       className: "w-[11%] text-center",
       render: (row) => {
         const isVerifierShowButton = row?.required_verifiers?.some((verifier) => verifier?.user_id === user?.id && !verifier?.verified);
         const isRejected = row?.verifier_status === "rejected" || row?.approver_status === "rejected";
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-2">
             <VerifierAvatars requiredVerifiers={row.required_verifiers || []} isRejected={isRejected} />
             {isVerifierShowButton && !isRejected && (
               <VerifyButton
@@ -696,7 +715,8 @@ const CashOut = () => {
     {
       title: "Custodian",
       key: "current_amount",
-      className: "w-[9%] text-center",
+      noClip: true,
+      className: "w-[8%] text-center",
       render: (row) => {
         const isVerifierShowButton = row?.custodian?.custodian_id === user?.id && row?.custodian?.status === "pending";
         const isVerified = row?.verifier_status === "verified";
@@ -704,16 +724,18 @@ const CashOut = () => {
         return (
           <>
             {row?.custodian ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center gap-2">
                 <CustodianAvatar custodian={row?.custodian || []} />
                 {isVerifierShowButton && isVerified && !isRejected && (
                   <VerifyButton
                     handleSubmit={() => handleCustodianVerify(row.id)}
+                    handleReject={(note) => handleCustodianReject(row.id, note)}
                     isOpen={activeCustodianId === row.id}
                     isLoading={verifyLoading}
                     setOpen={(isOpen) => setActiveCustodianId(isOpen ? row.id : null)}
                     className="max-w-xl"
                     title="Receive"
+                    rejectTitle="Reject change amount?"
                   >
                     <CashOutCustodianModal cashOut={row} />
                   </VerifyButton>
@@ -729,17 +751,15 @@ const CashOut = () => {
     {
       title: "Cashiers",
       key: "required_verifiers",
+      noClip: true,
       className: "w-[11%] text-center",
       render: (row) => {
         const isApproverShowButton = row?.required_approvers?.some((approver) => approver?.user_id === user?.id && !approver?.approved);
         const isVerified = row?.verifier_status === "verified";
-
         const isCustodianConditionMet = !row?.custodian || row?.custodian?.status === "verified";
-        // Once rejected (by a verifier or an approver) the cash-out is terminal — no further actions.
         const isRejected = row?.verifier_status === "rejected" || row?.approver_status === "rejected";
-
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-2">
             <VerifierAvatars requiredVerifiers={row.required_approvers || []} isRejected={row?.approver_status === "rejected"} />
             {isApproverShowButton && isVerified && isCustodianConditionMet && !isRejected && (
               <VerifyButton
@@ -758,6 +778,22 @@ const CashOut = () => {
           </div>
         );
       },
+    },
+    {
+      title: "Ledger",
+      key: "ledger",
+      className: "w-[5%] text-center",
+      render: (row) => (
+        <button
+          onClick={(e) => { e.stopPropagation(); downloadCashOutLedger(row); }}
+          className="inline-flex items-center justify-center p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer"
+          title="Download Ledger"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </button>
+      ),
     },
     {
       title: "Action",
@@ -816,6 +852,10 @@ const CashOut = () => {
           setDeleteConfirmId(null);
         };
 
+        const canEdit = !isLocked && (isSuperAdmin || hasPermission("cash-out.edit"));
+        const canDelete = row?.verifier_status !== "verified" && (isSuperAdmin || hasPermission("cash-out.delete"));
+        if (!canEdit && !canDelete) return null;
+
         return (
           <div className="relative inline-block text-left">
             <button
@@ -842,7 +882,7 @@ const CashOut = () => {
                   {!isConfirmingDelete ? (
                     <motion.div key="options" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                       {/* Edit Option */}
-                      {!isLocked && (isSuperAdmin || hasPermission("cash-out.edit")) && (
+                      {canEdit && (
                         <button
                           onClick={handleEdit}
                           className="flex items-center w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors gap-2 font-medium cursor-pointer"
@@ -859,7 +899,7 @@ const CashOut = () => {
                       )}
 
                       {/* Delete Option Trigger */}
-                      {row?.verifier_status !== "verified" && (isSuperAdmin || hasPermission("cash-out.delete")) && (
+                      {canDelete && (
                         <button
                           onClick={handleDeleteClick}
                           className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors gap-2 font-medium cursor-pointer"
@@ -875,16 +915,6 @@ const CashOut = () => {
                         </button>
                       )}
 
-                      {/* Ledger Option */}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setActiveActionMenuId(null); downloadCashOutLedger(row); }}
-                        className="flex items-center w-full px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors gap-2 font-medium cursor-pointer"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Ledger
-                      </button>
                     </motion.div>
                   ) : (
                     <motion.div

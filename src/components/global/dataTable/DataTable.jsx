@@ -75,7 +75,7 @@ const DataTable = ({
                     }`}
                     onClick={() => column.iconClickAction?.()}
                   >
-                    <div className="flex items-center gap-1.5">
+                    <div className={`flex items-center gap-1.5 ${column?.className?.includes("text-center") ? "justify-center" : ""}`}>
                       <span>{column.title}</span>
                       {column.icon && (
                         <span className="text-slate-400">
@@ -113,7 +113,7 @@ const DataTable = ({
                       className="border-b border-slate-100 last:border-b-0 bg-white hover:bg-slate-50/40 transition-colors"
                     >
                       {columns.map((column, colIndex) => (
-                        <td key={colIndex} className={`${cellPaddingClassName} text-slate-600 text-start text-xs transition-all duration-300 ${column?.noClip ? "overflow-visible" : "overflow-hidden max-w-0"} ${column?.className ?? ""}`}>
+                        <td key={colIndex} className={`${cellPaddingClassName} text-slate-600 text-xs transition-all duration-300 ${column?.noClip ? "overflow-visible" : "overflow-hidden max-w-0"} ${column?.className?.includes("text-") ? column.className : `text-start ${column?.className ?? ""}`}`}>
                           <motion.div className="w-full">{column.render ? column.render(row, row, data.length) : row[column.key] || <span className="text-slate-300">-</span>}</motion.div>
                         </td>
                       ))}

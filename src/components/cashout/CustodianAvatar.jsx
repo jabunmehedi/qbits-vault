@@ -36,7 +36,11 @@ const CustodianAvatar = ({ custodian = [] }) => {
       >
         <div
           className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white shadow-sm group-hover:scale-105 transition-transform ${
-            custodian?.status === "verified" ? "bg-[#1a73e8] text-white" : "bg-gray-300 text-gray-600"
+            custodian?.status === "rejected"
+              ? "bg-red-500 text-white"
+              : custodian?.status === "verified"
+              ? "bg-green-500 text-white"
+              : "bg-yellow-400 text-white"
           }`}
         >
           {(custodian?.custodian?.name || "V").charAt(0).toUpperCase()}
@@ -70,10 +74,17 @@ const CustodianAvatar = ({ custodian = [] }) => {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-bold tracking-widest text-gray-400 uppercase">
-                  Cash Received{" "}
-                  <span className={` ${custodian?.status === "pending" ? "animate-pulse text-orange-400" : "text-green-400"}`}>({custodian?.amount})</span>
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold tracking-widest text-gray-400 uppercase">
+                    Custodian{" "}
+                    <span className={custodian?.status === "pending" ? "animate-pulse text-orange-400" : custodian?.status === "rejected" ? "text-red-400" : "text-green-400"}>
+                      ({custodian?.amount})
+                    </span>
+                  </span>
+                  {custodian?.status === "rejected" && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 uppercase tracking-wide">Rejected</span>
+                  )}
+                </div>
                 <button onClick={() => setIsOpen(false)} className="text-slate-500 hover:text-white">
                   ✕
                 </button>
@@ -82,15 +93,28 @@ const CustodianAvatar = ({ custodian = [] }) => {
               <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar">
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center border  text-xs font-bold ${custodian?.status === "verified" ? "text-white bg-indigo-400 border-indigo-700 " : "text-slate-500 bg-slate-800 border-slate-700 "}`}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center border text-xs font-bold ${
+                      custodian?.status === "rejected"
+                        ? "text-white bg-red-500 border-red-700"
+                        : custodian?.status === "verified"
+                        ? "text-white bg-green-500 border-green-700"
+                        : "text-white bg-yellow-400 border-yellow-500"
+                    }`}
                   >
                     {(custodian?.custodian?.name || "V").charAt(0).toUpperCase()}
                   </div>
                   <div className="flex flex-col">
                     <span className="text-xs font-semibold">{custodian?.custodian?.name || "Unknown"}</span>
                     <span className="text-[10px] text-slate-500">
-                      {custodian?.verified_at ? dayjs(custodian?.verified_at).format("DD MMM, hh:mm A") : "Pending"}
+                      {custodian?.status === "rejected"
+                        ? `Rejected · ${custodian?.rejected_at ? dayjs(custodian.rejected_at).format("DD MMM, hh:mm A") : ""}`
+                        : custodian?.verified_at
+                        ? dayjs(custodian.verified_at).format("DD MMM, hh:mm A")
+                        : "Pending"}
                     </span>
+                    {custodian?.status === "rejected" && custodian?.note && (
+                      <span className="text-[10px] text-red-400 mt-0.5">{custodian.note}</span>
+                    )}
                   </div>
                 </div>
               </div>

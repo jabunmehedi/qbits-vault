@@ -24,11 +24,16 @@ const getStatementNextCursor = (page) => {
   return payload?.next_cursor ?? payload?.pagination?.next_cursor ?? undefined;
 };
 
-const VaultStatement = ({ vault, timeline, onBack }) => {
+const VaultStatement = ({ vault, fromDate, toDate, onBack }) => {
   const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ["vaultStatement", vault.id, timeline],
+    queryKey: ["vaultStatement", vault.id, fromDate, toDate],
     queryFn: async ({ pageParam }) => {
-      const res = await GetVaultStatement(vault.id, { timeline, cursor: pageParam, per_page: 20 });
+      const res = await GetVaultStatement(vault.id, {
+        from_date: fromDate || undefined,
+        to_date: toDate || undefined,
+        cursor: pageParam,
+        per_page: 20,
+      });
       return getStatementPayload(res);
     },
     enabled: !!vault?.id,

@@ -23,9 +23,8 @@ const ApprovalCell = ({ row, user, activeApproveId, setActiveApproveId, verifyLo
   const isRejected = row?.verifier_status === "rejected" || row?.approver_status === "rejected";
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center justify-center gap-2">
       <VerifierAvatars requiredVerifiers={row.required_approvers || []} isRejected={isRejected} />
-
       {isApproverShowButton && isVerified && !isRejected ? (
         <VerifyButton
           handleSubmit={() => handleApprovedClick(row.id)}
@@ -40,14 +39,10 @@ const ApprovalCell = ({ row, user, activeApproveId, setActiveApproveId, verifyLo
           <CashInDetails cashIn={row} />
         </VerifyButton>
       ) : (
-        isLocked &&
-        !isApproved && (
-          <div>
-            <span className="text-red-500 font-medium text-xs">Cash in is locked</span>
-          </div>
+        isLocked && !isApproved && (
+          <span className="text-red-500 font-medium text-xs whitespace-nowrap">Cash in is locked</span>
         )
       )}
-
     </div>
   );
 };

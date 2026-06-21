@@ -196,3 +196,13 @@ export const CustodianVerifyCashReceived = async (id) => {
     console.error(error?.response?.data?.message);
   }
 };
+
+export const CustodianRejectCashReceived = async (id, note = '') => {
+  try {
+    const response = await axios.post(`/custodian/reject/${id}`, { note });
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response?.data;
+  }
+};

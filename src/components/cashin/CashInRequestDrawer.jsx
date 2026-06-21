@@ -374,37 +374,37 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     {
       title: "Order ID",
       key: "order_id",
-      className: "whitespace-nowrap",
+      className: "w-[11%]",
       render: (row) => <span className="font-mono font-medium text-[#1a73e8]">{row.order_id}</span>,
     },
     {
       title: "Total",
       key: "payable_amount",
-      className: "whitespace-nowrap",
+      className: "w-[10%]",
       render: (row) => <span>{row?.payable_amount}</span>,
     },
     {
       title: "Cash to Deposit",
       key: "received_st",
-      className: "whitespace-nowrap",
+      className: "w-[16%]",
       render: (row) => <span>{row?.total_cash_to_deposit}</span>,
     },
     {
       title: "Customer",
       key: "customer",
-      className: "whitespace-nowrap",
+      className: "w-[16%]",
       render: (row) => <span>{row?.customer_name}</span>,
     },
     {
       title: "Status",
       key: "status",
-      className: "whitespace-nowrap",
+      className: "w-[16%]",
       render: () => <span className="bg-[#e8f0fe] px-2 py-1 rounded text-xs text-[#1a73e8]">Received By AT</span>,
     },
     {
       title: "Received Date",
       key: "received_date",
-      className: "whitespace-nowrap",
+      className: "w-[18%]",
       render: (row) => <span>{dayjs(row.created_at).format("DD MMM, YYYY hh:mm A")}</span>,
     },
   ];
@@ -414,7 +414,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
       <Drawer
         isOpen={isOpen}
         onClose={handleClose}
-        className="w-[70%]"
+        className="w-[50%]"
         title={
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">

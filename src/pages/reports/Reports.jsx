@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Calendar, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { GetVaults } from "../../services/Vault";
 import { useSelector } from "react-redux";
 import { useSearchParams } from "react-router-dom";
 import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
 import VaultStatementList from "../../components/reports/VaultStatementList";
 import VaultStatement from "../../components/reports/VaultStatement";
-
-const TIMELINE_OPTIONS = new Set(["all", "today", "current_month"]);
+import DateRangePicker from "../../components/global/dateRangePicker/DateRangePicker";
 
 const Reports = () => {
   const [vaults, setVaults] = useState([]);
@@ -17,8 +16,9 @@ const Reports = () => {
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const user = useSelector(selectAuthUser);
   const activeVaultId = searchParams.get("vault");
-  const timelineParam = searchParams.get("timeline");
-  const timeline = TIMELINE_OPTIONS.has(timelineParam) ? timelineParam : "all";
+  const fromDate = searchParams.get("from_date") || "";
+  const toDate = searchParams.get("to_date") || "";
+  const preset = searchParams.get("preset") || "all";
   const waitingForAssignments = !isSuperAdmin && !user;
 
   useEffect(() => {
@@ -63,14 +63,12 @@ const Reports = () => {
     });
   };
 
-  const handleTimelineChange = (value) => {
+  const handleDateRangeChange = ({ from_date, to_date, preset: nextPreset }) => {
     setSearchParams((prev) => {
       const params = new URLSearchParams(prev);
-      if (value === "all") {
-        params.delete("timeline");
-      } else {
-        params.set("timeline", value);
-      }
+      if (from_date) params.set("from_date", from_date); else params.delete("from_date");
+      if (to_date) params.set("to_date", to_date); else params.delete("to_date");
+      if (nextPreset && nextPreset !== "all") params.set("preset", nextPreset); else params.delete("preset");
       return params;
     });
   };
@@ -95,24 +93,16 @@ const Reports = () => {
               <ArrowLeft className="w-4 h-4" /> Back
             </button>
           )}
-          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm">
-            <Calendar size={14} className="text-slate-400" />
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Timeline:</span>
-            <select
-              value={timeline}
-              onChange={(e) => handleTimelineChange(e.target.value)}
-              className="text-xs font-semibold bg-transparent outline-none cursor-pointer text-slate-700"
-            >
-              <option value="all">All Months</option>
-              <option value="today">Today</option>
-              <option value="current_month">Current Month</option>
-            </select>
-          </div>
+          <DateRangePicker
+            value={{ from_date: fromDate, to_date: toDate }}
+            preset={preset}
+            onChange={handleDateRangeChange}
+          />
         </div>
       </div>
 
       {activeVault ? (
-        <VaultStatement vault={activeVault} timeline={timeline} onBack={handleBackToVaultList} />
+        <VaultStatement vault={activeVault} fromDate={fromDate} toDate={toDate} onBack={handleBackToVaultList} />
       ) : isVaultSelectionLoading ? (
         <div className="flex-1 min-h-0 py-20 flex items-center justify-center gap-2 text-slate-400 text-sm">
           <Loader2 className="animate-spin" size={16} />
