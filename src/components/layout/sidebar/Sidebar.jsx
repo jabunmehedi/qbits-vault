@@ -154,7 +154,7 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
                           {item?.children
                             ?.filter((subItem) => {
                               if (isSuperAdmin) return true;
-                              !subItem.permission || hasPermission(subItem.permission);
+                              return !subItem.permission || hasPermission(subItem.permission);
                             })
                             .map((subItem) => {
                               const subActive = isActive(subItem.path);
