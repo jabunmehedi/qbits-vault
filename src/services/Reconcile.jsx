@@ -113,3 +113,11 @@ export const ViewReconcile = async (reconclieId) => {
     console.error(error?.response?.data?.message);
   }
 };
+export const SettleVariance = async (reconcileId, bagId, data) => {
+  try {
+    const response = await axiosConfig.post(`/reconcile/settle/${reconcileId}/${bagId}`, data);
+    return response?.data;
+  } catch (error) {
+    return error?.response?.data || { success: false };
+  }
+};

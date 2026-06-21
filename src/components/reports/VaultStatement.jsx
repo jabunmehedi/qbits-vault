@@ -1,7 +1,13 @@
+import { useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { ArrowDownCircle, ArrowUpCircle, Landmark, Loader2, RefreshCw, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, FileText, Landmark, Loader2, Receipt, RefreshCw, Scale, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { GetVaultStatement } from "../../services/Reports";
 import DataTable from "../global/dataTable/DataTable";
+import ReconcileReportDrawer from "./ReconcileReportDrawer";
+import SettleVarianceModal from "./SettleVarianceModal";
+import Can from "../global/can/Can";
+
+const RECONCILE_TYPES = ["reconcile_variance", "reconcile_settlement"];
 
 const fmt = (n) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
 
@@ -24,7 +30,7 @@ const getStatementNextCursor = (page) => {
   return payload?.next_cursor ?? payload?.pagination?.next_cursor ?? undefined;
 };
 
-const VaultStatement = ({ vault, fromDate, toDate, onBack }) => {
+const VaultStatement = ({ vault, fromDate, toDate }) => {
   const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ["vaultStatement", vault.id, fromDate, toDate],
     queryFn: async ({ pageParam }) => {
@@ -50,6 +56,29 @@ const VaultStatement = ({ vault, fromDate, toDate, onBack }) => {
   const totalDebit = summary.total_debit ?? 0;
   const closing = summary.closing_balance ?? vaultBalance(vault);
 
+  const [reportId, setReportId] = useState(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [settleTarget, setSettleTarget] = useState(null);
+
+  const openReport = (id) => {
+    if (!id) return;
+    setReportId(id);
+    setReportOpen(true);
+  };
+
+  const openSettle = (reconciliationId, bagId) => {
+    if (!reconciliationId || !bagId) return;
+    setSettleTarget({ reconciliationId, bagId });
+  };
+
+  // Reconcile rows (variance / settlement) get a coloured background so the audit
+  // events stand out from ordinary cash movements.
+  const rowClassName = (row) => {
+    if (row.transaction_type === "reconcile_variance") return "bg-amber-50/60 hover:bg-amber-50";
+    if (row.transaction_type === "reconcile_settlement") return "bg-emerald-50/70 hover:bg-emerald-50";
+    return "";
+  };
+
   const columns = [
     {
       title: "Date & Time",
@@ -66,9 +95,47 @@ const VaultStatement = ({ vault, fromDate, toDate, onBack }) => {
     {
       title: "Description",
       key: "transaction_type",
-      className: "w-32 text-start",
-      render: (row) =>
-        Number(row.credit || 0) > 0 ? (
+      className: "text-start",
+      noClip: true,
+      render: (row) => {
+        if (RECONCILE_TYPES.includes(row.transaction_type)) {
+          const isVariance = row.transaction_type === "reconcile_variance";
+          const shortage = Number(row.debit || 0) > 0;
+          const label = isVariance ? `Reconciliation · ${shortage ? "shortage" : "surplus"}` : "Variance settlement";
+          const Icon = isVariance ? Scale : Receipt;
+          const tone = isVariance ? "text-amber-700" : "text-emerald-700";
+          return (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`inline-flex items-center gap-1 font-bold ${tone}`}>
+                <Icon size={13} /> {label}
+              </span>
+              <button
+                type="button"
+                onClick={() => openReport(row.reconciliation_id)}
+                className="inline-flex items-center gap-1 text-[10px] font-bold text-[#1a73e8] border border-slate-200 bg-white rounded-md px-2 py-0.5 hover:border-[#1a73e8] transition cursor-pointer"
+              >
+                <FileText size={11} /> View report
+              </button>
+              {isVariance && !row.settled && !row.settle_locked && (
+                <Can perform="reconciliation.settle">
+                  <button
+                    type="button"
+                    onClick={() => openSettle(row.reconciliation_id, row.bag_id)}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 border border-amber-200 bg-amber-50 rounded-md px-2 py-0.5 hover:border-amber-500 transition cursor-pointer"
+                  >
+                    <Wallet size={11} /> Settle variance
+                  </button>
+                </Can>
+              )}
+              {isVariance && !row.settled && row.settle_locked && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 border border-slate-200 bg-slate-50 rounded-md px-2 py-0.5">
+                  Cashed out
+                </span>
+              )}
+            </div>
+          );
+        }
+        return Number(row.credit || 0) > 0 ? (
           <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
             <ArrowDownCircle size={13} /> Cash In
           </span>
@@ -76,7 +143,8 @@ const VaultStatement = ({ vault, fromDate, toDate, onBack }) => {
           <span className="inline-flex items-center gap-1 text-rose-600 font-semibold">
             <ArrowUpCircle size={13} /> Cash Out
           </span>
-        ),
+        );
+      },
     },
     {
       title: "Debit",
@@ -99,6 +167,7 @@ const VaultStatement = ({ vault, fromDate, toDate, onBack }) => {
   ];
 
   return (
+    <>
     <div className="flex-1 min-h-0 flex flex-col rounded-2xl overflow-hidden">
       {/* Account header */}
       <div className="bg-slate-50/60 border-x border-t border-slate-200 rounded-t-2xl px-6 py-4 shrink-0">
@@ -186,6 +255,7 @@ const VaultStatement = ({ vault, fromDate, toDate, onBack }) => {
           data={rows}
           columns={columns}
           hideFooter
+          rowClassName={rowClassName}
           onScrollEnd={() => {
             if (hasNextPage && !isFetchingNextPage) fetchNextPage();
           }}
@@ -206,6 +276,18 @@ const VaultStatement = ({ vault, fromDate, toDate, onBack }) => {
         </div>
       )}
     </div>
+
+    <ReconcileReportDrawer reconciliationId={reportId} isOpen={reportOpen} onClose={() => setReportOpen(false)} />
+
+    {settleTarget && (
+      <SettleVarianceModal
+        reconciliationId={settleTarget.reconciliationId}
+        bagId={settleTarget.bagId}
+        onClose={() => setSettleTarget(null)}
+        onSettled={() => refetch()}
+      />
+    )}
+    </>
   );
 };
 

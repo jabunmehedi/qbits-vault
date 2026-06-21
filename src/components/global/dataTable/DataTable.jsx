@@ -12,6 +12,7 @@ const DataTable = ({
   onScrollEnd,
   scrollThreshold = 24,
   compact = false,
+  rowClassName,
 }) => {
   const headerPaddingClassName = compact ? "pl-3 pr-2 py-1.5" : "px-4 py-1.5";
   const cellPaddingClassName = compact ? "pl-3 pr-1 py-1" : "px-4 py-1";
@@ -110,7 +111,7 @@ const DataTable = ({
                         duration: 0.2,
                         ease: "easeInOut",
                       }}
-                      className="border-b border-slate-100 last:border-b-0 bg-white hover:bg-slate-50/40 transition-colors"
+                      className={`border-b border-slate-100 last:border-b-0 transition-colors ${rowClassName?.(row) || "bg-white hover:bg-slate-50/40"}`}
                     >
                       {columns.map((column, colIndex) => (
                         <td key={colIndex} className={`${cellPaddingClassName} text-slate-600 text-xs transition-all duration-300 ${column?.noClip ? "overflow-visible" : "overflow-hidden max-w-0"} ${column?.className?.includes("text-") ? column.className : `text-start ${column?.className ?? ""}`}`}>

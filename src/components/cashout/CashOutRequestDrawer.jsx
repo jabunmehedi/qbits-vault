@@ -134,7 +134,10 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
     if (hasNextPage && !isFetchingNextPage) fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const totalSelectedBagAmount = selectedRows.reduce((sum, o) => sum + (parseFloat(o.cash_in_amount) || 0), 0);
+  // Cash-out empties the bag, so the available amount is the bag's current balance
+  // (post-reconcile reality), not the original cash-in amount.
+  const bagAmount = (o) => parseFloat(o?.bags?.current_amount ?? o?.cash_in_amount) || 0;
+  const totalSelectedBagAmount = selectedRows.reduce((sum, o) => sum + bagAmount(o), 0);
 
   // Difference calculator matching your rule: Requested Amount - Selected Bag sum
   const calculatedExcessAmount = requestedAmount < totalSelectedBagAmount;
@@ -281,7 +284,7 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
       title: "Total",
       key: "cash_in_amount",
       className: "!w-28",
-      render: (row) => <span>৳{parseFloat(row?.cash_in_amount || 0).toLocaleString()}</span>,
+      render: (row) => <span>৳{bagAmount(row).toLocaleString()}</span>,
     },
     {
       title: "Cash in date",

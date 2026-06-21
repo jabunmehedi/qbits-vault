@@ -23,7 +23,7 @@ const INITIAL_DENOMINATIONS = Object.fromEntries(DENOM_NOTES.map((n) => [n, 0]))
 
 const uniqueById = (items = []) => Array.from(new Map(items.filter(Boolean).map((item) => [item.id, item])).values());
 
-const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
+const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null, initialVaultId = null }) => {
   const isEditMode = !!editData;
 
   const [step, setStep] = useState(1);
@@ -121,6 +121,14 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     if (!user?.vault_assignments) return;
 
     const active = user.vault_assignments.filter((v) => v.status === "active");
+
+    // A vault passed in from the vault list ("request cash-in" shortcut) wins over
+    // the user's default so the dropdown lands on the vault they clicked.
+    if (initialVaultId) {
+      const requested = active.find((v) => Number(v.vault?.id) === Number(initialVaultId));
+      if (requested) { setSelectedVault(requested); return; }
+    }
+
     if (user.default_vault_id) {
       const defaultVault = active.find((v) => v.vault?.id === user.default_vault_id);
       if (defaultVault) { setSelectedVault(defaultVault); return; }
@@ -130,7 +138,7 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => {
     } else {
       setSelectedVault(null);
     }
-  }, [isEditMode, user]);
+  }, [isEditMode, user, initialVaultId]);
 
   useEffect(() => {
     if (!isEditMode || !editData?.orders?.length || orders.length === 0) return;

@@ -27,8 +27,9 @@ const DENOM_NOTES = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
 const INITIAL_DENOMINATIONS = Object.fromEntries(DENOM_NOTES.map((n) => [n, 0]));
 
 const CashIn = () => {
-  const [, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [editCashInData, setEditCashInData] = useState(null);
+  const [requestVaultId, setRequestVaultId] = useState(null);
   const [cashIns, setCashIns] = useState([]);
   const [cashInsLoaded, setCashInsLoaded] = useState(false);
   const [selectedRows, setSelectedRows] = useState([]);
@@ -82,6 +83,26 @@ const CashIn = () => {
   useEffect(() => {
     fetchCashInsData();
   }, [fetchCashInsData]);
+
+  // Deep-link from the vault list: open the request drawer with that vault
+  // pre-selected, then strip the params so a refresh doesn't reopen it.
+  useEffect(() => {
+    if (searchParams.get("request") !== "1") return;
+
+    setEditCashInData(null);
+    setRequestVaultId(searchParams.get("vaultId"));
+    setOpenCashInReqDrawer(true);
+
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        p.delete("request");
+        p.delete("vaultId");
+        return p;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     const handleOutsideClick = () => {
@@ -165,18 +186,6 @@ const CashIn = () => {
         });
       }
 
-      const statusList = ["Pending", "Verified", "Approved", "Rejected"];
-
-      const derivedStatus = (() => {
-        if (cashIn.status) return cashIn.status.toLowerCase();
-        const vs = cashIn.verifier_status?.toLowerCase();
-        const as = cashIn.approver_status?.toLowerCase();
-        if (vs === "rejected" || as === "rejected") return "rejected";
-        if (as === "approved") return "approved";
-        if (vs === "verified") return "verified";
-        return "pending";
-      })();
-
       const printWindow = window.open("", "_blank");
       if (!printWindow) { alert("Please allow popups for printing."); return; }
 
@@ -188,17 +197,16 @@ const CashIn = () => {
   <title>Cash-In Ledger — ${cashIn.tran_id}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; font-size: 13px; color: #1e293b; background: #f8fafc; }
-    .page { max-width: 820px; margin: 24px auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); min-height: 277mm; display: flex; flex-direction: column; }
+    body { font-family: Arial, sans-serif; font-size: 13px; color: #1f2937; background: #9ca3af; }
+    .page { max-width: 820px; margin: 24px auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.18); min-height: 277mm; display: flex; flex-direction: column; }
     .content { flex: 1; }
 
     /* ── Header ── */
-    .ledger-header { background: #1a73e8; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; }
-    .header-left { display: flex; align-items: center; gap: 12px; }
-    .header-icon { width: 32px; height: 32px; background: rgba(255,255,255,0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .ledger-header { background: #1f2937; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 16px; }
     .header-title { font-size: 17px; font-weight: 800; letter-spacing: 2.5px; }
-    .print-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.35); color: #fff; padding: 7px 16px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-    .print-btn:hover { background: rgba(255,255,255,0.25); }
+    .bag-badge { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.05; }
+    .bag-badge-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; color: rgba(255,255,255,0.6); }
+    .bag-badge-value { font-size: 26px; font-weight: 800; letter-spacing: 1px; font-family: monospace; }
 
     /* ── Content ── */
     .content { padding: 14px 16px; }
@@ -211,22 +219,22 @@ const CashIn = () => {
 
     /* ── Sections ── */
     .section { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 8px; page-break-inside: avoid; break-inside: avoid; }
-    .section-hd { background: #EFF6FF; border-bottom: 1px solid #BFDBFE; padding: 7px 14px; display: flex; align-items: center; justify-content: space-between; }
-    .section-hd-left { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; color: #1a73e8; text-transform: uppercase; }
+    .section-hd { background: #f3f4f6; border-bottom: 1px solid #d1d5db; padding: 7px 14px; display: flex; align-items: center; justify-content: space-between; }
+    .section-hd-left { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; color: #1f2937; text-transform: uppercase; }
     .section-body { padding: 8px 14px; }
 
     /* ── Denomination table ── */
     .denom-table { width: 100%; border-collapse: collapse; }
-    .denom-table th { background: #1a73e8; color: #fff; padding: 6px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
+    .denom-table th { background: #374151; color: #fff; padding: 8px 12px; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }
     .denom-table th:first-child { text-align: left; }
     .denom-table th:nth-child(2) { text-align: center; }
     .denom-table th:last-child { text-align: right; }
-    .denom-table td { padding: 4px 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; color: #1e293b; }
+    .denom-table td { padding: 7px 12px; border-bottom: 1px solid #f1f5f9; font-size: 15px; color: #1e293b; }
     .denom-table td:first-child { text-align: left; color: #1e293b; }
     .denom-table td:nth-child(2) { text-align: center; color: #1e293b; }
     .denom-table td:last-child { text-align: right; font-weight: 600; color: #1e293b; }
     .denom-table tr:last-child td { border-bottom: none; }
-    .grand-total-val { font-size: 14px; font-weight: 800; color: #1a73e8; }
+    .grand-total-val { font-size: 14px; font-weight: 800; color: #111827; }
 
     /* ── Field rows ── */
     .field-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
@@ -235,21 +243,11 @@ const CashIn = () => {
     .field-line { flex: 1; border-bottom: 1px solid #cbd5e1; padding-bottom: 2px; min-height: 18px; font-size: 12px; color: #1e293b; }
     .field-area { flex: 1; border: 1px solid #e2e8f0; border-radius: 4px; min-height: 36px; padding: 4px 8px; font-size: 12px; color: #1e293b; }
 
-    /* ── Verification ── */
-    .verify-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; }
-
-    /* ── Approvals ── */
-    .approval-row { display: grid; grid-template-columns: 22px 1fr 1fr; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid #f1f5f9; page-break-inside: avoid; break-inside: avoid; }
-    .approval-row:last-child { border-bottom: none; }
-    .approval-num { font-size: 12px; font-weight: 700; color: #64748b; }
-
-    /* ── Status ── */
-    .status-bar { display: flex; align-items: center; gap: 18px; padding: 8px 14px; flex-wrap: wrap; }
-    .status-label { font-size: 12px; font-weight: 800; color: #1e293b; }
-    .status-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #64748b; }
-    .cb { width: 13px; height: 13px; border: 1.5px solid #94a3b8; border-radius: 2px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .cb.active { background: #1a73e8; border-color: #1a73e8; }
-    .cb.active::after { content: ''; display: block; width: 7px; height: 4px; border-left: 1.5px solid #fff; border-bottom: 1.5px solid #fff; transform: rotate(-45deg) translateY(-1px); }
+    /* ── Sign-off (verifiers / cashiers): compact, boxed, header-less ── */
+    .signoff { border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 14px; margin-bottom: 8px; page-break-inside: avoid; break-inside: avoid; }
+    .signoff-row { display: flex; flex-wrap: wrap; gap: 3px 24px; padding: 3px 0; align-items: baseline; page-break-inside: avoid; break-inside: avoid; }
+    .signoff-row .field-row { flex: 1; min-width: 170px; margin-bottom: 0; }
+    .signoff-row .field-label { min-width: auto; }
 
     /* ── Barcode ── */
     .barcode-block { text-align: center; margin: 14px 0 2px; padding-top: 12px; border-top: 1px dashed #cbd5e1; page-break-inside: avoid; break-inside: avoid; }
@@ -263,7 +261,6 @@ const CashIn = () => {
       @page { size: A4; margin: 10mm; }
       body { background: #fff; }
       .page { margin: 0; border-radius: 0; box-shadow: none; max-width: 100%; }
-      .no-print { display: none !important; }
     }
   </style>
 </head>
@@ -271,20 +268,11 @@ const CashIn = () => {
 <div class="page">
 
   <div class="ledger-header">
-    <div class="header-left">
-      <div class="header-icon">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/>
-        </svg>
-      </div>
-      <span class="header-title">CASH IN LEDGER</span>
+    <span class="header-title">CASH IN LEDGER</span>
+    <div class="bag-badge">
+      <span class="bag-badge-label">BAG NO</span>
+      <span class="bag-badge-value">${cashIn.bags?.barcode || "—"}</span>
     </div>
-    <button class="print-btn no-print" onclick="window.print()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
-      </svg>
-      Print / Save PDF
-    </button>
   </div>
 
   <div class="content">
@@ -304,24 +292,13 @@ const CashIn = () => {
         <div class="info-value" style="font-family:monospace">${cashIn.tran_id || "—"}</div>
       </div>
       <div class="info-item">
-        <div class="info-label">Bag Number:</div>
-        <div class="info-value">${cashIn.bags?.barcode || "—"}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">Date:</div>
+        <div class="info-label">Date &amp; Time:</div>
         <div class="info-value">
-          ${dayjs(cashIn.created_at).format("DD/MM/YYYY")}
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          ${dayjs(cashIn.created_at).format("DD/MM/YYYY hh:mm A")}
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         </div>
       </div>
       <div class="info-item">
-        <div class="info-label">Generated Time:</div>
-        <div class="info-value">
-          ${dayjs().format("HH:mm")}
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </div>
-      </div>
-      <div class="info-item" style="grid-column: span 3">
         <div class="info-label">Prepared By:</div>
         <div class="info-value">${cashIn.user?.name || "—"}</div>
       </div>
@@ -331,7 +308,7 @@ const CashIn = () => {
     <div class="section">
       <div class="section-hd">
         <div class="section-hd-left">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><circle cx="12" cy="15" r="2"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><circle cx="12" cy="15" r="2"/></svg>
           Denomination Breakdown
         </div>
         <div style="font-size:11px;font-weight:700;color:#475569;">
@@ -359,7 +336,7 @@ const CashIn = () => {
     <div class="section">
       <div class="section-hd">
         <div class="section-hd-left">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
           Bag Summary
         </div>
       </div>
@@ -371,64 +348,32 @@ const CashIn = () => {
       </div>
     </div>
 
-    <!-- Verification -->
-    <div class="section">
-      <div class="section-hd">
-        <div class="section-hd-left">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          Verifiers
-        </div>
-      </div>
-      <div class="section-body">
-        ${verifiers?.length > 0 ? verifiers.map((v, i) => `
-          <div class="verify-grid" style="${i < verifiers.length - 1 ? "margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #f1f5f9;" : ""}">
-            <div class="field-row"><span class="field-label">Verified By:</span><span class="field-line">${v.name || ""}</span></div>
-            <div class="field-row"><span class="field-label">Date:</span><span class="field-line">${v.verified_at || ""}</span></div>
-            <!-- <div class="field-row"><span class="field-label">Signature:</span><span class="field-line" style="min-height:36px;"></span></div> -->
-            <!-- <div class="field-row"><span class="field-label">Remarks:</span><span class="field-area"></span></div> -->
-          </div>`).join("") : `
-          <div class="verify-grid">
-            <div class="field-row"><span class="field-label">Verified By:</span><span class="field-line"></span></div>
-            <div class="field-row"><span class="field-label">Date:</span><span class="field-line"></span></div>
-            <!-- <div class="field-row"><span class="field-label">Signature:</span><span class="field-line" style="min-height:36px;"></span></div> -->
-            <!-- <div class="field-row"><span class="field-label">Remarks:</span><span class="field-area"></span></div> -->
-          </div>`}
-      </div>
+    <!-- Verifiers (compact, header-less, no card) -->
+    <div class="signoff">
+      ${verifiers?.length > 0 ? verifiers.map((v) => `
+        <div class="signoff-row">
+          <div class="field-row"><span class="field-label">Verified By:</span><span class="field-line">${v.name || ""}</span></div>
+          <div class="field-row"><span class="field-label">Date:</span><span class="field-line">${v.verified_at || ""}</span></div>
+        </div>`).join("") : `
+        <div class="signoff-row">
+          <div class="field-row"><span class="field-label">Verified By:</span><span class="field-line"></span></div>
+          <div class="field-row"><span class="field-label">Date:</span><span class="field-line"></span></div>
+        </div>`}
     </div>
 
-    <!-- Approvals -->
-    <div class="section">
-      <div class="section-hd">
-        <div class="section-hd-left">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-          Cashiers
-        </div>
-      </div>
-      <div class="section-body">
-        ${approvers?.length > 0
-          ? approvers.map((a, i) => `<div class="approval-row">
-              <span class="approval-num">${i + 1}:</span>
-              <div class="field-row" style="margin-bottom:0"><span class="field-label">Name:</span><span class="field-line">${a?.name || ""}</span></div>
-              <div class="field-row" style="margin-bottom:0"><span class="field-label">Date:</span><span class="field-line">${a?.approved_at || ""}</span></div>
-            </div>`).join("")
-          : `<div class="approval-row">
-              <span class="approval-num">1:</span>
-              <div class="field-row" style="margin-bottom:0"><span class="field-label">Name:</span><span class="field-line"></span></div>
-              <div class="field-row" style="margin-bottom:0"><span class="field-label">Date:</span><span class="field-line"></span></div>
-            </div>`
-        }
-      </div>
-    </div>
-
-    <!-- Status -->
-    <div class="section">
-      <div class="status-bar">
-        <span class="status-label">STATUS:</span>
-        ${statusList.map((s) => `
-          <span class="status-item">
-            <span class="cb ${derivedStatus === s.toLowerCase() ? "active" : ""}"></span>${s}
-          </span>`).join("")}
-      </div>
+    <!-- Cashiers (compact, header-less, no card; signature line per cashier) -->
+    <div class="signoff">
+      ${approvers?.length > 0 ? approvers.map((a) => `
+        <div class="signoff-row">
+          <div class="field-row"><span class="field-label">Cashier:</span><span class="field-line">${a?.name || ""}</span></div>
+          <div class="field-row"><span class="field-label">Date:</span><span class="field-line">${a?.approved_at || ""}</span></div>
+          <div class="field-row"><span class="field-label">Signature:</span><span class="field-line"></span></div>
+        </div>`).join("") : `
+        <div class="signoff-row">
+          <div class="field-row"><span class="field-label">Cashier:</span><span class="field-line"></span></div>
+          <div class="field-row"><span class="field-label">Date:</span><span class="field-line"></span></div>
+          <div class="field-row"><span class="field-label">Signature:</span><span class="field-line"></span></div>
+        </div>`}
     </div>
 
     ${barcodeDataUrl ? `
@@ -813,6 +758,7 @@ const CashIn = () => {
             <button
               onClick={() => {
                 setEditCashInData(null);
+                setRequestVaultId(null);
                 setOpenCashInReqDrawer(true);
               }}
               className="flex items-center gap-2 px-6 py-2.5 bg-[#1a73e8] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-200 hover:bg-blue-600 transition-all"
@@ -853,7 +799,13 @@ const CashIn = () => {
       /> */}
 
       {openCashInReqDrawer && (
-        <CashInRequestDrawer editData={editCashInData} isOpen={openCashInReqDrawer} onClose={() => setOpenCashInReqDrawer(false)} refetch={fetchCashInsData} />
+        <CashInRequestDrawer
+          editData={editCashInData}
+          initialVaultId={requestVaultId}
+          isOpen={openCashInReqDrawer}
+          onClose={() => setOpenCashInReqDrawer(false)}
+          refetch={fetchCashInsData}
+        />
       )}
 
       {openOrderDetailsDrawer && (

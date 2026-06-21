@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { Plus } from "lucide-react";
 import toast from "react-hot-toast";
 import { useToast } from "../../hooks/useToast";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import VaultBagDetailsDrawer from "../../components/vaults/VaultBagDetailsDrawer";
 import CreateUpdateVault from "../../components/vaults/CreateUpdateVault";
 import VaultCardList from "../../components/vaults/VaultCardList";
@@ -20,6 +20,7 @@ const Vault = () => {
   const [bags, setBags] = useState([]);
   const [deleteErrors, setDeleteErrors] = useState([]);
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedVault, setSelectedVault] = useState(null);
@@ -41,6 +42,10 @@ const Vault = () => {
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const { hasPermission, hasRole } = usePermissions();
   const canCreateBag = isSuperAdmin || hasRole("bag create");
+  const canRequestCashIn = isSuperAdmin || hasPermission("cash-in.request");
+
+  // Deep-link to the cash-in page with this vault's request drawer pre-opened.
+  const handleRequestCashIn = (vault) => navigate(`/cashin?request=1&vaultId=${vault.id}`);
 
   const {
     register,
@@ -503,6 +508,8 @@ const Vault = () => {
         onOpenDrawer={openVaultDrawer}
         onEdit={openEditModal}
         onDelete={handleDeleteSubmit}
+        onRequestCashIn={handleRequestCashIn}
+        canRequestCashIn={canRequestCashIn}
         canEdit={isSuperAdmin || hasPermission("vault.edit")}
         canDelete={isSuperAdmin || hasPermission("vault.delete")}
         isApiDeleting={isApiDeleting}

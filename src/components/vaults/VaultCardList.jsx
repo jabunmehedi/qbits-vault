@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
-import { ChevronRight, Landmark, Layers, Loader2, Wallet } from "lucide-react";
+import { ArrowUpRight, ChevronRight, Landmark, Layers, Loader2, Wallet } from "lucide-react";
 import dayjs from "dayjs";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2 });
@@ -14,6 +14,8 @@ const VaultCardList = ({
   onOpenDrawer,
   onEdit,
   onDelete,
+  onRequestCashIn,
+  canRequestCashIn = false,
   canEdit = false,
   canDelete = false,
   isApiDeleting = false,
@@ -126,6 +128,18 @@ const VaultCardList = ({
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
+                      {canRequestCashIn && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRequestCashIn?.(vault);
+                          }}
+                          title="Request cash-in for this vault"
+                          className="inline-flex items-center gap-1 bg-[#1a73e8] text-white text-[11px] font-bold py-1 px-2.5 rounded-full hover:bg-blue-600 transition-colors cursor-pointer"
+                        >
+                          <ArrowUpRight size={13} /> Cash In
+                        </button>
+                      )}
                       <span className="bg-blue-50 text-[11px] text-[#1a73e8] border border-blue-200 py-1 px-2.5 rounded-full font-bold">Active</span>
 
                       {(canEdit || canDelete) && (

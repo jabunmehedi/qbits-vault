@@ -169,7 +169,7 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
                               {denominations ? (
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                                   {Object.entries(denominations)
-                                    .filter(([_, c]) => c > 0)
+                                    .filter(([, c]) => c > 0)
                                     .map(([note, count]) => (
                                       <div key={note} className="bg-white p-3.5 rounded-xl border border-slate-200/60 shadow-2xs flex flex-col justify-between">
                                         <div className="flex items-baseline justify-between">
@@ -269,8 +269,10 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
                       {historyData.map((entry, i) => {
                         const isCashIn = entry.source === "cash_in";
                         const isCashOut = entry.source === "cash_out";
-                        const dotColor = isCashIn ? "bg-emerald-500" : isCashOut ? "bg-rose-500" : "bg-[#1a73e8]";
-                        const labelColor = isCashIn ? "text-emerald-600" : isCashOut ? "text-rose-600" : "text-[#1a73e8]";
+                        const isVariance = entry.source === "reconcile_variance";
+                        const isSettlement = entry.source === "reconcile_settlement";
+                        const dotColor = isCashIn ? "bg-emerald-500" : isCashOut ? "bg-rose-500" : isVariance ? "bg-amber-500" : isSettlement ? "bg-emerald-500" : "bg-[#1a73e8]";
+                        const labelColor = isCashIn ? "text-emerald-600" : isCashOut ? "text-rose-600" : isVariance ? "text-amber-600" : isSettlement ? "text-emerald-600" : "text-[#1a73e8]";
                         return (
                           <div key={i} className="flex gap-4">
                             <div className={`w-3.5 h-3.5 rounded-full ${dotColor} border-2 border-white shadow-sm mt-1 flex-shrink-0 z-10`} />

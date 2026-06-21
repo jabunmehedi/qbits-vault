@@ -826,7 +826,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                                   <div>
                                     <div className="flex justify-between items-center mb-1">
                                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Amount</label>
-                                      <span className="text-[10px] font-bold text-blue-500">exp: {bag.expectedAmount}</span>
+                                      <span className="text-[10px] font-bold text-blue-500">expected: {bag.expectedAmount}</span>
                                     </div>
                                     <input
                                       type="number"
