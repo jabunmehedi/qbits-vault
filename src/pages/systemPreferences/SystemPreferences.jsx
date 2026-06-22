@@ -4,21 +4,20 @@ import { Shield, ArrowDownLeft, ArrowUpRight, CheckSquare, Settings, Package, Sa
 import { GetVaults, UpdateVault } from "../../services/Vault";
 
 const SystemPreferences = () => {
-  const [activeTab, setActiveTab] = useState("vault");
+  const [activeTab, setActiveTab] = useState("cash_in");
   const [vaults, setVaults] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(null); // Tracks individual row updates
+  const [isSaving, setIsSaving] = useState(null);
 
   // Tab Navigation Definitions Map
   const navigationTabs = [
-    { id: "vault", name: "Vault Rules", icon: Shield },
+    // { id: "vault", name: "Vault Rules", icon: Shield }, // moved to Vault page → Vault Config tab
     { id: "cash_in", name: "Cash In Settings", icon: ArrowDownLeft },
     { id: "cash_out", name: "Cash Out Limits", icon: ArrowUpRight },
     { id: "reconcile", name: "Reconciliation", icon: CheckSquare },
     { id: "settings", name: "System Config", icon: Settings },
   ];
 
-  // Fetch Vault Records on Component Mount
   useEffect(() => {
     let isMounted = true;
     setIsLoading(true);
@@ -46,23 +45,19 @@ const SystemPreferences = () => {
     };
   }, []);
 
-  // Safe Threshold Numerical State Mutator Input Tracker
   const handleThresholdChange = (id, field, value) => {
     setVaults((prev) => prev.map((vlt) => (vlt.id === id ? { ...vlt, [field]: value } : vlt)));
   };
 
-  // Persistent Form Mutator Request Action Trigger
   const handleSaveThreshold = async (vaultRow) => {
     setIsSaving(vaultRow.id);
 
     try {
-      // FIX: Linked API parameters directly to the actual state keys
       await UpdateVault(vaultRow.id, {
         bag_min_bal_limit: vaultRow.bag_min_bal_limit === "" ? null : parseFloat(vaultRow.bag_min_bal_limit),
         bag_balance_limit: vaultRow.bag_balance_limit === "" ? null : parseFloat(vaultRow.bag_balance_limit),
       });
 
-      // Simulated server processing transition latency boundary
       await new Promise((resolve) => setTimeout(resolve, 600));
     } catch (error) {
       console.error("Failed saving capacity updates matrix constraints context structures:", error);
@@ -73,7 +68,6 @@ const SystemPreferences = () => {
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6">
-      {/* Component Title Context Metadata Summary Segment */}
       <div className="flex items-center gap-3">
         <div className="w-1.5 h-10 bg-[#1a2b4b] rounded-full" />
         <div>
@@ -102,7 +96,6 @@ const SystemPreferences = () => {
         })}
       </div>
 
-      {/* Main Tab Panels Display Grid Viewport Switcher */}
       <div className="min-h-[400px]">
         <AnimatePresence mode="wait">
           {activeTab === "vault" && (
@@ -121,7 +114,6 @@ const SystemPreferences = () => {
                 </div>
               </div>
 
-              {/* Loader State Render Boundary Scope Display */}
               {isLoading ? (
                 <div className="flex items-center justify-center py-24">
                   <div className="w-8 h-8 rounded-full border-2 border-slate-100 border-t-[#1a73e8] animate-spin" />
@@ -132,7 +124,6 @@ const SystemPreferences = () => {
                   <p className="text-xs text-slate-400 font-bold">No registered vaults available to manage.</p>
                 </div>
               ) : (
-                /* Threshold Data Matrix Configuration Table Grid Matrix Layout */
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-left">
                     <thead>
@@ -146,7 +137,6 @@ const SystemPreferences = () => {
                     <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-600">
                       {vaults?.map((vault) => (
                         <tr key={vault.id} className="hover:bg-slate-50/40 transition-colors">
-                          {/* Name and Vault Unique Code Blocks Layout Data Content Elements */}
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div className="p-1.5 bg-slate-50 border border-slate-100 rounded-lg text-slate-400">
@@ -158,8 +148,6 @@ const SystemPreferences = () => {
                               </div>
                             </div>
                           </td>
-
-                          {/* In-Line Minimum Capacity Config Input Elements Box Container */}
                           <td className="px-6 py-4">
                             <div className="w-full max-w-[200px] relative">
                               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">৳</span>
@@ -167,14 +155,11 @@ const SystemPreferences = () => {
                                 type="number"
                                 placeholder="Not Set (0)"
                                 value={vault.bag_min_bal_limit}
-                                // FIX: Altered target parameter key string to match exactly what state uses
                                 onChange={(e) => handleThresholdChange(vault.id, "bag_min_bal_limit", e.target.value)}
                                 className="w-full pl-7 pr-3 py-2 bg-white border border-slate-200 rounded-xl focus:border-[#1a73e8]/50 outline-none transition-all placeholder:text-gray-300 text-slate-700 text-xs font-mono font-bold"
                               />
                             </div>
                           </td>
-
-                          {/* In-Line Maximum Capacity Config Input Elements Box Container */}
                           <td className="px-6 py-4">
                             <div className="w-full max-w-[200px] relative">
                               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">৳</span>
@@ -182,14 +167,11 @@ const SystemPreferences = () => {
                                 type="number"
                                 placeholder="Max Amount"
                                 value={vault.bag_balance_limit}
-                                // FIX: Altered target parameter key string to match exactly what state uses
                                 onChange={(e) => handleThresholdChange(vault.id, "bag_balance_limit", e.target.value)}
                                 className="w-full pl-7 pr-3 py-2 bg-white border border-slate-200 rounded-xl focus:border-[#1a73e8]/50 outline-none transition-all placeholder:text-gray-300 text-slate-700 text-xs font-mono font-bold"
                               />
                             </div>
                           </td>
-
-                          {/* Individual Line Matrix Synchronizer Action Save Controls */}
                           <td className="px-6 py-4 text-right">
                             <button
                               type="button"
@@ -204,9 +186,7 @@ const SystemPreferences = () => {
                               {isSaving === vault.id ? (
                                 <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin" />
                               ) : (
-                                <>
-                                  <Save className="w-4 h-4" /> Update
-                                </>
+                                <><Save className="w-4 h-4" /> Update</>
                               )}
                             </button>
                           </td>
@@ -219,7 +199,6 @@ const SystemPreferences = () => {
             </motion.div>
           )}
 
-          {/* Fallback Uninstantiated Viewport Panes Container Blocks */}
           {activeTab !== "vault" && (
             <motion.div
               key="blank_pane"

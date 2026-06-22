@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
-import { ArrowUpRight, ChevronRight, Landmark, Layers, Loader2, Wallet } from "lucide-react";
+import { ArrowUpRight, ChevronRight, Landmark, Layers, Loader2, Settings, Wallet } from "lucide-react";
 import dayjs from "dayjs";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2 });
@@ -19,6 +19,11 @@ const VaultCardList = ({
   canEdit = false,
   canDelete = false,
   isApiDeleting = false,
+  defaultVaultId,
+  onSetDefault,
+  savingDefaultVaultId,
+  onOpenThreshold,
+  canEditThreshold = false,
 }) => {
   const [activeActionMenuId, setActiveActionMenuId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
@@ -115,15 +120,18 @@ const VaultCardList = ({
                 >
                   {/* Header: icon + identity + action menu */}
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="w-11 h-11 shrink-0 rounded-xl bg-blue-50 text-[#1a73e8] flex items-center justify-center group-hover:bg-[#1a73e8] group-hover:text-white transition-colors">
                         <Landmark size={20} />
                       </div>
-                      <div className="min-w-0">
-                        <span className="inline-block font-mono text-[10px] font-bold text-[#1a73e8] bg-blue-50 px-1.5 py-0.5 rounded">
-                          #{vault.vault_code || vault.id}
-                        </span>
-                        <h4 className="text-base font-black text-[#1a2b4b] mt-1 truncate">{vault.name}</h4>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-block font-mono text-[10px] font-bold text-[#1a73e8] bg-blue-50 px-1.5 py-0.5 rounded">
+                            #{vault.vault_code || vault.id}
+                          </span>
+                          <span className="bg-blue-50 text-[11px] text-[#1a73e8] border border-blue-200 py-0.5 px-2 rounded-full font-bold">Active</span>
+                        </div>
+                        <h4 className="text-base font-black text-[#1a2b4b] truncate mt-1">{vault.name}</h4>
                       </div>
                     </div>
 
@@ -140,9 +148,23 @@ const VaultCardList = ({
                           <ArrowUpRight size={13} /> Cash In
                         </button>
                       )}
-                      <span className="bg-blue-50 text-[11px] text-[#1a73e8] border border-blue-200 py-1 px-2.5 rounded-full font-bold">Active</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onSetDefault?.(vault.id); }}
+                        disabled={savingDefaultVaultId === vault.id}
+                        title={defaultVaultId === vault.id ? "Default vault" : "Set as default"}
+                        className="flex items-center gap-1.5 group/toggle"
+                      >
+                        <div className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${defaultVaultId === vault.id ? "bg-[#1a73e8]" : "bg-slate-200 group-hover/toggle:bg-slate-300"}`}>
+                          {savingDefaultVaultId === vault.id ? (
+                            <div className="absolute inset-0 flex items-center justify-center"><Loader2 size={11} className="animate-spin text-white" /></div>
+                          ) : (
+                            <div className={`absolute top-1 w-3 h-3 bg-white rounded-full shadow transition-all duration-200 ${defaultVaultId === vault.id ? "left-5" : "left-1"}`} />
+                          )}
+                        </div>
+                        <span className={`text-[11px] font-bold transition-colors ${defaultVaultId === vault.id ? "text-[#1a73e8]" : "text-slate-400"}`}>Default</span>
+                      </button>
 
-                      {(canEdit || canDelete) && (
+                      {(canEdit || canDelete || canEditThreshold) && (
                         <div className="relative inline-block text-left">
                           <button
                             onClick={toggleMenu}
@@ -166,6 +188,19 @@ const VaultCardList = ({
                               <AnimatePresence mode="wait">
                                 {!isConfirmingDelete ? (
                                   <motion.div key="options" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                                    {canEditThreshold && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveActionMenuId(null);
+                                          onOpenThreshold?.(vault);
+                                        }}
+                                        className="flex items-center w-full px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors gap-2 font-medium cursor-pointer"
+                                      >
+                                        <Settings size={14} />
+                                        Vault Rules
+                                      </button>
+                                    )}
                                     {canEdit && (
                                       <button
                                         onClick={(e) => {
@@ -266,18 +301,19 @@ const VaultCardList = ({
                     </div>
                   </div>
 
-                  {/* Bags CTA → opens drawer */}
-                  <motion.button
-                    whileHover={{ scale: 1.01 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => onOpenDrawer(vault)}
-                    className="mt-4 w-full px-4 py-2.5 bg-green-50 border border-green-200 cursor-pointer text-green-600 text-sm font-bold rounded-xl inline-flex items-center justify-center gap-1.5 hover:bg-green-100 transition-colors"
-                  >
-                    <span>
-                      View {bagCount} Bag{bagCount !== 1 ? "s" : ""}
-                    </span>
-                    <ChevronRight className="w-4 h-4" />
-                  </motion.button>
+                  {/* View Bags */}
+                  <div className="mt-4">
+                    <motion.button
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => onOpenDrawer(vault)}
+                      className="w-full px-4 py-2.5 bg-green-50 border border-green-200 cursor-pointer text-green-600 text-sm font-bold rounded-xl inline-flex items-center justify-center gap-1.5 hover:bg-green-100 transition-colors"
+                    >
+                      <span>View {bagCount} Bag{bagCount !== 1 ? "s" : ""}</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </motion.button>
+                  </div>
+
                 </div>
               );
             })}

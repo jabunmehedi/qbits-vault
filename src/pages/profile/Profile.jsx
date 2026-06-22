@@ -1,12 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Save, Lock, Shield, CheckCircle, User, Settings, Eye, EyeOff, X, Database, Loader2, Check, ChevronDown } from "lucide-react";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { Camera, Save, Lock, Shield, CheckCircle, User, Settings, Eye, EyeOff, Loader2 } from "lucide-react";
 import { ChangePassword, GetUser, UpdateUser } from "../../services/User";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchAuthUser, selectAuthUser } from "../../store/authSlice";
-import { MakeDefaultVault } from "../../services/Vault";
 import { useToast } from "../../hooks/useToast";
 import { roleLabel } from "../../utils/roleLabel";
 
@@ -26,9 +25,6 @@ const Profile = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
 
-  // Settings state
-  const [defaultVault, setDefaultVault] = useState();
-
   // Password states
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
@@ -37,9 +33,6 @@ const Profile = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [profileErrors, setProfileErrors] = useState({});
 
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
-
   const { addToast } = useToast();
   const dispatch = useDispatch();
 
@@ -47,12 +40,6 @@ const Profile = () => {
   const { handleSubmit, register, reset, watch, setError, formState: { errors: passwordErrors } } = useForm();
 
   const user = useSelector(selectAuthUser);
-
-  useEffect(() => {
-    if (user?.default_vault_id) {
-      setDefaultVault(user.default_vault_id);
-    }
-  }, [user?.default_vault_id]);
 
   // FIXED: Responsive, fast-rendering image change pipeline handler
   const handleImageChange = (e) => {
@@ -67,23 +54,10 @@ const Profile = () => {
     }
   };
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const selectedVaultDetails = user?.vault_assignments?.find((v) => v?.vault_id === Number(defaultVault) && v?.status === "active");
-
   const tabs = [
     { id: "profile", label: "Profile Details", icon: User },
     { id: "password", label: "Password", icon: Lock },
     { id: "permissions", label: "Access Matrix", icon: Shield },
-    { id: "settings", label: "System Preferences", icon: Settings },
   ];
 
   useEffect(() => {
@@ -180,26 +154,6 @@ const Profile = () => {
       }, 800);
     } catch (error) {
       setError("currentPassword", { message: error?.response?.data?.message || "Failed to change password." });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleSaveSettings = async () => {
-    setIsSubmitting(true);
-
-    try {
-      const payload = {
-        default_vault_id: defaultVault,
-      };
-
-      await MakeDefaultVault(user?.id, payload);
-
-      dispatch(fetchAuthUser());
-
-      addToast({ type: "success", message: "Default vault updated successfully." });
-    } catch (error) {
-      console.log(error);
     } finally {
       setIsSubmitting(false);
     }
@@ -479,95 +433,6 @@ const Profile = () => {
             </div>
           )}
 
-          {/* SYSTEM PREFERENCES / SETTINGS VIEW PANEL */}
-          {activeTab === "settings" && (
-            <div className="p-8 lg:p-12 max-w-xl mx-auto w-full space-y-6">
-              <div className="text-center mb-4">
-                <h3 className="text-lg font-bold text-slate-800">Workspace Environment Configs</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Control default scopes for system-wide dashboard operations.</p>
-              </div>
-
-              <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-5 space-y-4">
-                <div className="flex items-center gap-3 border-b border-slate-200/40 pb-3">
-                  <Database className="text-[#1a73e8] w-5 h-5 flex-shrink-0" />
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Primary Vault Scope</h4>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Sets default API routing initialization bindings dynamically.</p>
-                  </div>
-                </div>
-
-                <div className="relative" ref={dropdownRef}>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Default Active Vault Context</label>
-
-                  {/* Custom Selector Input Button */}
-                  <button
-                    type="button"
-                    onClick={() => setDropdownOpen(!dropdownOpen)}
-                    className={`w-full flex items-center justify-between px-4 py-3 text-sm bg-white border rounded-xl text-left font-semibold text-slate-700 shadow-xs transition-all outline-none ${
-                      dropdownOpen ? "border-[#1a73e8] ring-2 ring-[#1a73e8]/10" : "border-slate-200 hover:border-slate-300"
-                    }`}
-                  >
-                    <span className={`truncate ${!selectedVaultDetails ? "text-slate-400" : ""}`}>
-                      {selectedVaultDetails?.vault?.name || "Select a vault"}
-                    </span>
-                    <ChevronDown
-                      className={`w-4 h-4 text-slate-400 transition-transform duration-200 flex-shrink-0 ml-2 ${
-                        dropdownOpen ? "rotate-180 text-[#1a73e8]" : ""
-                      }`}
-                    />
-                  </button>
-
-                  {/* Modern Animated Dropdown Panel Overlay */}
-                  <AnimatePresence>
-                    {dropdownOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 8 }}
-                        transition={{ duration: 0.15, ease: "easeOut" }}
-                        className="absolute left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden p-1.5"
-                      >
-                        <div className="max-h-60 overflow-y-auto space-y-0.5 scrollbar-thin scrollbar-thumb-slate-100">
-                          {user?.vault_assignments
-                            ?.filter((vault) => vault?.status === "active")
-                            .map((vlt) => {
-                              const isSelected = defaultVault === vlt.vault_id;
-                              return (
-                                <button
-                                  key={vlt.vault_id}
-                                  type="button"
-                                  onClick={() => {
-                                    setDefaultVault(vlt.vault_id);
-                                    setDropdownOpen(false);
-                                  }}
-                                  className={`w-full flex items-center justify-between px-3 py-2.5 text-sm font-semibold rounded-lg text-left transition-all ${
-                                    isSelected ? "bg-blue-50 text-[#1a73e8]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                  }`}
-                                >
-                                  <span className="truncate">{vlt.vault?.name}</span>
-                                  {isSelected && <Check className="w-4 h-4 text-[#1a73e8] flex-shrink-0 ml-2" />}
-                                </button>
-                              );
-                            })}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-
-              <div className="pt-4">
-                <button
-                  type="button"
-                  onClick={handleSaveSettings}
-                  disabled={isSubmitting}
-                  className={`w-full py-3 bg-gradient-to-r flex justify-center  text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-xs  transition ${isSubmitting ? "cursor-not-allowed opacity-70 bg-gray-300" : "bg-[#1a73e8] hover:bg-blue-600 shadow-lg shadow-blue-200"}`}
-                >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "make change"}
-                </button>
-              </div>
-            </div>
-          )}
         </motion.div>
       </div>
     </div>

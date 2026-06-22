@@ -21,67 +21,15 @@ import CashOutCustodianModal from "../../components/cashout/CashOutCustodianModa
 import { HiDotsHorizontal } from "react-icons/hi";
 import CustodianAvatar from "../../components/cashout/CustodianAvatar";
 
-const ExpandableBagIds = ({ bags, isExpanded, onToggle }) => {
-  if (!bags || bags.length === 0) return <span className="text-gray-400">—</span>;
-
-  const previewbags = bags.cash_out_bags.slice(0, 2);
-  const extrabags = bags.cash_out_bags.slice(2);
-  const hasMore = extrabags.length > 0;
-
+const BagIds = ({ bags }) => {
+  if (!bags?.cash_out_bags?.length) return <span className="text-gray-400">—</span>;
   return (
-    <div className="flex flex-col w-full max-w-[200px]">
-      <div className="flex flex-wrap gap-x-1 items-center">
-        {previewbags?.map((bag, i) => (
-          <span
-            key={bag.id || `preview-${i}`}
-            className="whitespace-nowrap"
-          >
-            {bag?.bag?.barcode} - RN#{bag?.bag?.rack_number}
-            {i === previewbags.length - 1 && !hasMore ? "" : ","}
-          </span>
-        ))}
-        {hasMore && !isExpanded && (
-          <button
-            type="button"
-            onClick={onToggle}
-            className="text-blue-500 bg-slate-200 py-1 cursor-pointer rounded-sm hover:text-blue-700 text-[11px] font-bold px-1 transition-all active:scale-95"
-          >
-            <HiDotsHorizontal className="text-slate-500" />
-          </button>
-        )}
-      </div>
-
-      <motion.div
-        initial={false}
-        animate={{
-          height: isExpanded ? "auto" : "0px",
-          opacity: isExpanded ? 1 : 0,
-        }}
-        transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-        className="overflow-hidden"
-      >
-        <div className="flex flex-wrap gap-x-1 pt-1">
-          {extrabags.map((bag, i) => (
-            <span
-              key={bag.id || `extra-${i}`}
-              className="whitespace-nowrap"
-            >
-              {bag?.bag?.barcode} - RN#{bag?.bag?.rack_number}
-              {i === extrabags.length - 1 ? "" : ","}
-            </span>
-          ))}
-          <button
-            type="button"
-            onClick={onToggle}
-            className="text-[10px] text-blue-400 underline hover:text-red-600 font-medium flex items-center gap-1 w-full mt-1 transition-colors"
-          >
-            less
-            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-            </svg>
-          </button>
-        </div>
-      </motion.div>
+    <div className="flex flex-wrap gap-x-1 gap-y-0.5 w-full">
+      {bags.cash_out_bags.map((bag, i) => (
+        <span key={bag.id || `bag-${i}`} className="whitespace-nowrap text-gray-700">
+          {bag?.bag?.barcode} - RN#{bag?.bag?.rack_number}{i < bags.cash_out_bags.length - 1 ? "," : ""}
+        </span>
+      ))}
     </div>
   );
 };
@@ -102,7 +50,6 @@ const CashOut = () => {
   const [activeVerifyId, setActiveVerifyId] = useState(null);
   const [activeApproveId, setActiveApproveId] = useState(null);
   const [activeActionMenuId, setActiveActionMenuId] = useState(null);
-  const [expandedRows, setExpandedRows] = useState({});
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
@@ -117,7 +64,6 @@ const CashOut = () => {
 
   const toggleRow = (rowId, e) => {
     e.stopPropagation();
-    setExpandedRows((prev) => ({ ...prev, [rowId]: !prev[rowId] }));
   };
 
   useEffect(() => {
@@ -580,7 +526,7 @@ const CashOut = () => {
       key: "customer.name",
       className: "w-[28%]",
       render: (row) => (
-        <ExpandableBagIds bags={row} isExpanded={!!expandedRows[row.id]} onToggle={(e) => toggleRow(row.id, e)} />
+        <BagIds bags={row} />
       ),
     },
     {

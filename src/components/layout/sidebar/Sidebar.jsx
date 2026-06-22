@@ -31,7 +31,7 @@ const menuItems = [
     permission: "setting.view",
     children: [
       { label: "Config Vault Audit", permission: "setting.config_audit_view", path: "/settings/config-vault-audit" },
-      { label: "System Preferences", permission: "setting.default_view", path: "/settings/system-preferences" },
+      // { label: "System Preferences", permission: "setting.default_view", path: "/settings/system-preferences" },
       { label: "Logs", permission: "setting.log", path: "/settings/activity-log" },
     ],
   },

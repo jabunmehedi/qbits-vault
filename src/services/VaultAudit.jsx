@@ -13,6 +13,16 @@ export const UpdateVaultAuditConfig = async (data, id) => {
     const response = await axios.put(`/vault-audit-config/${id}`, data);
     return response?.data;
   } catch (error) {
+    throw error;
+  }
+};
+
+export const ToggleVaultAuditCron = async (id) => {
+  try {
+    const response = await axios.patch(`/vault-audit-config/${id}/toggle-cron`);
+    return response?.data;
+  } catch (error) {
     console.error(error?.response?.data?.message);
+    throw error;
   }
 };

@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { CreateVault, DeleteVault, GetVault, GetVaults, UpdateVault } from "../../services/Vault";
+import { createPortal } from "react-dom";
+import { CreateVault, DeleteVault, GetVault, GetVaults, MakeDefaultVault, UpdateVault } from "../../services/Vault";
 import { useForm } from "react-hook-form";
-import { Plus } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { useToast } from "../../hooks/useToast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import VaultBagDetailsDrawer from "../../components/vaults/VaultBagDetailsDrawer";
 import CreateUpdateVault from "../../components/vaults/CreateUpdateVault";
 import VaultCardList from "../../components/vaults/VaultCardList";
-import { useSelector } from "react-redux";
-import { selectIsSuperAdmin } from "../../store/authSlice";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchAuthUser, selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
 import { usePermissions } from "../../hooks/usePermissions";
 
 const Vault = () => {
@@ -43,6 +44,19 @@ const Vault = () => {
   const { hasPermission, hasRole } = usePermissions();
   const canCreateBag = isSuperAdmin || hasRole("bag create");
   const canRequestCashIn = isSuperAdmin || hasPermission("cash-in.request");
+
+  // ── Default vault ─────────────────────────────────────────────────────────────
+  const dispatch = useDispatch();
+  const user = useSelector(selectAuthUser);
+  const [defaultVault, setDefaultVault] = useState(null);
+  const [savingDefaultVaultId, setSavingDefaultVaultId] = useState(null);
+
+  // ── Threshold modal ───────────────────────────────────────────────────────────
+  const [thresholdModalOpen, setThresholdModalOpen] = useState(false);
+  const [thresholdModalVault, setThresholdModalVault] = useState(null);
+  const [thresholdMin, setThresholdMin] = useState("");
+  const [thresholdMax, setThresholdMax] = useState("");
+  const [isSavingThreshold, setIsSavingThreshold] = useState(false);
 
   // Deep-link to the cash-in page with this vault's request drawer pre-opened.
   const handleRequestCashIn = (vault) => navigate(`/cashin?request=1&vaultId=${vault.id}`);
@@ -85,6 +99,11 @@ const Vault = () => {
     );
   }, [watchedName]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Sync user's saved default vault
+  useEffect(() => {
+    if (user?.default_vault_id) setDefaultVault(user.default_vault_id);
+  }, [user?.default_vault_id]);
+
   // ── Helpers ──────────────────────────────────────────────────────────────────
   const getVaultPrefix = (name) => {
     if (!name?.trim()) return "VLT";
@@ -112,15 +131,12 @@ const Vault = () => {
       return;
     }
 
-    // --- Bag Limit Logic ---
     if (watchedBagLimit !== undefined && watchedBagLimit !== null && watchedBagLimit !== "") {
       const limit = parseInt(watchedBagLimit, 10);
-
       if (limit === 0) {
         addToast({ type: "error", message: "Bag limit is set to 0. No bags can be created." });
         return;
       }
-
       if (limit !== null && bags.length >= limit) {
         addToast({ type: "error", message: `You have reached the limit of ${limit} bags.` });
         return;
@@ -162,8 +178,6 @@ const Vault = () => {
       addToast({ type: "error", message: `Cannot remove "${bag.barcode}" — it holds a balance of ৳${amount.toFixed(2)} and can't be deleted.` });
       return;
     }
-    // A bag that has any cash-in/cash-out history must be kept for the audit
-    // trail, even once its balance is back to zero.
     if (bag.has_transactions) {
       addToast({ type: "error", message: `Cannot remove "${bag.barcode}" — it has cash-in/cash-out history and can't be deleted.` });
       return;
@@ -171,18 +185,10 @@ const Vault = () => {
     setBags(bags.filter((b) => b.id !== id));
   };
 
-  // Put this inside the Vault component
   useEffect(() => {
     const editId = searchParams.get("vault_edit_id");
-
-    // Only proceed if we have an ID to search for and vaults have loaded
     if (editId && vaults.length > 0) {
-      // Find the vault matching the vault_code (display ID)
-      const vaultToEdit = vaults.find((v) => v.vault_id === editId);
-
       openEditModal(editId);
-
-      // Clean up the URL so it doesn't reopen if the user refreshes or saves
       setSearchParams(
         (prev) => {
           const newParams = new URLSearchParams(prev);
@@ -192,13 +198,12 @@ const Vault = () => {
         { replace: true },
       );
     }
-  }, [vaults, searchParams, setSearchParams]); //
+  }, [vaults, searchParams, setSearchParams]);
 
   // ── Data fetching ─────────────────────────────────────────────────────────────
   const fetchVaultData = async () => {
     const res = await GetVaults({ page: currentPage });
     const { data: items, ...pagination } = res?.data ?? {};
-
     setVaults(items ?? []);
     setPaginationData(pagination);
     return items ?? [];
@@ -235,10 +240,7 @@ const Vault = () => {
       setRackErrors({});
       setDeleteErrors([]);
       setEditingVaultId(vaultData.id || null);
-
-      // ── FIX: store the human-readable vault_id so we can send it back ────────
       setEditingVaultDisplayId(vaultData.vault_code || null);
-
       setIsEditMode(true);
       setIsOpenModal(true);
     } catch (err) {
@@ -257,7 +259,6 @@ const Vault = () => {
       setLoadingBags(false);
       return;
     }
-
     try {
       const res = await GetVault(vault.id);
       const vaultData = res?.data ?? res;
@@ -284,7 +285,6 @@ const Vault = () => {
   // ── Submit ────────────────────────────────────────────────────────────────────
   const onSubmit = async (data) => {
     const currentBags = bagsRef.current;
-
     const limit = data.bag_limit ? parseInt(data.bag_limit, 10) : null;
 
     if (limit !== null) {
@@ -298,7 +298,6 @@ const Vault = () => {
       }
     }
 
-    // Determine if total racks is omitted or invalid
     const maxRacks = data.total_racks ? parseInt(data.total_racks, 10) : null;
     const isTotalRacksEmpty = !maxRacks || maxRacks <= 0;
 
@@ -307,31 +306,19 @@ const Vault = () => {
       rack_number: isTotalRacksEmpty ? "1" : (bag.rack_number || "").trim(),
     }));
 
-    // ── Rack number validation ──────────────────────────────────────
     const newRackErrors = {};
-    // Track racks already taken so a number can't be assigned to two bags.
-    // Uniqueness only matters when total_racks is set (otherwise every bag is rack "1").
     const seenRacks = new Map();
 
     processedBags.forEach((bag) => {
       const rackStr = (bag.rack_number || "").trim();
-
-      if (!rackStr) {
-        newRackErrors[bag.id] = "Rack number is required";
-        return;
-      }
-
+      if (!rackStr) { newRackErrors[bag.id] = "Rack number is required"; return; }
       const rackNum = parseInt(rackStr, 10);
-
       if (maxRacks !== null && !isTotalRacksEmpty && rackNum > maxRacks) {
-        newRackErrors[bag.id] = `Cannot exceed ${maxRacks}`;
-        return;
+        newRackErrors[bag.id] = `Cannot exceed ${maxRacks}`; return;
       }
-
       if (!isTotalRacksEmpty) {
         if (seenRacks.has(rackNum)) {
           newRackErrors[bag.id] = `Rack ${rackNum} is already used`;
-          // Also flag the first bag that took this rack, so both are visible.
           newRackErrors[seenRacks.get(rackNum)] = `Rack ${rackNum} is already used`;
         } else {
           seenRacks.set(rackNum, bag.id);
@@ -344,7 +331,6 @@ const Vault = () => {
       addToast({ type: "error", message: "Please fix rack number errors before submitting." });
       return;
     }
-
     if (Object.keys(rackErrors).length > 0) {
       addToast({ type: "error", message: "Please fix rack number errors before submitting." });
       return;
@@ -371,41 +357,31 @@ const Vault = () => {
       bag_limit: data.bag_limit ? Number(data.bag_limit) : null,
     };
 
-    if (isEditMode && editingVaultDisplayId) {
-      payload.vault_code = editingVaultDisplayId;
-    }
+    if (isEditMode && editingVaultDisplayId) payload.vault_code = editingVaultDisplayId;
 
     try {
       if (isEditMode && editingVaultId) {
         const res = await UpdateVault(editingVaultId, payload);
-
         if (res?.errors?.length > 0) {
           setDeleteErrors(res.errors);
           await fetchVaultData();
           return;
         }
-
         addToast({ type: "success", message: "Vault updated successfully." });
       } else {
         const res = await CreateVault(payload);
-
         if (!res?.success) {
           addToast({ type: "error", message: res?.message });
           setIsLoading(false);
           return;
         }
-
         if (res?.errors) {
           Object.keys(res.errors).forEach((field) => {
-            setError(field, {
-              type: "server",
-              message: res.errors[field][0],
-            });
+            setError(field, { type: "server", message: res.errors[field][0] });
           });
           setIsLoading(false);
           return;
         }
-
         const createdCode = String(generatedVaultCode);
         setIsLoading(false);
         handleCloseModal();
@@ -421,7 +397,6 @@ const Vault = () => {
 
       setIsLoading(false);
       handleCloseModal();
-
       await fetchVaultData();
     } catch (error) {
       const serverErrors = error?.response?.data?.errors;
@@ -457,13 +432,56 @@ const Vault = () => {
       }
       addToast({ type: "success", message: "Vault deleted successfully" });
       setDeletingVaultId(null);
-      await fetchVaultData(); // Refresh the table list
+      await fetchVaultData();
     } catch (error) {
       console.error("Failed to delete vault:", error);
       toast.error(error?.response?.data?.message || "Failed to delete vault.");
     } finally {
       setIsApiDeleting(false);
       setDeletingVaultId(null);
+    }
+  };
+
+  // ── Default vault handler ─────────────────────────────────────────────────────
+  const handleSetDefaultVault = async (vaultId) => {
+    const isAlreadyDefault = defaultVault === vaultId;
+    const newValue = isAlreadyDefault ? null : vaultId;
+    setSavingDefaultVaultId(vaultId);
+    try {
+      await MakeDefaultVault(user?.id, { default_vault_id: newValue });
+      setDefaultVault(newValue);
+      dispatch(fetchAuthUser());
+      addToast({ type: "success", message: isAlreadyDefault ? "Default vault removed." : "Default vault updated." });
+    } catch {
+      addToast({ type: "error", message: "Failed to update default vault." });
+    } finally {
+      setSavingDefaultVaultId(null);
+    }
+  };
+
+  // ── Threshold modal handlers ──────────────────────────────────────────────────
+  const handleOpenThreshold = (vault) => {
+    setThresholdModalVault(vault);
+    setThresholdMin(vault.bag_min_bal_limit ?? "");
+    setThresholdMax(vault.bag_balance_limit ?? "");
+    setThresholdModalOpen(true);
+  };
+
+  const handleSaveThreshold = async () => {
+    if (!thresholdModalVault) return;
+    setIsSavingThreshold(true);
+    try {
+      await UpdateVault(thresholdModalVault.id, {
+        bag_min_bal_limit: thresholdMin === "" ? null : parseFloat(thresholdMin),
+        bag_balance_limit: thresholdMax === "" ? null : parseFloat(thresholdMax),
+      });
+      addToast({ type: "success", message: `Thresholds updated for "${thresholdModalVault.name}".` });
+      setThresholdModalOpen(false);
+      await fetchVaultData();
+    } catch {
+      addToast({ type: "error", message: "Failed to save thresholds." });
+    } finally {
+      setIsSavingThreshold(false);
     }
   };
 
@@ -486,13 +504,7 @@ const Vault = () => {
               setBags([]);
               setRackErrors([]);
               setDeleteErrors([]);
-              reset({
-                name: "",
-                vault_code: "",
-                bag_limit: "",
-                address: "",
-                total_racks: "",
-              });
+              reset({ name: "", vault_code: "", bag_limit: "", address: "", total_racks: "" });
             }}
             className="flex items-center gap-2 px-6 py-2.5 bg-[#1a73e8] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-200 hover:bg-blue-600 transition-all"
           >
@@ -513,7 +525,120 @@ const Vault = () => {
         canEdit={isSuperAdmin || hasPermission("vault.edit")}
         canDelete={isSuperAdmin || hasPermission("vault.delete")}
         isApiDeleting={isApiDeleting}
+        defaultVaultId={defaultVault}
+        onSetDefault={handleSetDefaultVault}
+        savingDefaultVaultId={savingDefaultVaultId}
+        onOpenThreshold={handleOpenThreshold}
+        canEditThreshold={isSuperAdmin || hasPermission("vault.edit")}
       />
+
+      {/* ── Threshold Modal ── */}
+      {thresholdModalOpen && thresholdModalVault && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Vault Thresholds</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">{thresholdModalVault.name}</p>
+              </div>
+              <button
+                onClick={() => setThresholdModalOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Default vault card */}
+            {/*<button
+              onClick={() => handleSetDefaultVault(thresholdModalVault.id)}
+              disabled={savingDefaultVaultId === thresholdModalVault.id}
+              className={`w-full mb-5 p-4 rounded-2xl border-2 text-left transition-all duration-200 cursor-pointer ${
+                defaultVault === thresholdModalVault.id
+                  ? "border-[#1a73e8] bg-blue-50/60"
+                  : "border-slate-200 bg-slate-50 hover:border-slate-300"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                    defaultVault === thresholdModalVault.id ? "bg-[#1a73e8] text-white" : "bg-white border border-slate-200 text-slate-400"
+                  }`}>
+                    {savingDefaultVaultId === thresholdModalVault.id
+                      ? <Loader2 size={16} className="animate-spin" />
+                      : <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" /></svg>
+                    }
+                  </div>
+                  <div>
+                    <p className={`text-sm font-bold ${defaultVault === thresholdModalVault.id ? "text-[#1a73e8]" : "text-slate-700"}`}>Default Vault</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      {defaultVault === thresholdModalVault.id ? "This is your default vault" : "Set as default for transactions"}
+                    </p>
+                  </div>
+                </div>
+                <div className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ${
+                  defaultVault === thresholdModalVault.id ? "bg-[#1a73e8]" : "bg-slate-200"
+                }`}>
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-200 ${
+                    defaultVault === thresholdModalVault.id ? "left-6" : "left-1"
+                  }`} />
+                </div>
+              </div>
+            </button>*/}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                  Min Amount (৳)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">৳</span>
+                  <input
+                    type="number"
+                    value={thresholdMin}
+                    onChange={(e) => setThresholdMin(e.target.value)}
+                    placeholder="Not Set (0)"
+                    className="w-full pl-7 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:border-[#1a73e8] focus:ring-2 focus:ring-[#1a73e8]/10 outline-none text-sm font-mono font-bold transition-all"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                  Max Amount (৳)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">৳</span>
+                  <input
+                    type="number"
+                    value={thresholdMax}
+                    onChange={(e) => setThresholdMax(e.target.value)}
+                    placeholder="Max Amount"
+                    className="w-full pl-7 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:border-[#1a73e8] focus:ring-2 focus:ring-[#1a73e8]/10 outline-none text-sm font-mono font-bold transition-all"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setThresholdModalOpen(false)}
+                className="flex-1 py-2.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveThreshold}
+                disabled={isSavingThreshold}
+                className="flex-1 py-2.5 bg-[#1a73e8] hover:bg-blue-600 disabled:bg-gray-300 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition"
+              >
+                {isSavingThreshold ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* ── Create / Edit Modal ── */}
       {isOpenModal && (

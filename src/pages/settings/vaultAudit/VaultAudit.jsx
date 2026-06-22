@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { useToast } from "../../../hooks/useToast";
 import DataTable from "../../../components/global/dataTable/DataTable";
 import VaultAuditEditConfigModal from "../../../components/settings/vaultAudit/VaultAuditEditConfigModal";
-import { GetVaultAuditConfig } from "../../../services/VaultAudit";
+import { GetVaultAuditConfig, ToggleVaultAuditCron } from "../../../services/VaultAudit";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import { useSearchParams } from "react-router-dom";
+import { Loader2, Lock } from "lucide-react";
 
 // Initialize plugin outside render cycles
 dayjs.extend(customParseFormat);
@@ -96,9 +98,11 @@ const isEditLocked = (interval, dayName, timeStr, lastAuditDate) => {
 };
 
 const VaultAudit = () => {
+  const { addToast } = useToast();
   const [vaultsConfig, setVaultsConfig] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVault, setSelectedVault] = useState(null);
+  const [togglingCronId, setTogglingCronId] = useState(null);
   const [paginationData, setPaginationData] = useState({});
   const [searchParams, setSearchParams] = useSearchParams();
   const currentPage = parseInt(searchParams.get("page") || "1");
@@ -118,6 +122,19 @@ const VaultAudit = () => {
   useEffect(() => {
     fetchVaultsConfig();
   }, [currentPage]);
+
+  const handleToggleCron = async (row) => {
+    setTogglingCronId(row.id);
+    const newValue = !row.cron_enabled;
+    setVaultsConfig((prev) => prev.map((v) => v.id === row.id ? { ...v, cron_enabled: newValue } : v));
+    try {
+      await ToggleVaultAuditCron(row.id);
+    } catch {
+      setVaultsConfig((prev) => prev.map((v) => v.id === row.id ? { ...v, cron_enabled: !newValue } : v));
+    } finally {
+      setTogglingCronId(null);
+    }
+  };
 
   const openEditModal = (row) => {
     setSelectedVault(row);
@@ -189,12 +206,34 @@ const VaultAudit = () => {
       title: "Status",
       key: "status",
       className: "w-32",
+      render: (row) => {
+        const configured = row?.status === "configured";
+        const label = row?.status ? row.status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "-";
+        return (
+          <span className={`text-xs px-3 py-1.5 rounded-full font-semibold whitespace-nowrap ${configured ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+            {label}
+          </span>
+        );
+      },
+    },
+    {
+      title: "Cron",
+      key: "cron_enabled",
+      className: "w-24",
       render: (row) => (
-        <span
-          className={`text-xs px-3 py-1.5 rounded-full font-medium ${row?.status === "configured" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}
+        <button
+          onClick={() => handleToggleCron(row)}
+          disabled={togglingCronId === row.id}
+          className="flex items-center gap-2 group/cron"
         >
-          {row?.status || "-"}
-        </span>
+          {togglingCronId === row.id ? (
+            <Loader2 size={14} className="animate-spin text-slate-400" />
+          ) : (
+            <div className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${row.cron_enabled ? "bg-[#1a73e8]" : "bg-slate-200 group-hover/cron:bg-slate-300"}`}>
+              <div className={`absolute top-1 w-3 h-3 bg-white rounded-full shadow transition-all duration-200 ${row.cron_enabled ? "left-5" : "left-1"}`} />
+            </div>
+          )}
+        </button>
       ),
     },
     {
@@ -204,18 +243,25 @@ const VaultAudit = () => {
       render: (row) => {
         const locked = isEditLocked(row?.interval, row?.day, row?.time, row?.last_audit_date);
 
-        return (
-          <div className="relative group flex flex-col">
+        if (locked) {
+          return (
             <button
-              onClick={() => !locked && openEditModal(row)}
-              disabled={locked}
-              className={`font-medium transition-colors ${locked ? "text-gray-400 cursor-not-allowed hidden" : "text-[#1a73e8] hover:underline cursor-pointer"}`}
+              onClick={() => addToast({ type: "error", message: "Cannot edit config within 6 hours of the scheduled run time." })}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-400 text-xs font-semibold cursor-pointer hover:bg-slate-200 transition-colors whitespace-nowrap"
             >
-              Edit Config
+              <Lock size={11} />
+              Locked
             </button>
+          );
+        }
 
-            {locked && <span className="text-[11px] text-left text-gray-400">You cannot edit config within 6 hours of running time.</span>}
-          </div>
+        return (
+          <button
+            onClick={() => openEditModal(row)}
+            className="text-[#1a73e8] font-semibold text-sm hover:underline cursor-pointer"
+          >
+            Edit Config
+          </button>
         );
       },
     },

@@ -70,6 +70,7 @@ const InitialVerification = ({ onSuccess }) => {
   const [phoneOtp, setPhoneOtp] = useState(["", "", "", "", "", ""]);
 
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [otpSentToPhone, setOtpSentToPhone] = useState("");
   const [showOtpView, setShowOtpView] = useState(false);
   const [address, setAddress] = useState("");
   const [kycFiles, setKycFiles] = useState({ front: null, back: null, photo: null });
@@ -194,7 +195,7 @@ const InitialVerification = ({ onSuccess }) => {
   };
 
   const handleSendOtp = async (phone) => {
-    if (phoneTimer > 0) return;
+    if (phoneTimer > 0 && phone === otpSentToPhone) return;
     setLoading(true);
     setError("");
     try {
@@ -208,6 +209,7 @@ const InitialVerification = ({ onSuccess }) => {
       localStorage.setItem("phone_otp_expiry", expiryTimestamp.toString());
 
       setPhoneTimer(240); // 4 minutes lockout initialization
+      setOtpSentToPhone(phone);
       setPhoneOtp(["", "", "", "", "", ""]);
       setShowOtpView(true);
     } catch (err) {
@@ -216,6 +218,7 @@ const InitialVerification = ({ onSuccess }) => {
         const expiryTimestamp = Math.floor(Date.now() / 1000) + secondsLeft;
         localStorage.setItem("phone_otp_expiry", expiryTimestamp.toString());
         setPhoneTimer(secondsLeft);
+        setOtpSentToPhone(phone);
         setShowOtpView(true);
       }
       setError(err.response?.data?.message || "Failed to send OTP");
