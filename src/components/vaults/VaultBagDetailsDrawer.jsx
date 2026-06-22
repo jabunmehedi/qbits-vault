@@ -79,7 +79,8 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
           ) : (
             <div className="space-y-4 pb-6">
               {vaultBagsDetails.map((bag) => {
-                const denominations = bag.denominations ? JSON.parse(bag.denominations) : null;
+                const parseDenom = (d) => { if (!d) return null; if (typeof d === "object") return d; try { return JSON.parse(d); } catch { return null; } };
+                const denominations = parseDenom(bag.denominations) || parseDenom(bag.latest_cash_in?.denominations);
                 const totalNotes = denominations ? Object.values(denominations).reduce((a, b) => a + b, 0) : 0;
                 const isExpanded = expandedBag === bag.barcode;
 
