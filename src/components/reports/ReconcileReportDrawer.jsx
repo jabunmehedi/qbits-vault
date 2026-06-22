@@ -1,7 +1,10 @@
+import { useState } from "react";
 import dayjs from "dayjs";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, CheckCircle2, Loader2, Scale, TrendingDown, TrendingUp, UserIcon, Wallet } from "lucide-react";
 import Drawer from "../global/drawer/Drawer";
+import Can from "../global/can/Can";
+import SettleVarianceModal from "./SettleVarianceModal";
 import { ViewReconcile } from "../../services/Reconcile";
 
 const fmt = (n) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
@@ -21,7 +24,9 @@ const StatCard = ({ label, value, tone = "text-[#1a2b4b]" }) => (
   </div>
 );
 
-const ReconcileReportDrawer = ({ reconciliationId, isOpen, onClose }) => {
+const ReconcileReportDrawer = ({ reconciliationId, isOpen, onClose, onSettled }) => {
+  const [settleBagId, setSettleBagId] = useState(null);
+
   const { data, isLoading } = useQuery({
     queryKey: ["reconcileReport", reconciliationId],
     queryFn: async () => {
@@ -41,6 +46,7 @@ const ReconcileReportDrawer = ({ reconciliationId, isOpen, onClose }) => {
   const outstanding = Math.max(Math.round((totalAbsDiff - totalSettled) * 100) / 100, 0);
 
   return (
+    <>
     <Drawer
       isOpen={isOpen}
       onClose={onClose}
@@ -141,10 +147,19 @@ const ReconcileReportDrawer = ({ reconciliationId, isOpen, onClose }) => {
                                 <span className="text-slate-300">—</span>
                               ) : fullySettled ? (
                                 <span className="text-emerald-600">৳{fmt(settled)}</span>
-                              ) : settled > 0 ? (
-                                <span className="text-amber-600">৳{fmt(settled)}</span>
                               ) : (
-                                <span className="text-slate-400">Not settled</span>
+                                <Can
+                                  perform="reconciliation.settle"
+                                  fallback={<span className={settled > 0 ? "text-amber-600" : "text-slate-400"}>{settled > 0 ? `৳${fmt(settled)}` : "Not settled"}</span>}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => setSettleBagId(bag.id)}
+                                    className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 border border-amber-200 bg-amber-50 rounded-md px-2 py-0.5 hover:border-amber-500 transition cursor-pointer"
+                                  >
+                                    <Wallet size={11} /> Settle{settled > 0 ? ` (৳${fmt(settled)})` : ""}
+                                  </button>
+                                </Can>
                               )}
                             </td>
                           </tr>
@@ -187,6 +202,16 @@ const ReconcileReportDrawer = ({ reconciliationId, isOpen, onClose }) => {
         )}
       </div>
     </Drawer>
+
+    {settleBagId && (
+      <SettleVarianceModal
+        reconciliationId={reconciliationId}
+        bagId={settleBagId}
+        onClose={() => setSettleBagId(null)}
+        onSettled={() => onSettled?.()}
+      />
+    )}
+    </>
   );
 };
 

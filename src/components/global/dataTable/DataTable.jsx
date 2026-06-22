@@ -76,7 +76,7 @@ const DataTable = ({
                     }`}
                     onClick={() => column.iconClickAction?.()}
                   >
-                    <div className={`flex items-center gap-1.5 ${column?.className?.includes("text-center") ? "justify-center" : ""}`}>
+                    <div className={`flex items-center gap-1.5 ${column?.className?.includes("text-center") ? "justify-center" : column?.className?.includes("text-end") ? "justify-end" : ""}`}>
                       <span>{column.title}</span>
                       {column.icon && (
                         <span className="text-slate-400">

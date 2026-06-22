@@ -1,10 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { ArrowDownCircle, ArrowUpCircle, FileText, Landmark, Loader2, Receipt, RefreshCw, Scale, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { GetVaultStatement } from "../../services/Reports";
 import DataTable from "../global/dataTable/DataTable";
 import ReconcileReportDrawer from "./ReconcileReportDrawer";
-import SettleVarianceModal from "./SettleVarianceModal";
 import Can from "../global/can/Can";
 
 const RECONCILE_TYPES = ["reconcile_variance", "reconcile_settlement"];
@@ -56,9 +56,9 @@ const VaultStatement = ({ vault, fromDate, toDate }) => {
   const totalDebit = summary.total_debit ?? 0;
   const closing = summary.closing_balance ?? vaultBalance(vault);
 
+  const navigate = useNavigate();
   const [reportId, setReportId] = useState(null);
   const [reportOpen, setReportOpen] = useState(false);
-  const [settleTarget, setSettleTarget] = useState(null);
 
   const openReport = (id) => {
     if (!id) return;
@@ -66,9 +66,11 @@ const VaultStatement = ({ vault, fromDate, toDate }) => {
     setReportOpen(true);
   };
 
-  const openSettle = (reconciliationId, bagId) => {
-    if (!reconciliationId || !bagId) return;
-    setSettleTarget({ reconciliationId, bagId });
+  // Settle is performed on the reconciliation screen — route there with the reconcile
+  // drawer auto-opened rather than settling inline from the statement.
+  const goSettle = (row) => {
+    if (!row?.reconciliation_id) return;
+    navigate(`/reconcile?vault=${vault.id}&open=${row.reconciliation_id}&tran=${encodeURIComponent(row.tran_id || "")}`);
   };
 
   // Reconcile rows (variance / settlement) get a coloured background so the audit
@@ -84,18 +86,18 @@ const VaultStatement = ({ vault, fromDate, toDate }) => {
       title: "Date & Time",
       key: "completed_at",
       className: "w-36 text-start",
-      render: (row) => <span>{row.completed_at || "—"}</span>,
+      render: (row) => <span className="whitespace-nowrap">{row.completed_at || "—"}</span>,
     },
     {
       title: "Reference",
       key: "tran_id",
-      className: "w-44 text-start",
+      className: "w-40 text-start",
       render: (row) => <span className="block truncate font-mono text-[#1a73e8] font-semibold">{row.tran_id}</span>,
     },
     {
       title: "Description",
       key: "transaction_type",
-      className: "text-start",
+      className: "w-56 text-start",
       noClip: true,
       render: (row) => {
         if (RECONCILE_TYPES.includes(row.transaction_type)) {
@@ -120,17 +122,12 @@ const VaultStatement = ({ vault, fromDate, toDate }) => {
                 <Can perform="reconciliation.settle">
                   <button
                     type="button"
-                    onClick={() => openSettle(row.reconciliation_id, row.bag_id)}
+                    onClick={() => goSettle(row)}
                     className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 border border-amber-200 bg-amber-50 rounded-md px-2 py-0.5 hover:border-amber-500 transition cursor-pointer"
                   >
-                    <Wallet size={11} /> Settle variance
+                    <Wallet size={11} /> Settle
                   </button>
                 </Can>
-              )}
-              {isVariance && !row.settled && row.settle_locked && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 border border-slate-200 bg-slate-50 rounded-md px-2 py-0.5">
-                  Cashed out
-                </span>
               )}
             </div>
           );
@@ -149,20 +146,23 @@ const VaultStatement = ({ vault, fromDate, toDate }) => {
     {
       title: "Debit",
       key: "debit",
-      className: "w-28 text-end font-bold",
-      render: (row) => <span className="text-rose-500">{Number(row.debit || 0) > 0 ? `৳${fmt(row.debit)}` : "—"}</span>,
+      className: "w-32 text-end font-bold",
+      noClip: true,
+      render: (row) => <span className="text-rose-500 whitespace-nowrap">{Number(row.debit || 0) > 0 ? `৳${fmt(row.debit)}` : "—"}</span>,
     },
     {
       title: "Credit",
       key: "credit",
-      className: "w-28 text-end font-bold",
-      render: (row) => <span className="text-emerald-600">{Number(row.credit || 0) > 0 ? `৳${fmt(row.credit)}` : "—"}</span>,
+      className: "w-32 text-end font-bold",
+      noClip: true,
+      render: (row) => <span className="text-emerald-600 whitespace-nowrap">{Number(row.credit || 0) > 0 ? `৳${fmt(row.credit)}` : "—"}</span>,
     },
     {
       title: "Balance",
       key: "balance",
-      className: "w-32 text-end font-bold text-slate-900",
-      render: (row) => <span>৳{fmt(row.balance)}</span>,
+      className: "w-36 text-end font-bold text-slate-900",
+      noClip: true,
+      render: (row) => <span className="whitespace-nowrap">৳{fmt(row.balance)}</span>,
     },
   ];
 
@@ -277,16 +277,7 @@ const VaultStatement = ({ vault, fromDate, toDate }) => {
       )}
     </div>
 
-    <ReconcileReportDrawer reconciliationId={reportId} isOpen={reportOpen} onClose={() => setReportOpen(false)} />
-
-    {settleTarget && (
-      <SettleVarianceModal
-        reconciliationId={settleTarget.reconciliationId}
-        bagId={settleTarget.bagId}
-        onClose={() => setSettleTarget(null)}
-        onSettled={() => refetch()}
-      />
-    )}
+    <ReconcileReportDrawer reconciliationId={reportId} isOpen={reportOpen} onClose={() => setReportOpen(false)} onSettled={() => refetch()} />
     </>
   );
 };

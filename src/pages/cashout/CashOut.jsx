@@ -176,7 +176,7 @@ const CashOut = () => {
       const response = await GetCashOutLedger(cashOut.id);
       if (!response.success) throw new Error(response.message || "Failed to fetch ledger data");
 
-      const { vault, verifiers, approvers, custodians, denominations, bag_numbers, cash_in_tran_id } = response.data;
+      const { vault, verifiers, approvers, custodians, bag_numbers, bags } = response.data;
       const cashOutAmount = parseFloat(cashOut.cash_out_amount || cashOut.request_amount || 0);
 
       const amountFmt = (n) => parseFloat(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2 });
@@ -202,17 +202,8 @@ const CashOut = () => {
         return result + " Only";
       };
 
-      const DENOM_NOTES = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
-
-      // Build a safe number-keyed map so string/number key mismatch doesn't cause [object Object]
-      const denomMap = {};
-      if (denominations) {
-        Object.entries(denominations).forEach(([k, v]) => {
-          denomMap[parseInt(k)] = parseInt(v) || 0;
-        });
-      }
-
       const bagList = Array.isArray(bag_numbers) ? bag_numbers : [];
+      const bagSummary = Array.isArray(bags) ? bags : [];
       const bagCount = bagList.length;
       const bagNumber = bagCount ? bagList.join(", ") : "—";
       // Header badge: a single bag shows its number; multiple bags show a count so
@@ -330,21 +321,17 @@ const CashOut = () => {
         <div class="info-value" style="font-family:monospace">${cashOut.tran_id || "—"}</div>
       </div>
       <div class="info-item">
-        <div class="info-label">Cash In Transaction ID:</div>
-        <div class="info-value" style="font-family:monospace">${cash_in_tran_id || "—"}</div>
-      </div>
-      <div class="info-item">
         <div class="info-label">Prepared By:</div>
         <div class="info-value">${cashOut.user?.name || "—"}</div>
       </div>
     </div>
 
-    <!-- Denomination Breakdown -->
+    <!-- Per-bag Summary -->
     <div class="section">
       <div class="section-hd">
         <div class="section-hd-left">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><circle cx="12" cy="15" r="2"/></svg>
-          Denomination Breakdown
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+          Bag Summary (${bagSummary.length})
         </div>
         <div style="font-size:11px;font-weight:700;color:#475569;">
           GRAND TOTAL (BDT): <span class="grand-total-val">${amountFmt(cashOutAmount)}</span>
@@ -352,35 +339,29 @@ const CashOut = () => {
       </div>
       <table class="denom-table">
         <thead>
-          <tr><th>Denomination (BDT)</th><th>Count</th><th>Total (BDT)</th></tr>
+          <tr><th>Bag No</th><th>Transaction ID</th><th>Amount (BDT)</th></tr>
         </thead>
         <tbody>
-          ${DENOM_NOTES.filter((note) => (denomMap[note] || 0) > 0).map((note) => {
-            const cnt = denomMap[note];
-            return `<tr>
-              <td>${note.toLocaleString("en-US")}</td>
-              <td>${cnt}</td>
-              <td>${amountFmt(note * cnt)}</td>
-            </tr>`;
-          }).join("")}
+          ${bagSummary.length > 0
+            ? bagSummary.map((b) => `<tr>
+              <td>${b.bag_no || "—"}${b.rack_number ? ` <span style="color:#94a3b8;font-size:12px;">· Rack ${b.rack_number}</span>` : ""}</td>
+              <td style="text-align:left;font-family:monospace;font-size:13px;">${b.cash_in_tran_id || "—"}</td>
+              <td>${amountFmt(b.amount)}</td>
+            </tr>`).join("")
+            : `<tr><td colspan="3" style="text-align:center;color:#94a3b8;">No bags recorded.</td></tr>`}
         </tbody>
       </table>
     </div>
 
-    <!-- Bag Summary -->
+    <!-- Summary (totals) -->
     <div class="section">
       <div class="section-hd">
         <div class="section-hd-left">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
-          Bag Summary
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+          Summary
         </div>
       </div>
       <div class="section-body bag-summary">
-        ${bagCount > 1 ? `
-        <div class="field-row">
-          <span class="field-label">Bag Numbers (${bagCount}):</span>
-          <span class="field-line">${bagNumber}</span>
-        </div>` : ""}
         <div class="field-row">
           <span class="field-label">Bag Amount (BDT) in words:</span>
           <span class="field-line">${numberToWords(cashOutAmount)}</span>

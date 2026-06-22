@@ -30,6 +30,15 @@ const reconcileVariance = (row) => {
   if (bagVariance !== 0) return bagVariance;
   return row?.variance;
 };
+
+// Per-bag settlement rollup: how much of the variance is still unsettled.
+const reconcileSettleState = (row) => {
+  const bags = row?.variance_bags || [];
+  const totalAbsDiff = bags.reduce((s, b) => s + Math.abs(Number(b?.pivot?.difference || 0)), 0);
+  const totalSettled = bags.reduce((s, b) => s + Number(b?.pivot?.settled_amount || 0), 0);
+  const outstanding = Math.max(Math.round((totalAbsDiff - totalSettled) * 100) / 100, 0);
+  return { hasVariance: totalAbsDiff > 0, outstanding };
+};
 const auditEndAt = (row) =>
   row?.audit_end_at ||
   row?.ended_at ||
@@ -104,6 +113,28 @@ const Reconcile = () => {
 
   const activeVault = activeVaultId ? filteredVaults.find((vault) => Number(vault.id) === Number(activeVaultId)) : null;
   const isVaultSelectionLoading = activeVaultId && (vaultsLoading || waitingForAssignments);
+
+  // Deep-link: /reconcile?vault=X&open=<reconcileId>&tran=<tranId> opens the reconcile
+  // drawer straight away (used by the Settle shortcut on the bank statement). Derived
+  // from the URL so it composes with the normal View-button flow without a state effect.
+  const openParam = searchParams.get("open");
+  const drawerOpen = openReconcileViewDrawer || !!openParam;
+  const drawerReconcile = openReconcileViewDrawer
+    ? selectedReconcile
+    : openParam
+      ? { id: Number(openParam), reconcile_tran_id: searchParams.get("tran") || "" }
+      : null;
+  const closeReconcileDrawer = () => {
+    setOpenReconcileViewDrawer(false);
+    if (openParam) {
+      setSearchParams((prev) => {
+        const p = new URLSearchParams(prev);
+        p.delete("open");
+        p.delete("tran");
+        return p;
+      });
+    }
+  };
 
   const fetchReconcileData = useCallback(async () => {
     const res = await GetReconciles({ page: currentPage, vault_id: activeVaultId });
@@ -384,13 +415,25 @@ const Reconcile = () => {
         const hasNotes = bagsWithNotes.length > 0;
         const variance = reconcileVariance(row);
         const hasVariance = variance !== null && variance !== undefined;
+        const settle = reconcileSettleState(row);
         return (
-          <span
-            onClick={hasNotes ? () => setVarianceNotesModal({ bags: bagsWithNotes, reconcileTranId: row.reconcile_tran_id }) : undefined}
-            className={`${hasVariance ? (variance <= 0 ? "text-green-500" : "text-red-500") : "text-slate-300"} ${hasNotes ? "underline decoration-dotted cursor-pointer" : ""}`}
-          >
-            {hasVariance ? `৳${fmt(variance)}` : "—"}
-          </span>
+          <div className="flex flex-col items-start gap-1">
+            <span
+              onClick={hasNotes ? () => setVarianceNotesModal({ bags: bagsWithNotes, reconcileTranId: row.reconcile_tran_id }) : undefined}
+              className={`${hasVariance ? (variance <= 0 ? "text-green-500" : "text-red-500") : "text-slate-300"} ${hasNotes ? "underline decoration-dotted cursor-pointer" : ""}`}
+            >
+              {hasVariance ? `৳${fmt(variance)}` : "—"}
+            </span>
+            {row.status === "completed" && settle.hasVariance && (
+              <span
+                className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                  settle.outstanding > 0 ? "bg-amber-50 text-amber-600 border border-amber-100" : "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                }`}
+              >
+                {settle.outstanding > 0 ? "Unsettled" : "Settled"}
+              </span>
+            )}
+          </div>
         );
       },
     },
@@ -484,6 +527,9 @@ const Reconcile = () => {
       render: (row) => {
         // Reschedule is offered once a pending reconcile's scheduled window expires.
         const showReschedule = isScheduleExpired(row);
+        // Settle is offered on a completed reconcile that still has an unsettled variance.
+        const settle = reconcileSettleState(row);
+        const showSettle = row.status === "completed" && settle.outstanding > 0 && (isSuperAdmin || hasPermission("reconciliation.settle"));
 
         return (
           <div className="flex gap-1 py-2">
@@ -505,6 +551,27 @@ const Reconcile = () => {
                 View
               </span>
             </div>
+
+            {/* Settle variance — opens the drawer where each bag is settled. */}
+            {showSettle && (
+              <div className="relative group/action">
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    setSelectedReconcile(row);
+                    setOpenReconcileViewDrawer(true);
+                  }}
+                  aria-label="Settle variance"
+                  className="p-2 rounded-lg cursor-pointer text-amber-600 hover:bg-amber-50 transition-all"
+                >
+                  <Wallet className="w-4 h-4" />
+                </motion.button>
+                <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-[10px] font-semibold text-white opacity-0 group-hover/action:opacity-100 transition-opacity z-50">
+                  Settle variance
+                </span>
+              </div>
+            )}
 
             {/* Conditional Reschedule Button */}
             {showReschedule && (isSuperAdmin || hasPermission("reconciliation.reschedule")) && (
@@ -615,12 +682,12 @@ const Reconcile = () => {
           onCreated={(vaultId) => handleSelectVault({ id: vaultId })}
         />
       )}
-      {openReconcileViewDrawer && (
+      {drawerOpen && (
         <ReconcileViewDrawer
-          reconcileId={selectedReconcile?.id}
-          reconcileTranId={selectedReconcile?.reconcile_tran_id}
-          isOpen={openReconcileViewDrawer}
-          onClose={() => setOpenReconcileViewDrawer(false)}
+          reconcileId={drawerReconcile?.id}
+          reconcileTranId={drawerReconcile?.reconcile_tran_id}
+          isOpen={drawerOpen}
+          onClose={closeReconcileDrawer}
           refetch={refetch}
         />
       )}

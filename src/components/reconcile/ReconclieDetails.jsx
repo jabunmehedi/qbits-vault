@@ -20,6 +20,16 @@ const ReconcileDetails = ({ reconcile }) => {
     });
   };
 
+  const money = (n) => `৳${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
+  // Before the audit starts the snapshot fields are still null, so preview the vault's
+  // live balance / bag count. Counted balance is only known once counting begins.
+  const vaultBags = reconcile?.vault?.bags || [];
+  const liveBalance = vaultBags.reduce((sum, bag) => sum + parseFloat(bag?.current_amount || 0), 0);
+  const expectedDisplay = reconcile?.expected_balance != null ? money(reconcile.expected_balance) : vaultBags.length ? money(liveBalance) : "--";
+  const countedDisplay = reconcile?.counted_balance != null ? money(reconcile.counted_balance) : "--";
+  const totalBagsDisplay = reconcile?.total_bags != null ? `${reconcile.total_bags} Bags` : vaultBags.length ? `${vaultBags.length} Bags` : "--";
+
   // Status Badge Styling Lookup
   const getStatusBadge = (status) => {
     const profiles = {
@@ -62,10 +72,10 @@ const ReconcileDetails = ({ reconcile }) => {
 
       <div className="p-6 space-y-6">
         {/* --- SECTION 1: SUMMARY INFORMATION GRID --- */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl min-w-0">
             <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Vault Info</span>
-            <span className="block text-sm font-bold text-slate-700 mt-1 truncate">
+            <span className="block text-sm font-bold text-slate-700 mt-1 truncate" title={reconcile?.vault?.name || "N/A"}>
               {reconcile?.vault?.name || "N/A"}
             </span>
             <span className="inline-block text-[10px] font-semibold bg-slate-100 text-slate-600 rounded px-1.5 py-0.5 mt-1">
@@ -73,37 +83,31 @@ const ReconcileDetails = ({ reconcile }) => {
             </span>
           </div>
 
-          <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl">
+          <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl min-w-0">
             <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Expected Balance</span>
-            <span className="block text-base font-bold text-slate-800 mt-1">
-              {reconcile?.expected_balance !== null ? `$${reconcile.expected_balance}` : "--"}
-            </span>
+            <span className="block text-base font-bold text-slate-800 mt-1 truncate" title={expectedDisplay}>{expectedDisplay}</span>
           </div>
 
-          <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl">
+          <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl min-w-0">
             <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Counted Balance</span>
-            <span className="block text-base font-bold text-slate-800 mt-1">
-              {reconcile?.counted_balance !== null ? `$${reconcile.counted_balance}` : "--"}
-            </span>
+            <span className="block text-base font-bold text-slate-800 mt-1 truncate" title={countedDisplay}>{countedDisplay}</span>
           </div>
 
-          <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl">
+          <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl min-w-0">
             <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Bag Scope</span>
-            <span className="block text-base font-bold text-slate-800 mt-1">
-              {reconcile?.total_bags !== null ? `${reconcile.total_bags} Bags` : "--"}
-            </span>
+            <span className="block text-base font-bold text-slate-800 mt-1 truncate" title={totalBagsDisplay}>{totalBagsDisplay}</span>
           </div>
         </div>
 
         {/* --- SECTION 2: TIMEFRAMES & LOGISTICS --- */}
-        <div className="border border-gray-100 rounded-xl p-4 bg-white grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="flex justify-between items-center py-1.5 border-b border-gray-50 md:border-b-0 md:border-r md:pr-4">
-            <span className="text-gray-400 font-medium">Audit Time Range (From)</span>
-            <span className="font-semibold text-slate-700">{formatDate(reconcile?.from_date)}</span>
+        <div className="border border-gray-100 rounded-xl p-4 bg-white grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <div className="sm:border-r sm:border-gray-100 sm:pr-4">
+            <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Audit Time (From)</span>
+            <span className="block font-semibold text-slate-700 mt-1">{formatDate(reconcile?.from_date)}</span>
           </div>
-          <div className="flex justify-between items-center py-1.5 md:pl-4">
-            <span className="text-gray-400 font-medium">Target Completion Deadline</span>
-            <span className="font-semibold text-slate-700">{formatDate(reconcile?.expected_completion_at)}</span>
+          <div>
+            <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Completion Deadline</span>
+            <span className="block font-semibold text-slate-700 mt-1">{formatDate(reconcile?.expected_completion_at)}</span>
           </div>
         </div>
 

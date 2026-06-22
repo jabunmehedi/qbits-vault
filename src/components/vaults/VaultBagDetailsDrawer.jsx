@@ -83,6 +83,12 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
                 const totalNotes = denominations ? Object.values(denominations).reduce((a, b) => a + b, 0) : 0;
                 const isExpanded = expandedBag === bag.barcode;
 
+                const reconcileType = bag.last_reconcile_type;
+                const reconcileAmt = Math.abs(parseFloat(bag.last_reconcile_amount || 0));
+                const reconcileTone = reconcileType === "shortage" ? "text-rose-600" : reconcileType === "surplus" ? "text-amber-600" : "text-slate-600";
+                const reconcileSign = reconcileType === "shortage" ? "− " : reconcileType === "surplus" ? "+ " : "";
+                const reconcileLabel = reconcileType ? reconcileType.charAt(0).toUpperCase() + reconcileType.slice(1) : "";
+
                 return (
                   <motion.div
                     key={bag.id}
@@ -206,6 +212,16 @@ const VaultBagDetailsDrawer = ({ drawerOpen, setDrawerOpen, selectedVault, vault
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Last Cashout Entry</p>
                                     <p className="text-base font-black text-red-600">+ ৳{parseFloat(bag.last_cash_out_amount).toLocaleString()}</p>
                                     <p className="text-[10px] text-slate-400 font-medium font-mono">{dayjs(bag.last_cash_out_at).format("DD MMM YYYY, h:mm A")}</p>
+                                  </div>
+                                )}
+                                {bag.last_reconcile_at && (
+                                  <div className="space-y-1">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Last Reconciliation</p>
+                                    <p className={`text-base font-black ${reconcileTone}`}>
+                                      {reconcileSign}৳{reconcileAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                      {reconcileLabel && <span className="text-[10px] font-bold uppercase ml-1">({reconcileLabel})</span>}
+                                    </p>
+                                    <p className="text-[10px] text-slate-400 font-medium font-mono">{dayjs(bag.last_reconcile_at).format("DD MMM YYYY, h:mm A")}</p>
                                   </div>
                                 )}
                                 {bag.notes && (

@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Drawer from "../global/drawer/Drawer";
 import AppButton from "../global/AppButton";
+import Can from "../global/can/Can";
+import SettleVarianceModal from "../reports/SettleVarianceModal";
 import { CompleteReconciliation, EndReconciliation, RejectReconcile, StartReconciliation, VerifyReconcile, ViewReconcile } from "../../services/Reconcile";
 import { useToast } from "../../hooks/useToast";
 import { useSelector } from "react-redux";
 import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
 import dayjs from "dayjs";
-import { QrCode, CheckCircle2 } from "lucide-react";
+import { QrCode, CheckCircle2, Wallet } from "lucide-react";
 import VerifyButton from "../verifyButton/VerifyButton";
 import ReconclieDetails from "./ReconclieDetails";
 
@@ -28,7 +30,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const [reconclieStatus, setReconcileStatus] = useState();
   const [targetVaultId, setTargetVaultId] = useState(null);
   const [scheduledTimestamp, setScheduledTimestamp] = useState(null);
-  const [isAllowedToEnd, setIsAllowedToEnd] = useState(false);
+  const [, setIsAllowedToEnd] = useState(false);
   const [bagNotes, setBagNotes] = useState({});
   const [submittedBags, setSubmittedBags] = useState({});
   const [noteModal, setNoteModal] = useState({ isOpen: false, rackIndex: null, bagIndex: null, noteText: "", isReadOnly: false });
@@ -39,6 +41,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [forceSubmitModal, setForceSubmitModal] = useState({ isOpen: false, note: "" });
   const [forceSubmitLoading, setForceSubmitLoading] = useState(false);
+  const [settleBagId, setSettleBagId] = useState(null);
 
   // Guards the one-time auto-submit of empty (expected 0) bags per reconcile load.
   const zeroBagsAutoSubmitRef = useRef(false);
@@ -50,6 +53,25 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const user = useSelector(selectAuthUser);
   const { addToast } = useToast();
+
+  // Per-bag variance + settled amount, so a completed reconcile can expose a Settle
+  // action on the bags that are still short/over.
+  const varianceByBag = useMemo(() => {
+    const map = {};
+    (reconcileData?.variance_bags || []).forEach((b) => {
+      map[Number(b.id)] = {
+        difference: Number(b?.pivot?.difference || 0),
+        settled: Number(b?.pivot?.settled_amount || 0),
+      };
+    });
+    return map;
+  }, [reconcileData]);
+
+  const bagOutstanding = (bagId) => {
+    const v = varianceByBag[Number(bagId)];
+    if (!v) return 0;
+    return Math.max(Math.round((Math.abs(v.difference) - v.settled) * 100) / 100, 0);
+  };
 
   // 1. Audit Initiator Check (Step 1: Start Audit Button Visibility)
   const canStartAudit = () => {
@@ -403,11 +425,6 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
 
   const isRackFullyDone = (rack) => rack.bags.every((bag) => submittedBags[bag.id]);
 
-  const isAuditReadyForFinalSubmit = () => {
-    if (racks.length === 0) return false;
-    return racks.every((rack) => rack.bags.every((bag) => submittedBags[bag.id] === true)) && reconcileVerified === "verified";
-  };
-
   const openNoteModal = (rackIndex, bagIndex) => {
     const targetBag = racks[rackIndex].bags[bagIndex];
     const isSubmitted = submittedBags[targetBag.id];
@@ -659,6 +676,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const canForceSubmit = canEndAudit && reconclieStatus === "counting" && scheduleStatus === "expired";
 
   return (
+    <>
     <Drawer
       isOpen={isOpen}
       onClose={onClose}
@@ -912,6 +930,17 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                                       <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600">
                                         <CheckCircle2 size={16} /> Done
                                       </span>
+                                      {reconclieStatus === "completed" && bagOutstanding(bag.id) > 0 && (
+                                        <Can perform="reconciliation.settle">
+                                          <button
+                                            type="button"
+                                            onClick={() => setSettleBagId(bag.id)}
+                                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 border border-amber-200 bg-amber-50 rounded px-2.5 py-1 hover:border-amber-500 transition cursor-pointer"
+                                          >
+                                            <Wallet size={12} /> Settle variance
+                                          </button>
+                                        </Can>
+                                      )}
                                     </>
                                   ) : (
                                     canPerformCounting() && (
@@ -1105,6 +1134,19 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
         </div>
       )}
     </Drawer>
+
+    {settleBagId && (
+      <SettleVarianceModal
+        reconciliationId={reconcileId}
+        bagId={settleBagId}
+        onClose={() => setSettleBagId(null)}
+        onSettled={() => {
+          refreshVerifierState();
+          refetch?.();
+        }}
+      />
+    )}
+    </>
   );
 };
 
