@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CreateVault, DeleteVault, GetVault, GetVaults, MakeDefaultVault, UpdateVault } from "../../services/Vault";
+import { GetRoles } from "../../services/User";
 import { useForm } from "react-hook-form";
 import { Loader2, Plus, X } from "lucide-react";
 import toast from "react-hot-toast";
@@ -42,14 +43,38 @@ const Vault = () => {
 
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const { hasPermission, hasRole } = usePermissions();
-  const canCreateBag = isSuperAdmin || hasRole("bag create");
   const canRequestCashIn = isSuperAdmin || hasPermission("cash-in.request");
+
+  // Bag-create is a PER-VAULT capability (stored in the user's vault_assignments[].roles
+  // as role ids), not a global role. Resolve the "bag create" role id once so we can check
+  // the logged-in user's assignment for the specific vault being edited.
+  const [bagCreateRoleId, setBagCreateRoleId] = useState(null);
+  useEffect(() => {
+    let active = true;
+    GetRoles().then((res) => {
+      const role = (res?.data || []).find((r) => String(r.name).toLowerCase() === "bag create");
+      if (active) setBagCreateRoleId(role?.id ?? null);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // ── Default vault ─────────────────────────────────────────────────────────────
   const dispatch = useDispatch();
   const user = useSelector(selectAuthUser);
   const [defaultVault, setDefaultVault] = useState(null);
   const [savingDefaultVaultId, setSavingDefaultVaultId] = useState(null);
+
+  // Does the logged-in user hold the bag-create role for THIS vault? Super admins always pass.
+  // When creating a brand-new vault there is no assignment yet, so fall back to the global role.
+  const canCreateBagForVault = (vaultId) => {
+    if (isSuperAdmin) return true;
+    if (!vaultId) return hasRole("bag create");
+    if (bagCreateRoleId == null) return false;
+    const assignment = user?.vault_assignments?.find((a) => a.vault_id === vaultId);
+    return (assignment?.roles || []).map(Number).includes(Number(bagCreateRoleId));
+  };
 
   // ── Threshold modal ───────────────────────────────────────────────────────────
   const [thresholdModalOpen, setThresholdModalOpen] = useState(false);
@@ -654,7 +679,7 @@ const Vault = () => {
           bags={bags}
           setBags={setBags}
           addBag={addBag}
-          canCreateBag={canCreateBag}
+          canCreateBag={canCreateBagForVault(isEditMode ? editingVaultId : null)}
           setRackErrors={setRackErrors}
           rackErrors={rackErrors}
           removeBag={removeBag}
