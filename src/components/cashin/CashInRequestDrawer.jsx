@@ -406,14 +406,14 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null, initia
     {
       title: "Status",
       key: "status",
-      className: "w-[16%]",
-      render: () => <span className="bg-[#e8f0fe] px-2 py-1 rounded text-xs text-[#1a73e8]">Received By AT</span>,
+      className: "w-[15%]",
+      render: () => <span className="bg-[#e8f0fe] px-2 py-1 rounded text-xs text-[#1a73e8] whitespace-nowrap inline-block">Received By AT</span>,
     },
     {
       title: "Received Date",
       key: "received_date",
-      className: "w-[18%]",
-      render: (row) => <span>{dayjs(row.created_at).format("DD MMM, YYYY hh:mm A")}</span>,
+      className: "w-[22%]",
+      render: (row) => <span className="whitespace-nowrap">{dayjs(row.created_at).format("DD MMM, YYYY hh:mm A")}</span>,
     },
   ];
 

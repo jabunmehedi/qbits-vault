@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiTrendingUp, FiTrendingDown, FiChevronDown, FiClock, FiCheckCircle, FiArrowUpRight, FiArrowDownLeft, FiLayers, FiCalendar } from "react-icons/fi";
+import { FiTrendingUp, FiTrendingDown, FiChevronDown, FiClock, FiCheckCircle, FiArrowUpRight, FiArrowDownLeft, FiLayers, FiCalendar, FiAlertTriangle, FiDollarSign } from "react-icons/fi";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { GetDashboardReports } from "../../../services/Dashboard";
 import { useSelector } from "react-redux";
@@ -83,6 +83,22 @@ export default function Dashboard() {
       trend: dashboardData?.totalCashOut?.trend || "down",
       icon: FiArrowUpRight,
       color: "text-rose-600 bg-rose-50",
+    },
+    {
+      label: "Audit Shortage",
+      value: formatCurrency(dashboardData?.totalShortage?.value),
+      change: dashboardData?.totalShortage?.change || "0%",
+      trend: dashboardData?.totalShortage?.trend || "up",
+      icon: FiAlertTriangle,
+      color: "text-orange-600 bg-orange-50",
+    },
+    {
+      label: "Settled Amount",
+      value: formatCurrency(dashboardData?.totalSettlement?.value),
+      change: dashboardData?.totalSettlement?.change || "0%",
+      trend: dashboardData?.totalSettlement?.trend || "up",
+      icon: FiDollarSign,
+      color: "text-emerald-600 bg-emerald-50",
     },
     {
       label: "Total Vaults Registered",
