@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import dayjs from "dayjs";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, CheckCircle2, Loader2, Scale, TrendingDown, TrendingUp, UserIcon, Wallet } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronDown, Loader2, Scale, StickyNote, TrendingDown, TrendingUp, UserIcon, Wallet } from "lucide-react";
 import Drawer from "../global/drawer/Drawer";
 import Can from "../global/can/Can";
 import SettleVarianceModal from "./SettleVarianceModal";
@@ -26,6 +26,7 @@ const StatCard = ({ label, value, tone = "text-[#1a2b4b]" }) => (
 
 const ReconcileReportDrawer = ({ reconciliationId, isOpen, onClose, onSettled }) => {
   const [settleBagId, setSettleBagId] = useState(null);
+  const [expandedBagId, setExpandedBagId] = useState(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["reconcileReport", reconciliationId],
@@ -136,33 +137,68 @@ const ReconcileReportDrawer = ({ reconciliationId, isOpen, onClose, onSettled })
                         const settled = Number(bag?.pivot?.settled_amount || 0);
                         const fullySettled = diff !== 0 && settled >= Math.abs(diff);
                         const diffTone = diff > 0 ? "text-rose-600" : diff < 0 ? "text-emerald-600" : "text-slate-400";
+                        const settleNote = (bag?.pivot?.settlement_note || "").trim();
+                        const settledAt = bag?.pivot?.settled_at;
+                        const hasSettleNote = !!settleNote;
+                        const isExpanded = expandedBagId === bag.id;
                         return (
-                          <tr key={bag.id} className="border-t border-slate-100">
-                            <td className="px-3 py-2 font-mono text-[#1a73e8] font-semibold">{bag.barcode || bag.bag_identifier_barcode || `#${bag.id}`}</td>
-                            <td className="px-3 py-2 text-right text-slate-600">৳{fmt(bag?.pivot?.expected_amount)}</td>
-                            <td className="px-3 py-2 text-right text-slate-600">৳{fmt(bag?.pivot?.counted_amount)}</td>
-                            <td className={`px-3 py-2 text-right font-bold ${diffTone}`}>{diff === 0 ? "—" : `৳${fmt(Math.abs(diff))}`}</td>
-                            <td className="px-3 py-2 text-right font-semibold">
-                              {diff === 0 ? (
-                                <span className="text-slate-300">—</span>
-                              ) : fullySettled ? (
-                                <span className="text-emerald-600">৳{fmt(settled)}</span>
-                              ) : (
-                                <Can
-                                  perform="reconciliation.settle"
-                                  fallback={<span className={settled > 0 ? "text-amber-600" : "text-slate-400"}>{settled > 0 ? `৳${fmt(settled)}` : "Not settled"}</span>}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => setSettleBagId(bag.id)}
-                                    className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 border border-amber-200 bg-amber-50 rounded-md px-2 py-0.5 hover:border-amber-500 transition cursor-pointer"
-                                  >
-                                    <Wallet size={11} /> Settle{settled > 0 ? ` (৳${fmt(settled)})` : ""}
-                                  </button>
-                                </Can>
-                              )}
-                            </td>
-                          </tr>
+                          <Fragment key={bag.id}>
+                            <tr className="border-t border-slate-100">
+                              <td className="px-3 py-2 font-mono text-[#1a73e8] font-semibold">{bag.barcode || bag.bag_identifier_barcode || `#${bag.id}`}</td>
+                              <td className="px-3 py-2 text-right text-slate-600">৳{fmt(bag?.pivot?.expected_amount)}</td>
+                              <td className="px-3 py-2 text-right text-slate-600">৳{fmt(bag?.pivot?.counted_amount)}</td>
+                              <td className={`px-3 py-2 text-right font-bold ${diffTone}`}>{diff === 0 ? "—" : `৳${fmt(Math.abs(diff))}`}</td>
+                              <td className="px-3 py-2 text-right font-semibold">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {diff === 0 ? (
+                                    <span className="text-slate-300">—</span>
+                                  ) : fullySettled ? (
+                                    <span className="text-emerald-600">৳{fmt(settled)}</span>
+                                  ) : (
+                                    <Can
+                                      perform="reconciliation.settle"
+                                      fallback={<span className={settled > 0 ? "text-amber-600" : "text-slate-400"}>{settled > 0 ? `৳${fmt(settled)}` : "Not settled"}</span>}
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() => setSettleBagId(bag.id)}
+                                        className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 border border-amber-200 bg-amber-50 rounded-md px-2 py-0.5 hover:border-amber-500 transition cursor-pointer"
+                                      >
+                                        <Wallet size={11} /> Settle{settled > 0 ? ` (৳${fmt(settled)})` : ""}
+                                      </button>
+                                    </Can>
+                                  )}
+                                  {hasSettleNote && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpandedBagId(isExpanded ? null : bag.id)}
+                                      title="View settle note"
+                                      aria-label="View settle note"
+                                      className="inline-flex items-center text-slate-400 hover:text-[#1a73e8] transition cursor-pointer"
+                                    >
+                                      <StickyNote size={13} />
+                                      <ChevronDown size={12} className={`transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                            {isExpanded && hasSettleNote && (
+                              <tr className="bg-amber-50/40">
+                                <td colSpan={5} className="px-3 py-2.5">
+                                  <div className="flex items-start gap-2 text-[11px]">
+                                    <StickyNote size={13} className="text-amber-500 mt-0.5 shrink-0" />
+                                    <div className="min-w-0">
+                                      <p className="font-semibold text-slate-500">
+                                        Settled ৳{fmt(settled)}{settledAt ? ` · ${dt(settledAt)}` : ""}
+                                      </p>
+                                      <p className="text-slate-700 italic mt-0.5 break-words whitespace-pre-wrap">“{settleNote}”</p>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
                         );
                       })
                     )}

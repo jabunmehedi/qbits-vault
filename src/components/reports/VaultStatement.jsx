@@ -51,7 +51,7 @@ const VaultStatement = ({ vault, fromDate, toDate }) => {
   const summary = getStatementPayload(data?.pages?.[0])?.summary || {};
   const rows = data?.pages?.flatMap(getStatementRows) || [];
 
-  const opening = summary.opening_balance ?? 0;
+  // const opening = summary.opening_balance ?? 0; // Opening Balance card hidden for now
   const totalCredit = summary.total_credit ?? 0;
   const totalDebit = summary.total_debit ?? 0;
   const closing = summary.closing_balance ?? vaultBalance(vault);
@@ -195,6 +195,7 @@ const VaultStatement = ({ vault, fromDate, toDate }) => {
 
         {/* Statement totals */}
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* Opening Balance card hidden for now — not needed.
           <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
               <Wallet size={16} />
@@ -204,6 +205,7 @@ const VaultStatement = ({ vault, fromDate, toDate }) => {
               <p className="text-sm font-black text-slate-700 mt-0.5 truncate">৳{fmt(opening)}</p>
             </div>
           </div>
+          */}
           <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
               <TrendingUp size={16} />
