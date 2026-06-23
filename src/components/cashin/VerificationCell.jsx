@@ -5,7 +5,7 @@ import VerifyButton from "../verifyButton/VerifyButton";
 import CashInDetails from "./CashInDetails";
 import { useEffect } from "react";
 
-const ApprovalCell = ({ row, user, activeApproveId, setActiveApproveId, verifyLoading, handleApprovedClick, handleRejectClick }) => {
+const VerificationCell = ({ row, user, activeVerifyId, setActiveVerifyId, verifyLoading, handleVerifyClick, handleRejectVerifyClick }) => {
   const dispatch = useDispatch();
 
   useEffect(() => {
@@ -17,34 +17,31 @@ const ApprovalCell = ({ row, user, activeApproveId, setActiveApproveId, verifyLo
   // Safe Execution: This selector runs ONLY when a valid vault_id exists
   const isLocked = useSelector((state) => selectIsLockedForOperations(state, row.vault_id));
 
-  const isApproverShowButton = row?.required_approvers?.some((approver) => approver?.user_id === user?.id && !approver?.approved);
+  const isVerifierShowButton = row?.required_verifiers?.some((verifier) => verifier?.user_id === user?.id && !verifier?.verified);
   const isVerified = row?.verifier_status === "verified";
-  const isApproved = row?.approver_status === "approved";
   const isRejected = row?.verifier_status === "rejected" || row?.approver_status === "rejected";
 
   return (
     <div className="flex items-center justify-center gap-2">
-      <VerifierAvatars requiredVerifiers={row.required_approvers || []} isRejected={isRejected} />
-      {isApproverShowButton && isVerified && !isRejected && !isLocked ? (
+      <VerifierAvatars requiredVerifiers={row.required_verifiers || []} isRejected={isRejected} />
+      {isVerifierShowButton && !isRejected && !isLocked ? (
         <VerifyButton
-          handleSubmit={() => handleApprovedClick(row.id)}
-          handleReject={handleRejectClick}
-          isOpen={activeApproveId === row.id}
+          handleSubmit={() => handleVerifyClick(row.id)}
+          handleReject={(note) => handleRejectVerifyClick(row.id, note)}
+          isOpen={activeVerifyId === row.id}
           isLoading={verifyLoading}
-          setOpen={(isOpen) => setActiveApproveId(isOpen ? row.id : null)}
+          setOpen={(isOpen) => setActiveVerifyId(isOpen ? row.id : null)}
           className="max-w-xl"
-          title="Approve"
+          title="Verify"
           rejectTitle="Reject this cash-in?"
         >
           <CashInDetails cashIn={row} />
         </VerifyButton>
       ) : (
-        isLocked && !isApproved && (
-          <span className="text-red-500 font-medium text-xs whitespace-nowrap">Cash in is locked</span>
-        )
+        isLocked && !isVerified && <span className="text-red-500 font-medium text-xs whitespace-nowrap">Cash in is locked</span>
       )}
     </div>
   );
 };
 
-export default ApprovalCell;
+export default VerificationCell;

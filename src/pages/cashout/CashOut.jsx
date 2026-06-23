@@ -4,7 +4,7 @@ import DataTable from "../../components/global/dataTable/DataTable";
 import CashFilters from "../../components/global/cashFilters/CashFilters";
 import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 import { AnimatePresence, motion } from "framer-motion";
-import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
+import { CashOutVerifierCell, CashOutCustodianCell, CashOutCashierCell } from "../../components/cashout/CashOutActionCells";
 import dayjs from "dayjs";
 import { GetVaults } from "../../services/Vault";
 import CashOutConfirmationModal from "../../components/cashout/CashOutConfirmationModal";
@@ -13,13 +13,9 @@ import { useSelector } from "react-redux";
 import { usePermissions } from "../../hooks/usePermissions";
 import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
 import CashOutRequestDrawer from "../../components/cashout/CashOutRequestDrawer";
-import VerifyButton from "../../components/verifyButton/VerifyButton";
 import { useToast } from "../../hooks/useToast";
 import { GetCashOutLedger } from "../../services/Ledger";
-import CashOutDetails from "../../components/cashout/CashOutDetails";
-import CashOutCustodianModal from "../../components/cashout/CashOutCustodianModal";
 import { HiDotsHorizontal } from "react-icons/hi";
-import CustodianAvatar from "../../components/cashout/CustodianAvatar";
 
 const BagIds = ({ bags }) => {
   if (!bags?.cash_out_bags?.length) return <span className="text-gray-400">—</span>;
@@ -553,96 +549,51 @@ const CashOut = () => {
       key: "required_verifiers",
       noClip: true,
       className: "w-[11%] text-center",
-      render: (row) => {
-        const isVerifierShowButton = row?.required_verifiers?.some((verifier) => verifier?.user_id === user?.id && !verifier?.verified);
-        const isRejected = row?.verifier_status === "rejected" || row?.approver_status === "rejected";
-        return (
-          <div className="flex items-center justify-center gap-2">
-            <VerifierAvatars requiredVerifiers={row.required_verifiers || []} isRejected={isRejected} />
-            {isVerifierShowButton && !isRejected && (
-              <VerifyButton
-                handleSubmit={() => handleVerify(row.id)}
-                handleReject={(note) => handleRejectVerify(row.id, note)}
-                isOpen={activeVerifyId === row.id}
-                isLoading={verifyLoading}
-                setOpen={(isOpen) => setActiveVerifyId(isOpen ? row.id : null)}
-                className="max-w-xl"
-                title="Verify"
-                rejectTitle="Reject this cash-out?"
-              >
-                <CashOutDetails cashOut={row} />
-              </VerifyButton>
-            )}
-          </div>
-        );
-      },
+      render: (row) => (
+        <CashOutVerifierCell
+          row={row}
+          user={user}
+          activeVerifyId={activeVerifyId}
+          setActiveVerifyId={setActiveVerifyId}
+          verifyLoading={verifyLoading}
+          handleVerify={handleVerify}
+          handleRejectVerify={handleRejectVerify}
+        />
+      ),
     },
     {
       title: "Custodian",
       key: "current_amount",
       noClip: true,
       className: "w-[8%] text-center",
-      render: (row) => {
-        const isVerifierShowButton = row?.custodian?.custodian_id === user?.id && row?.custodian?.status === "pending";
-        const isVerified = row?.verifier_status === "verified";
-        const isRejected = row?.verifier_status === "rejected" || row?.approver_status === "rejected";
-        return (
-          <>
-            {row?.custodian ? (
-              <div className="flex items-center justify-center gap-2">
-                <CustodianAvatar custodian={row?.custodian || []} />
-                {isVerifierShowButton && isVerified && !isRejected && (
-                  <VerifyButton
-                    handleSubmit={() => handleCustodianVerify(row.id)}
-                    handleReject={(note) => handleCustodianReject(row.id, note)}
-                    isOpen={activeCustodianId === row.id}
-                    isLoading={verifyLoading}
-                    setOpen={(isOpen) => setActiveCustodianId(isOpen ? row.id : null)}
-                    className="max-w-xl"
-                    title="Receive"
-                    rejectTitle="Reject change amount?"
-                  >
-                    <CashOutCustodianModal cashOut={row} />
-                  </VerifyButton>
-                )}
-              </div>
-            ) : (
-              <span className="text-gray-300 text-xs">—</span>
-            )}
-          </>
-        );
-      },
+      render: (row) => (
+        <CashOutCustodianCell
+          row={row}
+          user={user}
+          activeCustodianId={activeCustodianId}
+          setActiveCustodianId={setActiveCustodianId}
+          verifyLoading={verifyLoading}
+          handleCustodianVerify={handleCustodianVerify}
+          handleCustodianReject={handleCustodianReject}
+        />
+      ),
     },
     {
       title: "Cashiers",
       key: "required_verifiers",
       noClip: true,
       className: "w-[11%] text-center",
-      render: (row) => {
-        const isApproverShowButton = row?.required_approvers?.some((approver) => approver?.user_id === user?.id && !approver?.approved);
-        const isVerified = row?.verifier_status === "verified";
-        const isCustodianConditionMet = !row?.custodian || row?.custodian?.status === "verified";
-        const isRejected = row?.verifier_status === "rejected" || row?.approver_status === "rejected";
-        return (
-          <div className="flex items-center justify-center gap-2">
-            <VerifierAvatars requiredVerifiers={row.required_approvers || []} isRejected={row?.approver_status === "rejected"} />
-            {isApproverShowButton && isVerified && isCustodianConditionMet && !isRejected && (
-              <VerifyButton
-                handleSubmit={() => handleApprove(row.id)}
-                handleReject={(note) => handleRejectApprove(row.id, note)}
-                isOpen={activeApproveId === row.id}
-                isLoading={verifyLoading}
-                setOpen={(isOpen) => setActiveApproveId(isOpen ? row.id : null)}
-                className="max-w-xl"
-                title="Approve"
-                rejectTitle="Reject this cash-out?"
-              >
-                <CashOutDetails cashOut={row} />
-              </VerifyButton>
-            )}
-          </div>
-        );
-      },
+      render: (row) => (
+        <CashOutCashierCell
+          row={row}
+          user={user}
+          activeApproveId={activeApproveId}
+          setActiveApproveId={setActiveApproveId}
+          verifyLoading={verifyLoading}
+          handleApprove={handleApprove}
+          handleRejectApprove={handleRejectApprove}
+        />
+      ),
     },
     {
       title: "Ledger",

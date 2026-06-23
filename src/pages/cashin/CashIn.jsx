@@ -6,15 +6,13 @@ import dayjs from "dayjs";
 import { useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ApproveCashIn, DeleteCashIn, GetCashIn, GetCashIns, RejectCashIn, VerifyCashIn } from "../../services/Cash";
-import VerifierAvatars from "../../components/global/verifierAvatars.jsx/VerifierAvatars";
+import VerificationCell from "../../components/cashin/VerificationCell";
 import { GetCashInLedger } from "../../services/Ledger";
 import { HiDotsHorizontal } from "react-icons/hi";
 import CashInRequestDrawer from "../../components/cashin/CashInRequestDrawer";
 import { usePermissions } from "../../hooks/usePermissions";
 import OrderDetailsDrawer from "../../components/cashin/orderDetailsDrawer/OrderDetailsDrawer";
 import { useToast } from "../../hooks/useToast";
-import VerifyButton from "../../components/verifyButton/VerifyButton";
-import CashInDetails from "../../components/cashin/CashInDetails";
 import { useSelector } from "react-redux";
 import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
 import ApprovalCell from "../../components/cashin/ApprovalCell";
@@ -573,29 +571,17 @@ const CashIn = () => {
       key: "required_verifiers",
       noClip: true,
       className: "w-[11%] text-center",
-      render: (row) => {
-        const isVerifierShowButton = row?.required_verifiers?.some((verifier) => verifier?.user_id === user?.id && !verifier?.verified);
-        const isRejected = row.verifier_status === "rejected" || row.approver_status === "rejected";
-        return (
-          <div className="flex items-center justify-center gap-2">
-            <VerifierAvatars requiredVerifiers={row.required_verifiers || []} isRejected={isRejected} />
-            {isVerifierShowButton && !isRejected && (
-              <VerifyButton
-                handleSubmit={() => handleVerifyClick(row.id)}
-                handleReject={(note) => handleRejectVerifyClick(row.id, note)}
-                isOpen={activeVerifyId === row.id}
-                isLoading={verifyLoading}
-                setOpen={(isOpen) => setActiveVerifyId(isOpen ? row.id : null)}
-                className="max-w-xl"
-                title="Verify"
-                rejectTitle="Reject this cash-in?"
-              >
-                <CashInDetails cashIn={row} />
-              </VerifyButton>
-            )}
-          </div>
-        );
-      },
+      render: (row) => (
+        <VerificationCell
+          row={row}
+          user={user}
+          activeVerifyId={activeVerifyId}
+          setActiveVerifyId={setActiveVerifyId}
+          verifyLoading={verifyLoading}
+          handleVerifyClick={handleVerifyClick}
+          handleRejectVerifyClick={handleRejectVerifyClick}
+        />
+      ),
     },
     {
       title: "Cashiers",

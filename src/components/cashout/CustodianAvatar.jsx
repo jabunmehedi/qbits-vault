@@ -91,9 +91,9 @@ const CustodianAvatar = ({ custodian = [] }) => {
               </div>
 
               <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar">
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-3">
                   <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center border text-xs font-bold ${
+                    className={`w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border text-xs font-bold ${
                       custodian?.status === "rejected"
                         ? "text-white bg-red-500 border-red-700"
                         : custodian?.status === "verified"
@@ -103,7 +103,7 @@ const CustodianAvatar = ({ custodian = [] }) => {
                   >
                     {(custodian?.custodian?.name || "V").charAt(0).toUpperCase()}
                   </div>
-                  <div className="flex flex-col">
+                  <div className="flex flex-col min-w-0">
                     <span className="text-xs font-semibold">{custodian?.custodian?.name || "Unknown"}</span>
                     <span className="text-[10px] text-slate-500">
                       {custodian?.status === "rejected"
@@ -113,7 +113,7 @@ const CustodianAvatar = ({ custodian = [] }) => {
                         : "Pending"}
                     </span>
                     {custodian?.status === "rejected" && custodian?.note && (
-                      <span className="text-[10px] text-red-400 mt-0.5">{custodian.note}</span>
+                      <span className="text-[10px] text-red-400 mt-0.5 break-words whitespace-pre-wrap">{custodian.note}</span>
                     )}
                   </div>
                 </div>

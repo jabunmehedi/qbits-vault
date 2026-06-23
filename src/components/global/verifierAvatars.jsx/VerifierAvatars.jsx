@@ -96,13 +96,13 @@ const VerifierAvatars = ({ requiredVerifiers = [], isRejected = false }) => {
 
               <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar">
                 {requiredVerifiers.map((v, idx) => (
-                  <div key={idx} className="flex items-center gap-3">
+                  <div key={idx} className="flex items-start gap-3">
                     <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center border text-xs font-bold ${v.rejected_at ? "text-white bg-red-500 border-red-700" : v.verified || v.approved ? "text-white bg-green-500 border-green-700" : "text-white bg-yellow-400 border-yellow-500"}`}
+                      className={`w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border text-xs font-bold ${v.rejected_at ? "text-white bg-red-500 border-red-700" : v.verified || v.approved ? "text-white bg-green-500 border-green-700" : "text-white bg-yellow-400 border-yellow-500"}`}
                     >
                       {(v.name || v.user?.name || "U").charAt(0).toUpperCase()}
                     </div>
-                    <div className="flex flex-col">
+                    <div className="flex flex-col min-w-0">
                       <span className="text-xs font-semibold">{v.name || v.user?.name}</span>
                       <span className="text-[10px] text-slate-500">
                         {v.rejected_at
@@ -111,6 +111,9 @@ const VerifierAvatars = ({ requiredVerifiers = [], isRejected = false }) => {
                           ? dayjs(v.verified_at || v.approved_at).format("DD MMM, hh:mm A")
                           : "Pending"}
                       </span>
+                      {v.rejected_at && v.rejected_note && (
+                        <span className="text-[10px] text-red-400 mt-0.5 break-words whitespace-pre-wrap">{v.rejected_note}</span>
+                      )}
                     </div>
                   </div>
                 ))}

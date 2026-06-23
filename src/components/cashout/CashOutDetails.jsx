@@ -1,4 +1,4 @@
-import { HiOutlineHashtag, HiOutlineUser, HiOutlineInboxIn, HiOutlineCash, HiOutlineDownload } from "react-icons/hi";
+import { HiOutlineHashtag, HiOutlineUser, HiOutlineInboxIn, HiOutlineCash, HiOutlineDownload, HiOutlineDocumentText } from "react-icons/hi";
 
 const CashOutDetails = ({ cashOut }) => {
   if (!cashOut) return null;
@@ -45,6 +45,17 @@ const CashOutDetails = ({ cashOut }) => {
           <p className="text-sm font-mono font-bold text-slate-700 truncate">{tranId}</p>
         </div>
       </div>
+
+      {/* Purpose / Note entered by the requester during cash-out submission */}
+      {cashOut.note && (
+        <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+          <div className="flex items-center gap-2 text-slate-400 mb-1">
+            <HiOutlineDocumentText className="text-sm" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Purpose / Note</span>
+          </div>
+          <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap break-words">{cashOut.note}</p>
+        </div>
+      )}
 
       <>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">

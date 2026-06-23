@@ -93,6 +93,11 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
       return res?.data; // { data: [...], next_cursor, has_more }
     },
     getNextPageParam: (lastPage) => lastPage?.next_cursor ?? undefined,
+    // Availability changes whenever a cash-out is created/approved/rejected (here or by
+    // another user), so the cached list goes stale fast. Always refetch on open so a bag
+    // with a pending cash-out is hidden, and reappears only once that cash-out is rejected.
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const fetchedOrders = useMemo(() => uniqueById(data?.pages?.flatMap((p) => p?.data || []) || []), [data]);
