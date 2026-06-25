@@ -108,11 +108,11 @@ const Vault = () => {
     }
   }, [isOpenModal, isEditMode]);
 
-  // Prefix the name slug onto the auto vault code as the user types: "test one" -> "test_one_780".
+  // Prefix the name abbreviation onto the auto vault code as the user types: "Pending one" -> "PO_780".
   useEffect(() => {
     if (isEditMode || vaultCodeSuffix === null) return;
-    const slug = getVaultSlug(watchedName);
-    setGeneratedVaultCode(slug ? `${slug}_${vaultCodeSuffix}` : `${vaultCodeSuffix}`);
+    const abbr = getVaultAbbreviation(watchedName);
+    setGeneratedVaultCode(abbr ? `${abbr}_${vaultCodeSuffix}` : `${vaultCodeSuffix}`);
   }, [watchedName, vaultCodeSuffix, isEditMode]);
 
   useEffect(() => {
@@ -137,14 +137,13 @@ const Vault = () => {
   }, [user?.default_vault_id]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
-  // Lowercase, underscore-separated slug of the vault name (used to prefix the vault code).
-  const getVaultSlug = (name) => {
+  // Uppercase abbreviation of the vault name (used to prefix the vault code).
+  // Multiple words -> initials ("Pending one" -> "PO"); single word -> first 3 letters ("sdf" -> "SDF").
+  const getVaultAbbreviation = (name) => {
     if (!name?.trim()) return "";
-    return name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "");
+    const words = name.trim().split(/\s+/).filter(Boolean);
+    const abbr = words.length === 1 ? words[0].slice(0, 3) : words.map((w) => w[0]).slice(0, 4).join("");
+    return abbr.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
   };
 
   const bagsRef = useRef(bags);
