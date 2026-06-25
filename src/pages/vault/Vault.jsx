@@ -30,6 +30,7 @@ const Vault = () => {
   const [loadingBags, setLoadingBags] = useState(false);
   const [expandedBag, setExpandedBag] = useState(null);
   const [generatedVaultCode, setGeneratedVaultCode] = useState(null);
+  const [vaultCodeSuffix, setVaultCodeSuffix] = useState(null);
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingVaultId, setEditingVaultId] = useState(null);
@@ -100,29 +101,35 @@ const Vault = () => {
   const watchedBagLimit = watch("bag_limit");
   const { addToast } = useToast();
 
+  // Random numeric suffix, generated once per modal open (create mode only).
   useEffect(() => {
     if (isOpenModal && !isEditMode) {
-      const code = Math.floor(100 + Math.random() * 900);
-      setGeneratedVaultCode(code);
+      setVaultCodeSuffix(Math.floor(100 + Math.random() * 900));
     }
   }, [isOpenModal, isEditMode]);
+
+  // Prefix the name slug onto the auto vault code as the user types: "test one" -> "test_one_780".
+  useEffect(() => {
+    if (isEditMode || vaultCodeSuffix === null) return;
+    const slug = getVaultSlug(watchedName);
+    setGeneratedVaultCode(slug ? `${slug}_${vaultCodeSuffix}` : `${vaultCodeSuffix}`);
+  }, [watchedName, vaultCodeSuffix, isEditMode]);
 
   useEffect(() => {
     setTotalRacks(watchedTotalRacks || "");
   }, [watchedTotalRacks]);
 
-  // Re-generate barcodes ONLY in create mode
+  // Re-generate bag barcodes from the vault code ONLY in create mode, keeping them sequential.
   useEffect(() => {
-    if (isEditMode || bags.length === 0) return;
-    const prefix = getVaultPrefix(watchedName);
+    if (isEditMode || bags.length === 0 || !generatedVaultCode) return;
     const year = new Date().getFullYear();
     setBags((prev) =>
       prev.map((bag, index) => {
         const n = String(index + 1).padStart(3, "0");
-        return { ...bag, barcode: `${prefix}${n}`, bag_identifier_barcode: `QVB-${year}-${prefix}-${n}` };
+        return { ...bag, barcode: `${generatedVaultCode}_${n}`, bag_identifier_barcode: `QVB-${year}-${generatedVaultCode}-${n}` };
       }),
     );
-  }, [watchedName]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [generatedVaultCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync user's saved default vault
   useEffect(() => {
@@ -130,16 +137,14 @@ const Vault = () => {
   }, [user?.default_vault_id]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
-  const getVaultPrefix = (name) => {
-    if (!name?.trim()) return "VLT";
-    const trimmed = name.trim();
-    if (/^[A-Z]{2,4}$/.test(trimmed)) return trimmed;
-    const words = trimmed.split(/\s+/).filter(Boolean);
-    if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
-    return words
-      .map((w) => w[0].toUpperCase())
-      .slice(0, 4)
-      .join("");
+  // Lowercase, underscore-separated slug of the vault name (used to prefix the vault code).
+  const getVaultSlug = (name) => {
+    if (!name?.trim()) return "";
+    return name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
   };
 
   const bagsRef = useRef(bags);
@@ -172,7 +177,8 @@ const Vault = () => {
       bags
         .map((bag) => {
           const parts = bag.barcode.split("_");
-          return parts.length === 2 ? parseInt(parts[1], 10) : NaN;
+          // Sequence is the last underscore-separated segment (vault code may itself contain underscores).
+          return parts.length >= 2 ? parseInt(parts[parts.length - 1], 10) : NaN;
         })
         .filter((n) => !isNaN(n))
     );
@@ -266,6 +272,7 @@ const Vault = () => {
       setDeleteErrors([]);
       setEditingVaultId(vaultData.id || null);
       setEditingVaultDisplayId(vaultData.vault_code || null);
+      setGeneratedVaultCode(vaultData.vault_code || null);
       setIsEditMode(true);
       setIsOpenModal(true);
     } catch (err) {
@@ -332,22 +339,14 @@ const Vault = () => {
     }));
 
     const newRackErrors = {};
-    const seenRacks = new Map();
 
+    // Multiple bags are allowed in the same rack, so no uniqueness check here.
     processedBags.forEach((bag) => {
       const rackStr = (bag.rack_number || "").trim();
       if (!rackStr) { newRackErrors[bag.id] = "Rack number is required"; return; }
       const rackNum = parseInt(rackStr, 10);
       if (maxRacks !== null && !isTotalRacksEmpty && rackNum > maxRacks) {
         newRackErrors[bag.id] = `Cannot exceed ${maxRacks}`; return;
-      }
-      if (!isTotalRacksEmpty) {
-        if (seenRacks.has(rackNum)) {
-          newRackErrors[bag.id] = `Rack ${rackNum} is already used`;
-          newRackErrors[seenRacks.get(rackNum)] = `Rack ${rackNum} is already used`;
-        } else {
-          seenRacks.set(rackNum, bag.id);
-        }
       }
     });
 
@@ -363,13 +362,22 @@ const Vault = () => {
 
     setIsLoading(true);
 
-    const validBags = processedBags.map((b) => ({
-      ...(b.originalId ? { id: b.originalId } : {}),
-      barcode: b.barcode,
-      bag_identifier_barcode: b.bag_identifier_barcode,
-      rack_number: b.rack_number ? parseInt(b.rack_number, 10) : null,
-      current_amount: parseFloat(b.current_amount || 0).toFixed(2),
-    }));
+    const submitYear = new Date().getFullYear();
+    const validBags = processedBags.map((b, index) => {
+      // In create mode, derive barcodes deterministically from the vault code + position so the
+      // payload is always sequential and distinct, regardless of UI timing. Edit mode keeps the
+      // existing barcodes since they map to persisted DB rows.
+      const seq = String(index + 1).padStart(3, "0");
+      const barcode = isEditMode ? b.barcode : `${generatedVaultCode}_${seq}`;
+      const identifierBarcode = isEditMode ? b.bag_identifier_barcode : `QVB-${submitYear}-${generatedVaultCode}-${seq}`;
+      return {
+        ...(b.originalId ? { id: b.originalId } : {}),
+        barcode,
+        bag_identifier_barcode: identifierBarcode,
+        rack_number: b.rack_number ? parseInt(b.rack_number, 10) : null,
+        current_amount: parseFloat(b.current_amount || 0).toFixed(2),
+      };
+    });
 
     const payload = {
       vault_code: generatedVaultCode,

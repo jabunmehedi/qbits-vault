@@ -33,7 +33,7 @@ const CreateUpdateVault = ({
         </div>
       }
       isCloseModal={isCloseModal}
-      className="max-w-5xl"
+      className="max-w-6xl"
     >
       <form className="space-y-6 mt-6" onSubmit={handleSubmit(onSubmit)}>
         {/* Delete errors banner */}
@@ -121,9 +121,12 @@ const CreateUpdateVault = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <AnimatePresence mode="popLayout">
                 {[...bags].sort((a, b) => {
-                  const seqA = parseInt(a.barcode?.split("_")[1] ?? 0, 10);
-                  const seqB = parseInt(b.barcode?.split("_")[1] ?? 0, 10);
-                  return seqA - seqB;
+                  // Sequence is the last underscore segment (vault code itself may contain underscores).
+                  const lastSeq = (code) => {
+                    const parts = (code ?? "").split("_");
+                    return parseInt(parts[parts.length - 1] ?? 0, 10) || 0;
+                  };
+                  return lastSeq(a.barcode) - lastSeq(b.barcode);
                 }).map((bag) => {
                   const amount = parseFloat(bag.current_amount || 0);
                   const hasAmt = amount > 0;
@@ -138,21 +141,21 @@ const CreateUpdateVault = ({
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
-                      className={`relative group flex items-center justify-between p-5 bg-white rounded-2xl border transition-all ${
+                      className={`relative group flex items-center justify-between gap-3 p-5 bg-white rounded-2xl border transition-all ${
                         isError ? "border-red-300 bg-red-50" : "border-gray-200 hover:border-blue-200"
                       }`}
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="bg-blue-50 w-10 h-10 flex justify-center items-center rounded-xl">
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="bg-blue-50 w-10 h-10 flex justify-center items-center rounded-xl shrink-0">
                           <FiBox className="w-5 h-5 text-blue-500" />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <p className="uppercase text-[10px] font-bold text-gray-400 tracking-wider">Bag ID</p>
-                          <p className="text-[#1A335E] text-sm font-bold">{bag.barcode || "707_000"}</p>
+                          <p className="text-[#1A335E] text-sm font-bold truncate" title={bag.barcode || "707_000"}>{bag.barcode || "707_000"}</p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-4 shrink-0">
                         <div className="text-right">
                           <p className="uppercase text-[10px] font-bold text-blue-400 tracking-wider">Initial Amount</p>
                           <p className="text-[#1A335E] text-sm font-bold">৳ {amount.toFixed(2)}</p>
