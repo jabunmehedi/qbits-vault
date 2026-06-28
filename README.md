@@ -120,6 +120,23 @@ All routes under `/` require auth via `<PrivateRoute>`. Most also require a name
 - **`<PermissionRoute>`** redirects to 404 if the user lacks the required permission.
 - **`usePermissions()`** hook for imperative permission checks in components.
 
+### Two-layer permission model
+
+There are two independent permission layers that work together:
+
+**1. Role-wise permissions (global)**
+- Powered by Spatie Roles & Permissions on the API side.
+- A user is assigned a global role (e.g. `Admin`, `reconciler`) which carries named permissions (`cash-in.view`, `reconciliation.approve`, etc.).
+- These are returned on login and stored in `authSlice` (`roles` + `permissions` arrays).
+- Used for **page-level and action-level gating** — controls who can see a route or trigger a button anywhere in the app.
+
+**2. Vault-wise permissions (per-vault)**
+- Stored in the `vault_assigns` table — a user can be assigned to one or more vaults (`status: active/inactive`), and each assignment carries a `roles` JSON column (array of role IDs for that vault).
+- Used by the API for **workflow scoping** — e.g. when a cash-in or reconcile is created for Vault A, the backend queries `vault_assigns` (filtered by `vault_id` + role ID) to build the required verifier/approver/reconciler lists for that specific vault.
+- The frontend receives `vault_assignments` nested on the user object (`GET /users/:id`) and uses it in the User Management drawer to display and edit vault memberships.
+
+**In short:** role-wise permissions answer *"can this user perform this action at all?"*; vault-wise permissions answer *"does this user participate in workflows for this specific vault?"*
+
 ---
 
 ## Key Features

@@ -6,6 +6,7 @@ import { useToast } from "../../hooks/useToast";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchAuthUser, selectIsAdmin, selectIsSuperAdmin } from "../../store/authSlice";
 import { usePermissions } from "../../hooks/usePermissions";
+import { permissionLabel } from "../../utils/roleLabel";
 
 const baseStorageUrl = import.meta.env.VITE_REACT_APP_STORAGE_URL;
 
@@ -212,7 +213,7 @@ const PermissionViewer = ({ isOpen, onClose, user, permissions, onSaved }) => {
                                   {isChecked && <Check className="w-2.5 h-2.5 text-white stroke-[3.5]" />}
                                 </div>
                                 <span className="text-xs font-semibold capitalize tracking-wide truncate">
-                                  {perm.name.split(".").slice(1).join(" ") || perm.name}
+                                  {permissionLabel(perm.name)}
                                 </span>
                               </button>
                             );

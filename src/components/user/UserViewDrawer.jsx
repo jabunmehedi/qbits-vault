@@ -518,6 +518,18 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                       <div className="grid grid-cols-2 text-black gap-3">
                         {rolesList
                           ?.filter((role) => role.name !== "super-admin" && role.name !== "Super Admin")
+                          .slice()
+                          .sort((a, b) => {
+                            const ORDER = [
+                              "admin", "bag create",
+                              "cash-in verifier", "cash-in cashier",
+                              "cash-out verifier", "cash-out cashier", "custodian",
+                              "auditor", "audit initiator", "reconciler",
+                            ];
+                            const ai = ORDER.indexOf(a.name.toLowerCase());
+                            const bi = ORDER.indexOf(b.name.toLowerCase());
+                            return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+                          })
                           .map((role) => {
                             const isEnabled = activeRoles.includes(role.id);
                             return (

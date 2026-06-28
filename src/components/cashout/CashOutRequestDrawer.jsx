@@ -214,7 +214,8 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
         refetch();
         onClose();
       } else {
-        addToast({ type: "error", message: res?.message });
+        const errMsg = typeof res?.message === "string" ? res.message : res?.message?.message || "Failed to submit cash-out.";
+        addToast({ type: "error", message: errMsg });
       }
     } catch (error) {
       console.error("Cash Out Submission Error:", error);

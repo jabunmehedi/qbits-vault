@@ -289,8 +289,23 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null, initia
         (typeof res?.status === "number" && res.status >= 400);
 
       if (failed) {
-        setIsDepositError(true);
-        setDepositError(res?.response?.data || "An error occurred.");
+        const apiBody = res?.response?.data;
+        const errors = apiBody?.errors || {};
+
+        // Role config errors (cashier/verifier not assigned to vault) → toast + close.
+        // Bag errors (no bag available / no bag-create permission) → keep modal.
+        const isRoleError = "verifier_found" in errors || "approver_found" in errors
+          || "verifier_role" in errors || "approver_role" in errors;
+
+        if (isRoleError) {
+          const errMsg = apiBody?.message?.message || apiBody?.message || "Role configuration error.";
+          addToast({ type: "error", message: errMsg });
+          setIsConfirmModalOpen(false);
+          setIsDepositError(false);
+        } else {
+          setIsDepositError(true);
+          setDepositError(apiBody || "An error occurred.");
+        }
         return false;
       } else {
         addToast({ type: "success", message: successMessage });
