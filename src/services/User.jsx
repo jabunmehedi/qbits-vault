@@ -29,13 +29,12 @@ export const GetUser = async (id) => {
 };
 export const UpdateUser = async (id, data) => {
   try {
-    // Laravel/PHP only parses multipart file uploads from POST — use method spoofing
+    // Laravel/PHP only parses multipart file uploads from POST — use method spoofing.
+    // Do NOT manually set Content-Type: axios auto-sets multipart/form-data with the
+    // correct boundary when it detects a FormData body. Setting it manually strips the
+    // boundary and breaks server-side file parsing.
     data.append("_method", "PUT");
-    const response = await axios.post(`/users/${id}`, data, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
+    const response = await axios.post(`/users/${id}`, data);
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);
@@ -125,6 +124,15 @@ export const ConfirmResetPassword = async (payload) => {
   } catch (error) {
     console.error(error?.response?.data?.message);
     return error?.response;
+  }
+};
+export const VerifyKyc = async (userId) => {
+  try {
+    const response = await axios.post(`/users/${userId}/verify-kyc`);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response?.data;
   }
 };
 export const UserArchiveCheck = async (userId) => {

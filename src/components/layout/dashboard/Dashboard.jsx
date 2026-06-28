@@ -40,15 +40,13 @@ export default function Dashboard() {
   }, [timeframe, selectedVault]);
 
   useEffect(() => {
-    const hasSeenModal = sessionStorage.getItem("kyc_modal_shown");
-    if (authUser && authUser.kyc_verified_at === null && !hasSeenModal && !isSuperAdmin) {
+    if (authUser && authUser.kyc_verified_at === null && !isSuperAdmin) {
       setShowKYCModal(true);
     }
   }, [authUser, isSuperAdmin]);
 
   const handleCloseModal = () => {
     setShowKYCModal(false);
-    sessionStorage.setItem("kyc_modal_shown", "true");
   };
 
   const timeframeLabels = {

@@ -21,13 +21,18 @@ axiosConfig.interceptors.request.use(
     const access_token = localStorage.getItem("access_token");
     if (access_token) {
       try {
-        // const { access_token } = JSON.parse(auth);
         if (access_token) {
           config.headers.Authorization = `Bearer ${access_token}`;
         }
       } catch {
         localStorage.removeItem("auth");
       }
+    }
+
+    // Let axios set Content-Type automatically for FormData (includes multipart boundary).
+    // Keeping the default "application/json" breaks PHP's multipart file parser.
+    if (config.data instanceof FormData) {
+      delete config.headers["Content-Type"];
     }
 
     return config;

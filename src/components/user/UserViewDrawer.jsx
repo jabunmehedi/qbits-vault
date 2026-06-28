@@ -1,7 +1,9 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Download, Loader2, MapPin, Shield, X, FileText, User, RefreshCw } from "lucide-react";
+import { Download, Loader2, MapPin, Shield, X, FileText, User, RefreshCw, ShieldCheck, ShieldAlert } from "lucide-react";
+
+const storageUrl = import.meta.env.VITE_REACT_APP_STORAGE_URL;
 import { useEffect, useState } from "react";
-import { ArchiveUser, DisableUser, GetRoles, GetUser, MigrateUser, UserArchiveCheck, UserNewPassword } from "../../services/User";
+import { ArchiveUser, DisableUser, GetRoles, GetUser, MigrateUser, UserArchiveCheck, UserNewPassword, VerifyKyc } from "../../services/User";
 import Avatar from "../helpers/Avatar";
 import { RiVerifiedBadgeFill } from "react-icons/ri";
 import { GetVaults, ToggleVaultAccess, UpdateVaultRoles } from "../../services/Vault";
@@ -186,6 +188,21 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
         type: "error",
         message: err?.response?.data?.message || "Cannot archive. User has active workflow assignments.",
       });
+    },
+  });
+
+  const kycMutation = useMutation({
+    mutationFn: (uid) => VerifyKyc(uid),
+    onSuccess: (res) => {
+      if (res?.success === false) {
+        addToast({ type: "error", message: res?.message || "KYC verification failed." });
+        return;
+      }
+      setUser((prev) => ({ ...prev, kyc_verified_at: res?.data?.kyc_verified_at || new Date().toISOString() }));
+      addToast({ type: "success", message: "KYC verified successfully." });
+    },
+    onError: () => {
+      addToast({ type: "error", message: "Failed to verify KYC." });
     },
   });
 
@@ -420,7 +437,19 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                     </div>
 
                     {/* Operational Actions Panel with Side-by-Side Migrate and Archive Option Row */}
-                    <div className="flex items-center gap-2 w-full justify-end">
+                    <div className="flex items-center gap-2 w-full justify-end flex-wrap">
+                      {/* KYC Verify — only shown when docs are uploaded but not yet verified */}
+                      {(isSuperAdmin || isAdmin) && user?.nid_front_img && user?.nid_back_img && !user?.kyc_verified_at && (
+                        <button
+                          onClick={() => kycMutation.mutate(userId)}
+                          disabled={kycMutation.isPending}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
+                        >
+                          {kycMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : "✓"}
+                          VERIFY KYC
+                        </button>
+                      )}
+
                       <button
                         onClick={handleDisableUser}
                         disabled={statusMutation.isPending || (!isSuperAdmin && !isAdmin)}
@@ -602,7 +631,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                         <div className="flex gap-5 mb-4">
                           <div className="w-[28%] flex-shrink-0">
                             {user?.img ? (
-                              <img src={user.img} alt={user.name} className="w-full aspect-square object-cover rounded-lg border border-gray-200" />
+                              <img src={`${storageUrl}/${user.img}`} alt={user.name} className="w-full aspect-square object-cover rounded-lg border border-gray-200" />
                             ) : (
                               <div className="w-full aspect-square rounded-lg border border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center text-gray-400 gap-0.5">
                                 <User size={18} strokeWidth={1.5} />
@@ -630,7 +659,13 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                               </div>
                               <div>
                                 <b className="block text-[8px] text-gray-400 uppercase tracking-wider">Document Status</b>
-                                <p className="text-[11px] font-bold text-emerald-600 mt-0.5">✓ ACTIVE & VERIFIED</p>
+                                {user?.kyc_verified_at ? (
+                                  <p className="text-[11px] font-bold text-emerald-600 mt-0.5">✓ KYC VERIFIED</p>
+                                ) : user?.nid_front_img && user?.nid_back_img ? (
+                                  <p className="text-[11px] font-bold text-amber-500 mt-0.5">⏳ PENDING REVIEW</p>
+                                ) : (
+                                  <p className="text-[11px] font-bold text-red-500 mt-0.5">✗ NOT SUBMITTED</p>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -644,8 +679,8 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <div className="w-full h-28 aspect-[3/2] bg-[#f8fafc] border border-gray-300 rounded-lg overflow-hidden flex items-center justify-center p-1">
-                                {user?.nid_front ? (
-                                  <img src={user.nid_front} alt="NID Front" className="w-full h-full object-contain" />
+                                {user?.nid_front_img ? (
+                                  <img src={`${storageUrl}/${user.nid_front_img}`} alt="NID Front" className="w-full h-full object-contain" />
                                 ) : (
                                   <span className="text-[10px] text-gray-400 font-medium">Front Side Image Missing</span>
                                 )}
@@ -655,8 +690,8 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
 
                             <div>
                               <div className="w-full h-28 aspect-[3/2] bg-[#f8fafc] border border-gray-300 rounded-lg overflow-hidden flex items-center justify-center p-1">
-                                {user?.nid_back ? (
-                                  <img src={user.nid_back} alt="NID Back" className="w-full h-full object-contain" />
+                                {user?.nid_back_img ? (
+                                  <img src={`${storageUrl}/${user.nid_back_img}`} alt="NID Back" className="w-full h-full object-contain" />
                                 ) : (
                                   <span className="text-[10px] text-gray-400 font-medium">Back Side Image Missing</span>
                                 )}
