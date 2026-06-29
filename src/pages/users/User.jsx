@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import DataTable from "../../components/global/dataTable/DataTable";
 import axiosConfig from "../../utils/axiosConfig";
 import { GetRoles, GetUsers } from "../../services/User";
@@ -29,33 +30,49 @@ const DEFAULT_STATUS_COLOR = "bg-green-500";
 // ─── VaultDropdown: per-row vault selector ─────────────────────────────────────
 const VaultDropdown = ({ row, onVaultChange, selectedVaultId }) => {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef(null);
 
   const vaultAssignments = row?.vault_assignments ?? [];
 
-  // Close on outside click
   useEffect(() => {
+    if (!open) return;
     const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (triggerRef.current && !triggerRef.current.contains(e.target)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  }, [open]);
+
+  const handleOpen = (e) => {
+    e.stopPropagation();
+    if (open) { setOpen(false); return; }
+    const rect = triggerRef.current.getBoundingClientRect();
+    setCoords({ top: rect.bottom + 6, left: rect.left });
+    setOpen(true);
+  };
 
   const selectedAssignment = vaultAssignments.find((va) => va.vault_id === selectedVaultId);
-  const displayName = selectedAssignment?.vault?.name ?? row?.default_vault?.name ?? "No Vault";
+  const displayName = selectedAssignment?.vault?.name ?? vaultAssignments[0]?.vault?.name ?? "No Vault";
 
   if (vaultAssignments.length === 0) {
     return <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded tracking-wider uppercase">No Vault</span>;
   }
 
+  // Single vault — static badge, no dropdown needed
+  if (vaultAssignments.length === 1) {
+    return (
+      <span className="flex items-center gap-1.5 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded tracking-wider uppercase border border-blue-100">
+        <Building2 className="w-3 h-3" />
+        <span className="max-w-[100px] truncate">{vaultAssignments[0]?.vault?.name ?? `Vault #${vaultAssignments[0]?.vault_id}`}</span>
+      </span>
+    );
+  }
+
   return (
-    <div className="relative" ref={ref}>
+    <div ref={triggerRef} className="inline-block">
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((prev) => !prev);
-        }}
+        onClick={handleOpen}
         className="flex items-center gap-1.5 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded tracking-wider uppercase hover:bg-blue-100 transition-colors border border-blue-100"
       >
         <Building2 className="w-3 h-3" />
@@ -63,27 +80,30 @@ const VaultDropdown = ({ row, onVaultChange, selectedVaultId }) => {
         <ChevronDown className={`w-3 h-3 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
-      {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-lg min-w-[160px] py-1 overflow-hidden">
-          {vaultAssignments
-            .filter((va) => va.status === "active")
-            .map((va) => (
-              <button
-                key={va.vault_id}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onVaultChange(row.id, va.vault_id);
-                  setOpen(false);
-                }}
-                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-semibold transition-colors
-                ${selectedVaultId === va.vault_id ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-50"}`}
-              >
-                <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-                <span className="truncate">{va.vault?.name ?? `Vault #${va.vault_id}`}</span>
-                {selectedVaultId === va.vault_id && <Check className="w-3 h-3 ml-auto stroke-[3px]" />}
-              </button>
-            ))}
-        </div>
+      {open && createPortal(
+        <div
+          style={{ top: coords.top, left: coords.left }}
+          className="fixed z-[99999] bg-white border border-gray-200 rounded-xl shadow-lg min-w-[160px] py-1 overflow-hidden"
+        >
+          {vaultAssignments.map((va) => (
+            <button
+              key={va.vault_id}
+              onClick={(e) => {
+                e.stopPropagation();
+                onVaultChange(row.id, va.vault_id);
+                setOpen(false);
+              }}
+              className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-semibold transition-colors ${
+                selectedVaultId === va.vault_id ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="truncate">{va.vault?.name ?? `Vault #${va.vault_id}`}</span>
+              {selectedVaultId === va.vault_id && <Check className="w-3 h-3 ml-auto stroke-[3px]" />}
+            </button>
+          ))}
+        </div>,
+        document.body
       )}
     </div>
   );
