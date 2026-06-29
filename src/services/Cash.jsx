@@ -188,6 +188,26 @@ export const DeleteCashOut = async (id) => {
   }
 };
 
+export const ResendCashIn = async (id) => {
+  try {
+    const response = await axios.post(`/resend/cash-in/${id}`);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response?.data;
+  }
+};
+
+export const ResendCashOut = async (id) => {
+  try {
+    const response = await axios.post(`/resend/cash-out/${id}`);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+    return error?.response?.data;
+  }
+};
+
 export const CustodianVerifyCashReceived = async (id) => {
   try {
     const response = await axios.post(`/custodian/verify/${id}`);

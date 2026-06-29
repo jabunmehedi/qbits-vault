@@ -32,13 +32,16 @@ const VaultDropdown = ({ row, onVaultChange, selectedVaultId }) => {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
   const triggerRef = useRef(null);
+  const menuRef = useRef(null);
 
-  const vaultAssignments = row?.vault_assignments ?? [];
+  const vaultAssignments = (row?.vault_assignments ?? []).filter((va) => va.status === "active" || va.status === 1);
 
   useEffect(() => {
     if (!open) return;
     const handler = (e) => {
-      if (triggerRef.current && !triggerRef.current.contains(e.target)) setOpen(false);
+      if (triggerRef.current?.contains(e.target)) return;
+      if (menuRef.current?.contains(e.target)) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -82,6 +85,7 @@ const VaultDropdown = ({ row, onVaultChange, selectedVaultId }) => {
 
       {open && createPortal(
         <div
+          ref={menuRef}
           style={{ top: coords.top, left: coords.left }}
           className="fixed z-[99999] bg-white border border-gray-200 rounded-xl shadow-lg min-w-[160px] py-1 overflow-hidden"
         >
@@ -167,9 +171,10 @@ const User = () => {
       const next = { ...prev };
 
       users.forEach((user) => {
-        // CHANGED: Always re-seed if user is in the list
-        // (removes stale null entries left from previous cache operations)
-        const assignments = user.vault_assignments ?? [];
+        // Only seed if no selection exists yet — preserves manual vault switches
+        if (user.id in next) return;
+
+        const assignments = (user.vault_assignments ?? []).filter((va) => va.status === "active" || va.status === 1);
         const hasDefault = assignments.some((va) => va.vault_id === user.default_vault_id);
 
         if (hasDefault) {
@@ -330,7 +335,7 @@ const User = () => {
       className: "text-center",
       render: (row) => {
         const selectedVaultId = userVaultSelection[row.id] ?? null;
-        const vaultAssignments = row.vault_assignments ?? [];
+        const vaultAssignments = (row.vault_assignments ?? []).filter((va) => va.status === "active" || va.status === 1);
 
         let isSelected = false;
 

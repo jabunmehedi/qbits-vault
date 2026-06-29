@@ -5,7 +5,7 @@ import DataTable from "../../components/global/dataTable/DataTable";
 import dayjs from "dayjs";
 import { useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ApproveCashIn, DeleteCashIn, GetCashIn, GetCashIns, RejectCashIn, VerifyCashIn } from "../../services/Cash";
+import { ApproveCashIn, DeleteCashIn, GetCashIn, GetCashIns, RejectCashIn, ResendCashIn, VerifyCashIn } from "../../services/Cash";
 import VerificationCell from "../../components/cashin/VerificationCell";
 import { GetCashInLedger } from "../../services/Ledger";
 import { HiDotsHorizontal } from "react-icons/hi";
@@ -48,6 +48,7 @@ const CashIn = () => {
   const [activeApproveId, setActiveApproveId] = useState(null);
   const [verifyLoading, setVerifyLoading] = useState(null);
   const [activeActionMenuId, setActiveActionMenuId] = useState(null);
+  const [resendLoadingId, setResendLoadingId] = useState(null);
 
   const { hasPermission } = usePermissions();
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
@@ -305,6 +306,10 @@ const CashIn = () => {
         <div class="info-label">Prepared By:</div>
         <div class="info-value">${cashIn.user?.name || "—"}</div>
       </div>
+      <div class="info-item">
+        <div class="info-label">Verified By:</div>
+        <div class="info-value">${verifiers?.length > 0 ? verifiers.map((v) => v.name).filter(Boolean).join(", ") : "—"}</div>
+      </div>
     </div>
 
     <!-- Denomination Breakdown -->
@@ -349,19 +354,6 @@ const CashIn = () => {
           <span class="field-line">${numberToWords(cashInAmount)}</span>
         </div>
       </div>
-    </div>
-
-    <!-- Verifiers (compact, header-less, no card) -->
-    <div class="signoff">
-      ${verifiers?.length > 0 ? verifiers.map((v) => `
-        <div class="signoff-row">
-          <div class="field-row"><span class="field-label">Verified By:</span><span class="field-line">${v.name || ""}</span></div>
-          <div class="field-row"><span class="field-label">Date:</span><span class="field-line">${v.verified_at || ""}</span></div>
-        </div>`).join("") : `
-        <div class="signoff-row">
-          <div class="field-row"><span class="field-label">Verified By:</span><span class="field-line"></span></div>
-          <div class="field-row"><span class="field-label">Date:</span><span class="field-line"></span></div>
-        </div>`}
     </div>
 
     <!-- Cashiers (compact, header-less, no card; signature line per cashier) -->
@@ -433,6 +425,26 @@ const CashIn = () => {
       console.error("Failed to fetch cash-in:", err);
     } finally {
       setEditLoading(null);
+    }
+  };
+
+  const handleResendCashIn = async (id) => {
+    setResendLoadingId(id);
+    try {
+      const res = await ResendCashIn(id);
+      if (res?.success) {
+        fetchCashInsData();
+        addToast({ message: "Cash-in request resent successfully", type: "success" });
+      } else {
+        const msg = typeof res?.message === "object" ? res?.message?.message : res?.message;
+        addToast({ message: msg || "Failed to resend cash-in", type: "error" });
+      }
+    } catch (err) {
+      console.error("Failed to resend cash-in:", err);
+      addToast({ message: "Failed to resend cash-in", type: "error" });
+    } finally {
+      setResendLoadingId(null);
+      setActiveActionMenuId(null);
     }
   };
 
@@ -627,9 +639,8 @@ const CashIn = () => {
       noClip: true,
       className: "w-[4%] relative",
       render: (row) => {
-        const isLocked = row?.required_verifiers?.some((v) => v?.verified)
-          || row?.verifier_status === "rejected"
-          || row?.approver_status === "rejected";
+        const isRejected = row?.verifier_status === "rejected" || row?.approver_status === "rejected";
+        const isLocked = row?.required_verifiers?.some((v) => v?.verified) || isRejected;
         const isMenuOpen = activeActionMenuId === row.id;
         const isConfirmingDelete = deleteConfirmId === row.id;
 
@@ -651,7 +662,8 @@ const CashIn = () => {
 
         const canEdit = !isLocked && (isSuperAdmin || hasPermission("cash-in.edit"));
         const canDelete = !isLocked && (isSuperAdmin || hasPermission("cash-in.delete"));
-        if (!canEdit && !canDelete) return null;
+        const canResend = isRejected && (isSuperAdmin || hasPermission("cash-in.request"));
+        if (!canEdit && !canDelete && !canResend) return null;
 
         return (
           <div className="relative inline-block text-left">
@@ -675,6 +687,20 @@ const CashIn = () => {
                 <AnimatePresence mode="wait">
                   {!isConfirmingDelete ? (
                     <motion.div key="options" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                      {canResend && (
+                        <button
+                          disabled={resendLoadingId === row.id}
+                          onClick={(e) => { e.stopPropagation(); handleResendCashIn(row.id); }}
+                          className="flex items-center w-full px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors gap-2 font-medium cursor-pointer disabled:opacity-50"
+                        >
+                          {resendLoadingId === row.id ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          )}
+                          Resend
+                        </button>
+                      )}
                       {canEdit && (
                         <button
                           onClick={(e) => { e.stopPropagation(); setActiveActionMenuId(null); handleEditClick(row.id); }}

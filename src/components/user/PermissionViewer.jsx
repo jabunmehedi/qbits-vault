@@ -151,7 +151,8 @@ const PermissionViewer = ({ isOpen, onClose, user, permissions, onSaved }) => {
                   disabled={!canEdit || isSaving}
                   className="px-4 py-2 bg-[#1a73e8] hover:bg-blue-600 disabled:bg-slate-100 disabled:text-slate-400 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-xs flex items-center gap-2"
                 >
-                  {isSaving ? <div className="w-3.5 h-3.5 border-2 border-slate-300 border-t-white rounded-full animate-spin" /> : "Update Permissions"}
+                  {isSaving && <div className="w-3.5 h-3.5 border-2 border-slate-300 border-t-white rounded-full animate-spin" />}
+                  Update Permissions
                 </button>
                 <button
                   type="button"

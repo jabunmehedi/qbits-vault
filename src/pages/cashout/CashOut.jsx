@@ -8,7 +8,7 @@ import { CashOutVerifierCell, CashOutCustodianCell, CashOutCashierCell } from ".
 import dayjs from "dayjs";
 import { GetVaults } from "../../services/Vault";
 import CashOutConfirmationModal from "../../components/cashout/CashOutConfirmationModal";
-import { ApproveCashOut, CustodianRejectCashReceived, CustodianVerifyCashReceived, DeleteCashOut, GetCashOut, GetCashOuts, RejectCashOut, VerifyCashOut } from "../../services/Cash";
+import { ApproveCashOut, CustodianRejectCashReceived, CustodianVerifyCashReceived, DeleteCashOut, GetCashOut, GetCashOuts, RejectCashOut, ResendCashOut, VerifyCashOut } from "../../services/Cash";
 import { useSelector } from "react-redux";
 import { usePermissions } from "../../hooks/usePermissions";
 import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
@@ -48,6 +48,7 @@ const CashOut = () => {
   const [activeActionMenuId, setActiveActionMenuId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [resendLoadingId, setResendLoadingId] = useState(null);
 
   const { hasPermission } = usePermissions();
   const user = useSelector(selectAuthUser);
@@ -271,6 +272,10 @@ const CashOut = () => {
         <div class="info-label">Prepared By:</div>
         <div class="info-value">${cashOut.user?.name || "—"}</div>
       </div>
+      <div class="info-item">
+        <div class="info-label">Verified By:</div>
+        <div class="info-value">${verifiers?.length > 0 ? verifiers.map((v) => v.name).filter(Boolean).join(", ") : "—"}</div>
+      </div>
     </div>
 
     <!-- Per-bag Summary -->
@@ -322,19 +327,6 @@ const CashOut = () => {
           <span class="field-line">${cashOut.note || ""}</span>
         </div>
       </div>
-    </div>
-
-    <!-- Verifiers (compact, header-less, boxed) -->
-    <div class="signoff">
-      ${verifiers?.length > 0 ? verifiers.map((v) => `
-        <div class="signoff-row">
-          <div class="field-row"><span class="field-label">Verified By:</span><span class="field-line">${v.name || ""}</span></div>
-          <div class="field-row"><span class="field-label">Date:</span><span class="field-line">${v.verified_at || ""}</span></div>
-        </div>`).join("") : `
-        <div class="signoff-row">
-          <div class="field-row"><span class="field-label">Verified By:</span><span class="field-line"></span></div>
-          <div class="field-row"><span class="field-label">Date:</span><span class="field-line"></span></div>
-        </div>`}
     </div>
 
     ${custodians?.length > 0 ? `
@@ -484,6 +476,26 @@ const CashOut = () => {
     } finally {
       setVerifyLoading(null);
       setActiveCustodianId(null);
+    }
+  };
+
+  const handleResendCashOut = async (id) => {
+    setResendLoadingId(id);
+    try {
+      const res = await ResendCashOut(id);
+      if (res?.success) {
+        fetchCashOutLits();
+        addToast({ message: "Cash-out request resent successfully", type: "success" });
+      } else {
+        const msg = typeof res?.message === "object" ? res?.message?.message : res?.message;
+        addToast({ message: msg || "Failed to resend cash-out", type: "error" });
+      }
+    } catch (err) {
+      console.error("Failed to resend cash-out:", err);
+      addToast({ message: "Failed to resend cash-out", type: "error" });
+    } finally {
+      setResendLoadingId(null);
+      setActiveActionMenuId(null);
     }
   };
 
@@ -673,9 +685,11 @@ const CashOut = () => {
           setDeleteConfirmId(null);
         };
 
+        const isRejected = row?.verifier_status === "rejected" || row?.approver_status === "rejected";
         const canEdit = !isLocked && (isSuperAdmin || hasPermission("cash-out.edit"));
         const canDelete = row?.verifier_status !== "verified" && (isSuperAdmin || hasPermission("cash-out.delete"));
-        if (!canEdit && !canDelete) return null;
+        const canResend = isRejected && (isSuperAdmin || hasPermission("cash-out.create"));
+        if (!canEdit && !canDelete && !canResend) return null;
 
         return (
           <div className="relative inline-block text-left">
@@ -702,6 +716,22 @@ const CashOut = () => {
                 <AnimatePresence mode="wait">
                   {!isConfirmingDelete ? (
                     <motion.div key="options" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                      {/* Resend Option */}
+                      {canResend && (
+                        <button
+                          disabled={resendLoadingId === row.id}
+                          onClick={(e) => { e.stopPropagation(); handleResendCashOut(row.id); }}
+                          className="flex items-center w-full px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors gap-2 font-medium cursor-pointer disabled:opacity-50"
+                        >
+                          {resendLoadingId === row.id ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          )}
+                          Resend
+                        </button>
+                      )}
+
                       {/* Edit Option */}
                       {canEdit && (
                         <button

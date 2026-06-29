@@ -1010,10 +1010,10 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                     <p className="text-green-600 font-semibold text-center text-sm">Reconciliation completed successfully</p>
                   </div>
                 ) : (
-                  <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 flex items-center gap-3 z-10">
+                  <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 flex flex-wrap items-center gap-3 z-10">
                     <button
                       onClick={onClose}
-                      className="flex-1 py-2.5 px-4 border border-gray-200 text-gray-600 hover:text-red-400 hover:bg-gray-50 font-bold text-sm rounded-xl transition-colors cursor-pointer"
+                      className="flex-1 py-2.5 px-4 border border-gray-200 text-gray-600 hover:text-red-400 hover:bg-gray-50 font-bold text-sm rounded-xl transition-colors cursor-pointer whitespace-nowrap"
                     >
                       Cancel
                     </button>
@@ -1021,7 +1021,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                     {canForceSubmit ? (
                       <button
                         onClick={() => setForceSubmitModal({ isOpen: true, note: "" })}
-                        className="flex-1 py-2.5 px-4 font-bold text-sm rounded-xl transition-all bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-200 cursor-pointer"
+                        className="flex-1 py-2.5 px-4 font-bold text-sm rounded-xl transition-all bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-200 cursor-pointer whitespace-nowrap"
                       >
                         Submit with Note
                       </button>
@@ -1040,8 +1040,8 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                             setOpen={setVerifyOpen}
                             className="max-w-xl"
                             wrapperClassName="flex-1"
-                            triggerClassName="w-full py-2.5 px-4 text-sm"
-                            title="Verify"
+                            triggerClassName="w-full py-2.5 px-4 text-sm whitespace-nowrap"
+                            title="Reconcile"
                             rejectTitle="Reject this reconciliation?"
                           >
                             <ReconclieDetails reconcile={reconcileData} />
@@ -1052,7 +1052,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                           <button
                             disabled={!canSubmitReconcileButton}
                             onClick={handleFinalSubmit}
-                            className={`flex-1 py-2.5 px-4 font-bold text-sm rounded-xl transition-all ${
+                            className={`flex-1 py-2.5 px-4 font-bold text-sm rounded-xl transition-all whitespace-nowrap ${
                               canSubmitReconcileButton
                                 ? "bg-[#1a73e8] hover:bg-blue-600 text-white shadow-lg shadow-blue-200 cursor-pointer"
                                 : "bg-gray-200 text-gray-400 cursor-not-allowed"

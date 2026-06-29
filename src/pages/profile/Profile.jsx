@@ -1,13 +1,89 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Camera, Save, Lock, Shield, CheckCircle, User, Settings, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Camera, Save, Lock, Shield, CheckCircle, User, Eye, EyeOff, Loader2, Upload, BadgeCheck } from "lucide-react";
 import { ChangePassword, GetUser, UpdateUser } from "../../services/User";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchAuthUser, selectAuthUser } from "../../store/authSlice";
+import { fetchAuthUser, patchAuthUser, selectAuthUser } from "../../store/authSlice";
 import { useToast } from "../../hooks/useToast";
 import { roleLabel } from "../../utils/roleLabel";
+
+const storageUrl = import.meta.env.VITE_REACT_APP_STORAGE_URL;
+const toUrl = (path) => (path ? `${storageUrl}/${path}` : null);
+
+const ImageUploadSlot = ({ label, hint, file, preview, onChange, isAvatar }) => {
+  const ref = useRef();
+  const hasExisting = !!preview && !file;
+
+  if (isAvatar) {
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <div
+          onClick={() => ref.current.click()}
+          className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center cursor-pointer hover:border-blue-400 transition-all group"
+        >
+          <input ref={ref} type="file" accept="image/*" className="hidden" onChange={onChange} />
+          {preview ? (
+            <>
+              <img src={preview} alt="Profile" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <Camera className="w-5 h-5 text-white" />
+              </div>
+            </>
+          ) : (
+            <Camera className="w-8 h-8 text-gray-300 group-hover:text-blue-400 transition-colors" />
+          )}
+        </div>
+        <div className="text-center">
+          <p className="text-sm font-semibold text-gray-700">{label}</p>
+          {preview ? (
+            <p className="text-xs text-green-600 font-medium flex items-center justify-center gap-1 mt-0.5">
+              <CheckCircle className="w-3 h-3" /> {file ? file.name : "Already set"}
+            </p>
+          ) : (
+            <p className="text-xs text-gray-400 mt-0.5">Click to upload</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onClick={() => ref.current.click()}
+      className="flex-1 border-2 border-dashed border-gray-200 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-blue-400 hover:bg-blue-50/40 transition-all group min-h-[140px]"
+    >
+      <input ref={ref} type="file" accept="image/*" className="hidden" onChange={onChange} />
+      {preview ? (
+        <div className="relative w-full flex flex-col items-center gap-2">
+          <div className="relative w-full">
+            <img src={preview} alt={label} className="w-full h-28 object-cover rounded-xl" />
+            <div className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+              <Camera className="w-4 h-4 text-white" />
+              <span className="text-white text-xs font-medium">Change</span>
+            </div>
+          </div>
+          <p className="text-xs text-green-600 font-semibold flex items-center gap-1">
+            <CheckCircle className="w-3.5 h-3.5" />
+            {file ? file.name : (hasExisting ? "Already set" : "Uploaded")}
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="w-10 h-10 bg-gray-100 group-hover:bg-blue-100 rounded-xl flex items-center justify-center transition-colors">
+            <Upload className="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-colors" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-semibold text-gray-700">{label}</p>
+            {hint && <p className="text-xs text-gray-400 mt-0.5">{hint}</p>}
+            <p className="text-xs text-gray-400">Click to upload</p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 const baseStorageUrl = import.meta.env.VITE_REACT_APP_STORAGE_URL;
 
@@ -54,10 +130,59 @@ const Profile = () => {
     }
   };
 
+  // KYC states
+  const [kycProfileFile, setKycProfileFile] = useState(null);
+  const [kycNidFront, setKycNidFront] = useState(null);
+  const [kycNidBack, setKycNidBack] = useState(null);
+  const [kycPreviewProfile, setKycPreviewProfile] = useState(() => toUrl(user?.img));
+  const [kycPreviewFront, setKycPreviewFront] = useState(() => toUrl(user?.nid_front_img));
+  const [kycPreviewBack, setKycPreviewBack] = useState(() => toUrl(user?.nid_back_img));
+  const [kycLoading, setKycLoading] = useState(false);
+
+  const handleKycFile = (fileSetter, previewSetter) => (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    fileSetter(file);
+    previewSetter(URL.createObjectURL(file));
+  };
+
+  const handleKycSubmit = async () => {
+    setKycLoading(true);
+    try {
+      const formData = new FormData();
+      if (kycProfileFile) formData.append("img", kycProfileFile);
+      if (kycNidFront) formData.append("nid_front_img", kycNidFront);
+      if (kycNidBack) formData.append("nid_back_img", kycNidBack);
+
+      const res = await UpdateUser(user.id, formData);
+      if (!res || res?.status >= 400) {
+        addToast({ type: "error", message: res?.data?.message || "Failed to upload documents." });
+        return;
+      }
+      const updated = res?.data ?? {};
+      dispatch(patchAuthUser({
+        img: updated.img ?? user.img,
+        nid_front_img: updated.nid_front_img ?? user.nid_front_img,
+        nid_back_img: updated.nid_back_img ?? user.nid_back_img,
+      }));
+      setKycProfileFile(null);
+      setKycNidFront(null);
+      setKycNidBack(null);
+      addToast({ type: "success", message: "Documents submitted. Pending admin verification." });
+    } catch {
+      addToast({ type: "error", message: "Something went wrong. Please try again." });
+    } finally {
+      setKycLoading(false);
+    }
+  };
+
+  const kycCanSubmit = !!kycPreviewProfile && !!kycPreviewFront && !!kycPreviewBack;
+
   const tabs = [
     { id: "profile", label: "Profile Details", icon: User },
     { id: "password", label: "Password", icon: Lock },
     { id: "permissions", label: "Access Matrix", icon: Shield },
+    { id: "kyc", label: "KYC", icon: BadgeCheck },
   ];
 
   useEffect(() => {
@@ -432,6 +557,69 @@ const Profile = () => {
               </div>
             </div>
           )}
+
+          {/* KYC VIEW PANEL */}
+          {activeTab === "kyc" && (() => {
+            const isVerified = !!user?.kyc_verified_at;
+            return (
+              <div className="p-8 lg:p-12 max-w-lg mx-auto w-full space-y-6">
+                <div className="text-center mb-2">
+                  <h3 className="text-lg font-bold text-slate-800">KYC Verification</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Upload your profile photo and a clear photo of the front and back of your National ID card.</p>
+                  {isVerified && (
+                    <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-lg">
+                      <CheckCircle className="w-3.5 h-3.5" /> Verified
+                    </div>
+                  )}
+                </div>
+
+                <div className={isVerified ? "opacity-50 pointer-events-none select-none" : ""}>
+                  <div className="flex justify-center mb-6">
+                    <ImageUploadSlot
+                      label="Profile Photo"
+                      file={kycProfileFile}
+                      preview={kycPreviewProfile}
+                      onChange={handleKycFile(setKycProfileFile, setKycPreviewProfile)}
+                      isAvatar
+                    />
+                  </div>
+
+                  <div className="flex gap-4">
+                    <ImageUploadSlot
+                      label="NID Front"
+                      hint="National ID – front side"
+                      file={kycNidFront}
+                      preview={kycPreviewFront}
+                      onChange={handleKycFile(setKycNidFront, setKycPreviewFront)}
+                    />
+                    <ImageUploadSlot
+                      label="NID Back"
+                      hint="National ID – back side"
+                      file={kycNidBack}
+                      preview={kycPreviewBack}
+                      onChange={handleKycFile(setKycNidBack, setKycPreviewBack)}
+                    />
+                  </div>
+                </div>
+
+                {!isVerified && !kycCanSubmit && (
+                  <p className="text-xs text-red-400 text-center">All three fields are required.</p>
+                )}
+
+                {isVerified ? (
+                  <p className="text-center text-xs text-slate-400 font-semibold">Your KYC has been verified. No changes can be made.</p>
+                ) : (
+                  <button
+                    onClick={handleKycSubmit}
+                    disabled={!kycCanSubmit || kycLoading}
+                    className="w-full py-3 rounded-2xl bg-[#0f172a] text-white text-sm font-semibold hover:bg-[#1e293b] transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {kycLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</> : "Submit KYC"}
+                  </button>
+                )}
+              </div>
+            );
+          })()}
 
         </motion.div>
       </div>

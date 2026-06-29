@@ -31,8 +31,10 @@ export const roleLabel = (name) => {
 // Override labels for specific full permission names (e.g. "cash-in.approve").
 // Falls back to capitalising the action part of the permission name.
 const PERMISSION_LABELS = {
-  "cash-in.approve":  "Cashier",
-  "cash-out.approve": "Cashier",
+  "cash-in.approve":    "Cashier",
+  "cash-out.approve":   "Cashier",
+  "reconcile.approve":        "Reconcile",
+  "reconciliation.approve":  "Reconcile",
 };
 
 export const permissionLabel = (fullName) => {

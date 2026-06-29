@@ -12,19 +12,29 @@ const VerifierAvatars = ({ requiredVerifiers = [], isRejected = false }) => {
 
   const handleToggle = useCallback(
     (e) => {
-      // Stop ALL other actions in the table
       e.preventDefault();
       e.stopPropagation();
       e.nativeEvent.stopImmediatePropagation();
 
       if (!isOpen && triggerRef.current) {
         const rect = triggerRef.current.getBoundingClientRect();
-        setCoords({
-          top: rect.top,
-          bottom: rect.bottom,
-          left: rect.left + rect.width / 2,
-          flipDown: rect.top < 200,
-        });
+        const W = 256;
+        const midY = rect.top + rect.height / 2;
+
+        // Prefer left side if there's enough room, otherwise right
+        if (rect.left >= W + 4) {
+          setCoords({
+            placement: "left",
+            x: rect.left,   // right edge of popover flush with avatar left
+            y: midY,
+          });
+        } else {
+          setCoords({
+            placement: "right",
+            x: rect.right,  // left edge of popover flush with avatar right
+            y: midY,
+          });
+        }
       }
       setIsOpen((prev) => !prev);
     },
@@ -69,14 +79,16 @@ const VerifierAvatars = ({ requiredVerifiers = [], isRejected = false }) => {
             />
 
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 10 }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
               style={{
                 position: "fixed",
-                top: coords.flipDown ? `${coords.bottom + 8}px` : `${coords.top - 8}px`,
-                left: `${coords.left}px`,
-                transform: coords.flipDown ? "translateX(-50%)" : "translate(-50%, -100%)",
+                top: `${coords.y}px`,
+                left: coords.placement === "left"
+                  ? `${coords.x - 256}px`   // right edge of popover = avatar left edge
+                  : `${coords.x}px`,         // left edge of popover = avatar right edge
+                y: "-50%",
                 pointerEvents: "auto",
               }}
               className="w-64 bg-[#0B1120] text-white rounded-xl shadow-2xl p-4 border border-slate-700"
@@ -118,8 +130,14 @@ const VerifierAvatars = ({ requiredVerifiers = [], isRejected = false }) => {
                   </div>
                 ))}
               </div>
-              {/* Arrow */}
-              <div className={`absolute left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0B1120] border-slate-700 rotate-45 ${coords.flipDown ? "-top-1.5 border-l border-t" : "-bottom-1.5 border-r border-b"}`} />
+              {/* Arrow — points toward the trigger avatar */}
+              <div
+                className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-[#0B1120] border-slate-700 rotate-45 ${
+                  coords.placement === "left"
+                    ? "-right-1.5 border-t border-r"
+                    : "-left-1.5 border-b border-l"
+                }`}
+              />
             </motion.div>
           </div>,
           document.body,
