@@ -86,7 +86,7 @@ const MonthGrid = ({ monthStart, from, to, onPick }) => {
  * @param {string} preset
  * @param {(next:{from_date:string,to_date:string,preset:string}) => void} onChange
  */
-const DateRangePicker = ({ value = { from_date: "", to_date: "" }, preset = "all", onChange }) => {
+const DateRangePicker = ({ value = { from_date: "", to_date: "" }, preset = "all", onChange, className = "" }) => {
   const [open, setOpen] = useState(false);
   // Anchor the popover by its top + right edge. Right-anchoring keeps the wide
   // dual-calendar on-screen and, unlike a transform, isn't clobbered by Framer
@@ -142,7 +142,7 @@ const DateRangePicker = ({ value = { from_date: "", to_date: "" }, preset = "all
         ref={triggerRef}
         type="button"
         onClick={() => (open ? setOpen(false) : openPopover())}
-        className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 hover:border-indigo-400 transition-colors cursor-pointer"
+        className={`flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 hover:border-indigo-400 transition-colors cursor-pointer ${className}`}
       >
         <Calendar size={15} className="text-[#1a73e8]" />
         <span className="text-sm font-bold text-gray-700 whitespace-nowrap">{buttonLabel(preset, value.from_date, value.to_date)}</span>

@@ -19,7 +19,7 @@ import ApprovalCell from "../../components/cashin/ApprovalCell";
 import CashFilters from "../../components/global/cashFilters/CashFilters";
 import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 
-const DEFAULT_FILTERS = { search: "", from_date: "", to_date: "", preset: "all", per_page: 500, page: 1 };
+const DEFAULT_FILTERS = { search: "", from_date: "", to_date: "", preset: "all", per_page: 500, page: 1, vault_id: "", verifier_status: "", approver_status: "", min_amount: "", max_amount: "" };
 
 const DENOM_NOTES = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
 const INITIAL_DENOMINATIONS = Object.fromEntries(DENOM_NOTES.map((n) => [n, 0]));
@@ -63,6 +63,11 @@ const CashIn = () => {
       to_date: filters.to_date || undefined,
       per_page: filters.per_page,
       page: filters.page,
+      vault_id: filters.vault_id || undefined,
+      verifier_status: filters.verifier_status || undefined,
+      approver_status: filters.approver_status || undefined,
+      min_amount: filters.min_amount || undefined,
+      max_amount: filters.max_amount || undefined,
     })
       .then((res) => {
         setCashIns(res?.data?.data || []);

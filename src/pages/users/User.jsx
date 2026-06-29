@@ -12,7 +12,7 @@ import UserViewDrawer from "../../components/user/UserViewDrawer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePermissions } from "../../hooks/usePermissions";
 import { useSelector } from "react-redux";
-import { roleLabel } from "../../utils/roleLabel";
+import { roleLabel, ROLE_COLUMN_ORDER } from "../../utils/roleLabel";
 import { selectAuthUser, selectIsAdmin, selectIsSuperAdmin } from "../../store/authSlice";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -206,8 +206,17 @@ const User = () => {
     return users.filter((user) => !user.roles?.some((role) => SUPERADMIN_NAMES.has(role.name)));
   }, [users, isSuperAdmin]);
 
-  // ── Stable non-superadmin roles list ──
-  const visibleRoles = useMemo(() => roles.filter((role) => !SUPERADMIN_NAMES.has(role.name)), [roles]);
+  // ── Stable non-superadmin roles list, sorted to match the capability matrix drawer ──
+  const visibleRoles = useMemo(() => {
+    const filtered = roles.filter((role) => !SUPERADMIN_NAMES.has(role.name));
+    return [...filtered].sort((a, b) => {
+      const ai = ROLE_COLUMN_ORDER.indexOf(a.name.toLowerCase());
+      const bi = ROLE_COLUMN_ORDER.indexOf(b.name.toLowerCase());
+      const aPos = ai === -1 ? Infinity : ai;
+      const bPos = bi === -1 ? Infinity : bi;
+      return aPos - bPos;
+    });
+  }, [roles]);
 
   // ── Vault selection handler ──
   const handleVaultChange = useCallback((userId, vaultId) => {
@@ -388,9 +397,9 @@ const User = () => {
             className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-2xl focus:ring-2 ring-blue-100 outline-none text-gray-700 font-medium"
           />
         </div>
-        <button className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 rounded-2xl text-gray-500 font-bold text-sm hover:bg-gray-50 transition-all">
+    {/*    <button className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 rounded-2xl text-gray-500 font-bold text-sm hover:bg-gray-50 transition-all">
           <Filter className="w-4 h-4" /> Advanced Filters
-        </button>
+        </button>*/}
       </div>
 
       {/* Data Table */}
