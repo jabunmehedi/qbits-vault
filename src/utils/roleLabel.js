@@ -1,3 +1,18 @@
+// Canonical display order for role columns in the user list table.
+// Matches the capability matrix drawer layout (left-to-right, top-to-bottom).
+export const ROLE_COLUMN_ORDER = [
+  "admin",
+  "bag create",
+  "cash-in verifier",
+  "cash-in cashier",
+  "cash-out verifier",
+  "cash-out cashier",
+  "custodian",
+  "auditor",
+  "audit initiator",
+  "reconciler",
+];
+
 // Frontend-only display labels for vault capability matrix roles.
 const ROLE_LABELS = {
   "cash-in verifier": "Cash-In Verifier",

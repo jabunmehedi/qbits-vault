@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { ArrowDownCircle, ArrowUpCircle, FileText, Landmark, Loader2, Receipt, RefreshCw, Scale, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, FileText, Landmark, Loader2, Receipt, RefreshCw, Scale, Search, SlidersHorizontal, TrendingDown, TrendingUp, Wallet, X } from "lucide-react";
+import DateRangePicker from "../global/dateRangePicker/DateRangePicker";
 import { GetVaultStatement } from "../../services/Reports";
 import DataTable from "../global/dataTable/DataTable";
 import ReconcileReportDrawer from "./ReconcileReportDrawer";
@@ -30,13 +31,29 @@ const getStatementNextCursor = (page) => {
   return payload?.next_cursor ?? payload?.pagination?.next_cursor ?? undefined;
 };
 
-const VaultStatement = ({ vault, fromDate, toDate }) => {
+const VaultStatement = ({ vault, fromDate, toDate, preset, txnType, minCredit, maxCredit, minDebit, maxDebit, minBalance, maxBalance, advancedFilterCount = 0, onDateRangeChange, onOpenFilters, hasActiveFilters, onClearFilters }) => {
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
   const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ["vaultStatement", vault.id, fromDate, toDate],
+    queryKey: ["vaultStatement", vault.id, fromDate, toDate, txnType, minCredit, maxCredit, minDebit, maxDebit, minBalance, maxBalance, search],
     queryFn: async ({ pageParam }) => {
       const res = await GetVaultStatement(vault.id, {
-        from_date: fromDate || undefined,
-        to_date: toDate || undefined,
+        from_date:   fromDate   || undefined,
+        to_date:     toDate     || undefined,
+        txn_type:    txnType    || undefined,
+        min_credit:  minCredit  || undefined,
+        max_credit:  maxCredit  || undefined,
+        min_debit:   minDebit   || undefined,
+        max_debit:   maxDebit   || undefined,
+        min_balance: minBalance || undefined,
+        max_balance: maxBalance || undefined,
+        tran_id:     search     || undefined,
         cursor: pageParam,
         per_page: 20,
       });
@@ -184,55 +201,93 @@ const VaultStatement = ({ vault, fromDate, toDate }) => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm">
-            <Wallet size={16} className="text-[#1a73e8]" />
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Current Balance</p>
-              <p className="text-lg font-black text-[#1a2b4b] leading-tight">৳{fmt(closing)}</p>
+          {/* Statement totals inline with vault name */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="bg-white border border-slate-200 rounded-xl px-5 py-3 flex items-center gap-3 min-w-[180px]">
+              <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
+                <TrendingUp size={16} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Credit</p>
+                <p className="text-base font-black text-emerald-600 mt-0.5 truncate">৳{fmt(totalCredit)}</p>
+              </div>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl px-5 py-3 flex items-center gap-3 min-w-[180px]">
+              <div className="w-9 h-9 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center shrink-0">
+                <TrendingDown size={16} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Debit</p>
+                <p className="text-base font-black text-rose-600 mt-0.5 truncate">৳{fmt(totalDebit)}</p>
+              </div>
+            </div>
+            <div className="bg-[#1a73e8] rounded-xl px-5 py-3 flex items-center gap-3 shadow-lg shadow-blue-200 min-w-[200px]">
+              <div className="w-9 h-9 rounded-lg bg-white/20 text-white flex items-center justify-center shrink-0">
+                <Landmark size={16} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-white/70 uppercase tracking-wider">Closing Balance</p>
+                <p className="text-base font-black text-white mt-0.5 truncate">৳{fmt(closing)}</p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Statement totals */}
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {/* Opening Balance card hidden for now — not needed.
-          <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
-              <Wallet size={16} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Opening Balance</p>
-              <p className="text-sm font-black text-slate-700 mt-0.5 truncate">৳{fmt(opening)}</p>
-            </div>
+        {/* Filter row: search + date range + filters + clear */}
+        <div className="mt-4 flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-48">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search by transaction reference..."
+              className="w-full pl-9 pr-8 py-2 border border-gray-200 rounded-lg text-sm uppercase text-gray-700 placeholder:text-gray-400 placeholder:normal-case focus:outline-none focus:border-indigo-400 bg-white"
+            />
+            {searchInput && (
+              <button
+                type="button"
+                onClick={() => { setSearchInput(""); setSearch(""); }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
-          */}
-          <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
-              <TrendingUp size={16} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Credit</p>
-              <p className="text-sm font-black text-emerald-600 mt-0.5 truncate">৳{fmt(totalCredit)}</p>
-            </div>
-          </div>
-          <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center shrink-0">
-              <TrendingDown size={16} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Debit</p>
-              <p className="text-sm font-black text-rose-600 mt-0.5 truncate">৳{fmt(totalDebit)}</p>
-            </div>
-          </div>
-          <div className="bg-[#1a73e8] rounded-xl px-4 py-3 flex items-center gap-3 shadow-lg shadow-blue-200">
-            <div className="w-9 h-9 rounded-lg bg-white/20 text-white flex items-center justify-center shrink-0">
-              <Landmark size={16} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold text-white/70 uppercase tracking-wider">Closing Balance</p>
-              <p className="text-sm font-black text-white mt-0.5 truncate">৳{fmt(closing)}</p>
-            </div>
-          </div>
+
+          <DateRangePicker
+            value={{ from_date: fromDate, to_date: toDate }}
+            preset={preset}
+            onChange={onDateRangeChange}
+          />
+
+          <button
+            type="button"
+            onClick={onOpenFilters}
+            className={`relative flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+              advancedFilterCount > 0
+                ? "border-[#1a73e8] text-[#1a73e8] bg-blue-50"
+                : "border-gray-200 text-gray-600 hover:border-[#1a73e8] hover:text-[#1a73e8]"
+            }`}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            Filters
+            {advancedFilterCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#1a73e8] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                {advancedFilterCount}
+              </span>
+            )}
+          </button>
+
+          {(hasActiveFilters || searchInput) && (
+            <button
+              type="button"
+              onClick={() => { setSearchInput(""); setSearch(""); onClearFilters?.(); }}
+              className="flex items-center gap-1 px-3 py-2 bg-red-50 border border-red-200 text-red-500 text-sm rounded-lg hover:bg-red-100 transition cursor-pointer"
+            >
+              <X className="w-3 h-3" /> Clear
+            </button>
+          )}
         </div>
       </div>
 

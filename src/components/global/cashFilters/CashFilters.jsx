@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, SlidersHorizontal } from "lucide-react";
 import DateRangePicker from "../dateRangePicker/DateRangePicker";
+import CashFilterDrawer from "./CashFilterDrawer";
 
 const PER_PAGE_OPTIONS = [50, 100, 250, 500, 1000];
 
@@ -15,6 +16,7 @@ const PER_PAGE_OPTIONS = [50, 100, 250, 500, 1000];
  */
 const CashFilters = ({ filters, onChange, onReset, searchPlaceholder = "Search by bag barcode..." }) => {
   const [searchInput, setSearchInput] = useState(filters.search || "");
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Debounce search so we don't refetch on every keystroke. The local input is
   // the source of truth while typing; external clears reset it explicitly below.
@@ -30,9 +32,13 @@ const CashFilters = ({ filters, onChange, onReset, searchPlaceholder = "Search b
     onReset();
   };
 
-  const hasActiveFilters = filters.search || filters.from_date || filters.to_date || (filters.preset && filters.preset !== "all");
+  const hasActiveFilters = filters.search || filters.from_date || filters.to_date || (filters.preset && filters.preset !== "all") ||
+    filters.vault_id || filters.verifier_status || filters.approver_status || filters.min_amount || filters.max_amount;
+
+  const advancedFilterCount = [filters.vault_id, filters.verifier_status, filters.approver_status, filters.min_amount, filters.max_amount].filter(Boolean).length;
 
   return (
+    <>
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
       <div className="flex items-center gap-2 flex-wrap">
         {/* Search */}
@@ -63,6 +69,25 @@ const CashFilters = ({ filters, onChange, onReset, searchPlaceholder = "Search b
           onChange={(next) => onChange(next)}
         />
 
+        {/* Advanced filters */}
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          className={`relative flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+            advancedFilterCount > 0
+              ? "border-[#1a73e8] text-[#1a73e8] bg-blue-50"
+              : "border-gray-200 text-gray-600 hover:border-[#1a73e8] hover:text-[#1a73e8]"
+          }`}
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+          Filters
+          {advancedFilterCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#1a73e8] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+              {advancedFilterCount}
+            </span>
+          )}
+        </button>
+
         {/* Per page */}
         <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
           <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">Per Page</span>
@@ -91,6 +116,14 @@ const CashFilters = ({ filters, onChange, onReset, searchPlaceholder = "Search b
         )}
       </div>
     </div>
+
+    <CashFilterDrawer
+      isOpen={drawerOpen}
+      onClose={() => setDrawerOpen(false)}
+      filters={filters}
+      onChange={(patch) => onChange(patch)}
+    />
+    </>
   );
 };
 
