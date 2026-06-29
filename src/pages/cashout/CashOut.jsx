@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Plus, Loader2 } from "lucide-react";
 import DataTable from "../../components/global/dataTable/DataTable";
 import CashFilters from "../../components/global/cashFilters/CashFilters";
@@ -32,6 +33,125 @@ const BagIds = ({ bags }) => {
 
 const DEFAULT_FILTERS = { search: "", from_date: "", to_date: "", preset: "all", per_page: 500, page: 1, vault_id: "", verifier_status: "", approver_status: "", min_amount: "", max_amount: "" };
 
+const CashOutActionCell = ({ row, isSuperAdmin, hasPermission, activeActionMenuId, setActiveActionMenuId, deleteLoading, handleDeleteSubmit, handleResendCashOut, resendLoadingId, setEditCashOutData, setOpenCashOutReqDrawer, addToast }) => {
+  const triggerRef = useRef(null);
+  const [menuPos, setMenuPos] = useState(null);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+
+  const isMenuOpen = activeActionMenuId === row.id;
+
+  const isLocked =
+    row?.required_verifiers?.some((v) => v?.verified) ||
+    row?.verifier_status !== "pending" ||
+    row?.approver_status !== "pending";
+
+  const canEdit = !isLocked && (isSuperAdmin || hasPermission("cash-out.edit"));
+  const canDelete = row?.verifier_status !== "verified" && (isSuperAdmin || hasPermission("cash-out.delete"));
+
+  if (!canEdit && !canDelete) return null;
+
+  const toggleMenu = (e) => {
+    e.stopPropagation();
+    if (isMenuOpen) {
+      setActiveActionMenuId(null);
+      setMenuPos(null);
+    } else {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (rect) setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+      setActiveActionMenuId(row.id);
+      setIsConfirmingDelete(false);
+    }
+  };
+
+  const handleEdit = async (e) => {
+    e.stopPropagation();
+    setActiveActionMenuId(null);
+    try {
+      const res = await GetCashOut(row.id);
+      setEditCashOutData(res.data?.data || res.data || res);
+      setOpenCashOutReqDrawer(true);
+    } catch {
+      addToast({ message: "An error occurred while fetching details.", type: "error" });
+    }
+  };
+
+  return (
+    <div className="relative inline-block text-left">
+      <button
+        ref={triggerRef}
+        onClick={toggleMenu}
+        className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 focus:outline-none transition-colors duration-200 cursor-pointer"
+        aria-label="Actions"
+      >
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 12c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+        </svg>
+      </button>
+
+      {isMenuOpen && menuPos && createPortal(
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: -5 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: -5 }}
+          transition={{ duration: 0.15 }}
+          style={{ position: "fixed", top: menuPos.top, right: menuPos.right, zIndex: 9999 }}
+          className={`bg-white border border-gray-200 divide-y divide-gray-100 rounded-lg shadow-xl overflow-hidden transition-all ${isConfirmingDelete ? "w-44" : "w-28"}`}
+        >
+          <AnimatePresence mode="wait">
+            {!isConfirmingDelete ? (
+              <motion.div key="options" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                {canEdit && (
+                  <button
+                    onClick={handleEdit}
+                    className="flex items-center w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors gap-2 font-medium cursor-pointer"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </button>
+                )}
+                {canDelete && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setIsConfirmingDelete(true); }}
+                    className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors gap-2 font-medium cursor-pointer"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete
+                  </button>
+                )}
+              </motion.div>
+            ) : (
+              <motion.div key="confirm" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="py-4 text-center">
+                <p className="text-xs text-gray-500 font-medium mb-2">Are you sure you want to delete?</p>
+                <div className="flex justify-center gap-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setIsConfirmingDelete(false); }}
+                    disabled={deleteLoading}
+                    className="px-2 py-1 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={deleteLoading}
+                    onClick={(e) => { e.stopPropagation(); handleDeleteSubmit(row.id); }}
+                    className="px-2 py-1 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center min-w-[58px]"
+                  >
+                    {deleteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm"}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>,
+        document.body
+      )}
+    </div>
+  );
+};
+
 const CashOut = () => {
   const [vaults, setVaults] = useState([]);
   const [selectedVaultId, setSelectedVaultId] = useState(null);
@@ -46,7 +166,6 @@ const CashOut = () => {
   const [activeVerifyId, setActiveVerifyId] = useState(null);
   const [activeApproveId, setActiveApproveId] = useState(null);
   const [activeActionMenuId, setActiveActionMenuId] = useState(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [resendLoadingId, setResendLoadingId] = useState(null);
 
@@ -633,176 +752,22 @@ const CashOut = () => {
       key: "actions",
       noClip: true,
       className: "w-[4%] relative",
-      render: (row) => {
-        const isMenuOpen = activeActionMenuId === row.id;
-        const isConfirmingDelete = deleteConfirmId === row.id;
-        // Editable only while fully pending — once any verifier has acted, or it's
-        // been rejected/approved, the cash-out is locked (mirrors cash-in + backend guard).
-        const isLocked =
-          row?.required_verifiers?.some((v) => v?.verified) ||
-          row?.verifier_status !== "pending" ||
-          row?.approver_status !== "pending";
-
-        const toggleMenu = (e) => {
-          e.stopPropagation();
-          setActiveActionMenuId(isMenuOpen ? null : row.id);
-          setDeleteConfirmId(null);
-        };
-
-        const handleEdit = async (e) => {
-          e.stopPropagation();
-          setActiveActionMenuId(null);
-
-          try {
-            // 1. Call the API to get up-to-date details for this specific cashout
-            const res = await GetCashOut(row.id);
-
-            // if (res?.success || res?.data) {
-            // 2. Extract the data object based on your API structure (e.g., res.data or res.data.data)
-            const freshCashOutData = res.data?.data || res.data || res;
-
-            // 3. Set the specific data into your edit state
-            setEditCashOutData(freshCashOutData);
-
-            // 4. Open the Cash Out Request Drawer
-            setOpenCashOutReqDrawer(true);
-            // } else {
-            //   addToast({ message: res?.message || "Failed to fetch cashout details.", type: "error" });
-            // }
-          } catch (err) {
-            console.error("Error fetching specific cashout item details:", err);
-            addToast({ message: "An error occurred while fetching details.", type: "error" });
-          }
-        };
-
-        const handleDeleteClick = (e) => {
-          e.stopPropagation(); // Stop parent triggers
-          setDeleteConfirmId(row.id); // Shift dropdown view into inline verification mode
-        };
-
-        const handleCancelDelete = (e) => {
-          e.stopPropagation();
-          setDeleteConfirmId(null);
-        };
-
-        const isRejected = row?.verifier_status === "rejected" || row?.approver_status === "rejected";
-        const canEdit = !isLocked && (isSuperAdmin || hasPermission("cash-out.edit"));
-        const canDelete = row?.verifier_status !== "verified" && (isSuperAdmin || hasPermission("cash-out.delete"));
-        const canResend = isRejected && (isSuperAdmin || hasPermission("cash-out.create"));
-        if (!canEdit && !canDelete && !canResend) return null;
-
-        return (
-          <div className="relative inline-block text-left">
-            <button
-              onClick={toggleMenu}
-              className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 focus:outline-none transition-colors duration-200 cursor-pointer"
-              aria-label="Actions"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 12c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
-              </svg>
-            </button>
-
-            {isMenuOpen && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: -5 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                transition={{ duration: 0.15 }}
-                className={`absolute right-0 mt-1 bg-white border border-gray-200 divide-y divide-gray-100 rounded-lg shadow-xl z-50 overflow-hidden transition-all ${
-                  isConfirmingDelete ? "w-44" : "w-28"
-                }`}
-              >
-                <AnimatePresence mode="wait">
-                  {!isConfirmingDelete ? (
-                    <motion.div key="options" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                      {/* Resend Option */}
-                      {canResend && (
-                        <button
-                          disabled={resendLoadingId === row.id}
-                          onClick={(e) => { e.stopPropagation(); handleResendCashOut(row.id); }}
-                          className="flex items-center w-full px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors gap-2 font-medium cursor-pointer disabled:opacity-50"
-                        >
-                          {resendLoadingId === row.id ? <Loader2 className="w-4 h-4 animate-spin" /> : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                          )}
-                          Update
-                        </button>
-                      )}
-
-                      {/* Edit Option */}
-                      {canEdit && (
-                        <button
-                          onClick={handleEdit}
-                          className="flex items-center w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors gap-2 font-medium cursor-pointer"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                            />
-                          </svg>
-                          Edit
-                        </button>
-                      )}
-
-                      {/* Delete Option Trigger */}
-                      {canDelete && (
-                        <button
-                          onClick={handleDeleteClick}
-                          className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors gap-2 font-medium cursor-pointer"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
-                          Delete
-                        </button>
-                      )}
-
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="confirm"
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      className="py-4 text-center"
-                    >
-                      <p className="text-xs text-gray-500 font-medium mb-2">Are you sure you want to delete?</p>
-                      <div className="flex justify-center gap-2">
-                        <button
-                          onClick={handleCancelDelete}
-                          disabled={deleteLoading}
-                          className="px-2 py-1 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          disabled={deleteLoading}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteSubmit(row.id);
-                          }}
-                          className="px-2 py-1 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center min-w-[58px]"
-                        >
-                          {deleteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm"}
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            )}
-          </div>
-        );
-      },
+      render: (row) => (
+        <CashOutActionCell
+          row={row}
+          isSuperAdmin={isSuperAdmin}
+          hasPermission={hasPermission}
+          activeActionMenuId={activeActionMenuId}
+          setActiveActionMenuId={setActiveActionMenuId}
+          deleteLoading={deleteLoading}
+          handleDeleteSubmit={handleDeleteSubmit}
+          handleResendCashOut={handleResendCashOut}
+          resendLoadingId={resendLoadingId}
+          setEditCashOutData={setEditCashOutData}
+          setOpenCashOutReqDrawer={setOpenCashOutReqDrawer}
+          addToast={addToast}
+        />
+      ),
     },
   ];
 
