@@ -54,9 +54,9 @@ export const UserNewPassword = async (id, data) => {
     return error?.response?.data;
   }
 };
-export const GetRoles = async () => {
+export const GetRoles = async (params = {}) => {
   try {
-    const response = await axios.get(`/roles?exclude=permissions`);
+    const response = await axios.get(`/roles`, { params });
     return response?.data;
   } catch (error) {
     console.error(error?.response?.data?.message);

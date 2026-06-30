@@ -5,9 +5,8 @@ import { useToast } from "../../hooks/useToast";
 import { Check, ChevronDown, Eye, EyeOff, Loader2, Lock, Mail, Shield, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CreateUser } from "../../services/User";
-import { roleLabel } from "../../utils/roleLabel";
+import { isSuperAdminRole, roleLabel } from "../../utils/roleLabel";
 
-const SUPERADMIN_NAMES = ["Superadmin", "Super Admin", "superadmin", "super-admin"];
 const INITIAL_FORM = { name: "", email: "", password: "", role: [] };
 const FIELD_CONFIG = {
   name: { label: "Name", placeholder: "Enter full name", Icon: User, type: "text" },
@@ -27,7 +26,7 @@ const CreateNewUserModal = ({ setOpenModal, onUserCreated, roles, roleSearch, se
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
 
-  const assignableRoles = roles.filter((role) => !SUPERADMIN_NAMES.includes(role.name));
+  const assignableRoles = roles.filter((role) => role?.type === "generic" && !isSuperAdminRole(role?.slug || role?.name));
   const filteredRoles = assignableRoles.filter((role) => role?.name?.toLowerCase().includes((roleSearch || "").toLowerCase()));
 
   const handleInputChange = (field, value) => {
@@ -37,14 +36,18 @@ const CreateNewUserModal = ({ setOpenModal, onUserCreated, roles, roleSearch, se
 
   const toggleRole = (role) => {
     if (errors.role) setErrors((prev) => ({ ...prev, role: null }));
-    const isSelected = formData.role.includes(role.id);
+    const isSelected = formData.role[0] === role.id;
+
     if (isSelected) {
-      setFormData((prev) => ({ ...prev, role: prev.role.filter((id) => id !== role.id) }));
-      setSelectedRoles((prev) => prev.filter((name) => name !== role.name));
-    } else {
-      setFormData((prev) => ({ ...prev, role: [...prev.role, role.id] }));
-      setSelectedRoles((prev) => [...prev, role.name]);
+      setFormData((prev) => ({ ...prev, role: [] }));
+      setSelectedRoles([]);
+      closeDropdown();
+      return;
     }
+
+    setFormData((prev) => ({ ...prev, role: [role.id] }));
+    setSelectedRoles([role.name]);
+    closeDropdown();
   };
 
   const openDropdown = () => {
@@ -58,7 +61,7 @@ const CreateNewUserModal = ({ setOpenModal, onUserCreated, roles, roleSearch, se
   const closeDropdown = () => setDropdownOpen(false);
 
   useEffect(() => {
-    const currentRoleNames = assignableRoles.filter((role) => formData?.role?.includes(role.id)).map((role) => role.name);
+    const currentRoleNames = assignableRoles.filter((role) => formData?.role?.[0] === role.id).map((role) => role.name);
     setSelectedRoles(currentRoleNames);
   }, [formData.role, roles]);
 
@@ -87,7 +90,7 @@ const CreateNewUserModal = ({ setOpenModal, onUserCreated, roles, roleSearch, se
     setErrors({});
 
     if (!formData.role || !formData.role.length) {
-      setErrors((prev) => ({ ...prev, role: "Please select at least one role" }));
+      setErrors((prev) => ({ ...prev, role: "Please select a role" }));
       return;
     }
 
@@ -163,7 +166,7 @@ const CreateNewUserModal = ({ setOpenModal, onUserCreated, roles, roleSearch, se
 
         {/* Role Dropdown trigger */}
         <div>
-          <label className="block text-xs font-bold text-gray-500 uppercase mb-1 tracking-wide">Assign Roles</label>
+          <label className="block text-xs font-bold text-gray-500 uppercase mb-1 tracking-wide">Assign Role</label>
           <button
             ref={buttonRef}
             type="button"
@@ -176,15 +179,11 @@ const CreateNewUserModal = ({ setOpenModal, onUserCreated, roles, roleSearch, se
               <Shield size={15} className={`shrink-0 ${errors.role ? "text-red-400" : "text-gray-400"}`} />
               <span className={`flex-1 min-w-0 ${formData.role?.length ? "text-gray-900" : "text-gray-400"}`}>
                 {selectedRoles.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedRoles.map((roleName, index) => (
-                      <span key={index} className="inline-block bg-[#1a73e8] text-white text-xs px-2.5 py-0.5 rounded-full uppercase font-semibold">
-                        {roleLabel(roleName)}
-                      </span>
-                    ))}
-                  </div>
+                  <span className="inline-flex bg-[#1a73e8] text-white text-xs px-2.5 py-0.5 rounded-full uppercase font-semibold">
+                    {roleLabel(selectedRoles[0])}
+                  </span>
                 ) : (
-                  "Select roles..."
+                  "Select role..."
                 )}
               </span>
             </div>
@@ -251,11 +250,11 @@ const CreateNewUserModal = ({ setOpenModal, onUserCreated, roles, roleSearch, se
                       key={role.id}
                       onClick={() => toggleRole(role)}
                       className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-colors ${
-                        formData.role.includes(role.id) ? "bg-blue-50" : "hover:bg-gray-50"
+                        formData.role[0] === role.id ? "bg-blue-50" : "hover:bg-gray-50"
                       }`}
                     >
                       <span className="text-xs font-bold text-gray-700 uppercase">{roleLabel(role?.name)}</span>
-                      {formData.role.includes(role.id) && <Check size={14} className="text-blue-600 shrink-0" />}
+                      {formData.role[0] === role.id && <Check size={14} className="text-blue-600 shrink-0" />}
                     </div>
                   ))
                 )}

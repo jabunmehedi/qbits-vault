@@ -8,7 +8,7 @@ const PermissionRoute = ({ children, permission }) => {
 
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
 
-  // If the user is Superadmin, let them through immediately
+  // If the user is Super Admin, let them through immediately
   if (isSuperAdmin) {
     return <>{children}</>;
   }

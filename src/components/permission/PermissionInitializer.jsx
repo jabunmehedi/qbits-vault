@@ -6,7 +6,7 @@ import { Loader2 } from "lucide-react";
 
 const PermissionInitializer = ({ children }) => {
   const dispatch = useDispatch();
-  const { token, permissions, loading, isHydrated } = useSelector((state) => state.auth);
+  const { token, permissions, loading } = useSelector((state) => state.auth);
   const [isReady, setIsReady] = useState(false);
 
 

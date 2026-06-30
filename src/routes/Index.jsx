@@ -15,7 +15,7 @@ import ResetPasswordPage from "../components/resetPassword/ResetPassword";
 import PermissionRoute from "../components/permissionRoute/PermissionRoute";
 import VaultAudit from "../pages/settings/vaultAudit/VaultAudit";
 import Reports from "../pages/reports/Reports";
-import SystemPreferences from "../pages/systemPreferences/SystemPreferences";
+import Roles from "../pages/roles/Roles";
 
 const AppRoutes = () => {
   const Routes = [
@@ -45,6 +45,14 @@ const AppRoutes = () => {
           element: (
             <PermissionRoute permission="user.view">
               <User />
+            </PermissionRoute>
+          ),
+        },
+        {
+          path: "/roles",
+          element: (
+            <PermissionRoute permission="role.view">
+              <Roles />
             </PermissionRoute>
           ),
         },
@@ -93,26 +101,18 @@ const AppRoutes = () => {
           element: <Profile />,
         },
         {
-          path: "/settings/activity-log",
+          path: "/logs",
           element: (
-            <PermissionRoute permission="setting.log">
+            <PermissionRoute permission="log.view">
               <ActivityLog />
             </PermissionRoute>
           ),
         },
         {
-          path: "/settings/config-vault-audit",
+          path: "/reconcile/config-vault-audit",
           element: (
-            <PermissionRoute permission="setting.config_audit_view">
+            <PermissionRoute permission="reconciliation.config_audit_view">
               <VaultAudit />
-            </PermissionRoute>
-          ),
-        },
-        {
-          path: "/settings/system-preferences",
-          element: (
-            <PermissionRoute permission="setting.default_view">
-              <SystemPreferences />
             </PermissionRoute>
           ),
         },

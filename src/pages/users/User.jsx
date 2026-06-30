@@ -1,23 +1,21 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import DataTable from "../../components/global/dataTable/DataTable";
-import axiosConfig from "../../utils/axiosConfig";
 import { GetRoles, GetUsers } from "../../services/User";
-import { Check, ChevronDown, Shield, X, Search, Filter, Plus, Settings2, Building2 } from "lucide-react";
+import { Check, ChevronDown, SlidersHorizontal, X, Search, Plus, Building2 } from "lucide-react";
 import { CiMail } from "react-icons/ci";
-import PermissionViewer from "../../components/user/PermissionViewer";
 import CreateNewUserModal from "../../components/user/CreateNewUserModal";
-import RoleDrawer from "../../components/user/RoleDrawer";
 import Avatar from "../../components/helpers/Avatar";
 import UserViewDrawer from "../../components/user/UserViewDrawer";
+import PermissionViewer from "../../components/user/PermissionViewer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePermissions } from "../../hooks/usePermissions";
 import { useSelector } from "react-redux";
-import { roleLabel, ROLE_COLUMN_ORDER } from "../../utils/roleLabel";
-import { selectAuthUser, selectIsAdmin, selectIsSuperAdmin } from "../../store/authSlice";
+import { isSuperAdminRole, roleLabel, ROLE_COLUMN_ORDER } from "../../utils/roleLabel";
+import { selectIsSuperAdmin } from "../../store/authSlice";
+import axiosConfig from "../../utils/axiosConfig";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
-const SUPERADMIN_NAMES = new Set(["Superadmin", "Super Admin", "superadmin", "super_admin", "super-admin"]);
 
 // ─── Status color map ──────────────────────────────────────────────────────────
 const STATUS_COLOR = {
@@ -115,12 +113,11 @@ const VaultDropdown = ({ row, onVaultChange, selectedVaultId }) => {
 
 // ─── Main component ─────────────────────────────────────────────────────────────
 const User = () => {
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [roleDrawerOpen, setRoleDrawerOpen] = useState(false);
   const [openModel, setOpenModel] = useState(false);
   const [openUserViewDrawer, setOpenUserViewDrawer] = useState(false);
+  const [openPermissionViewer, setOpenPermissionViewer] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedPermissionUser, setSelectedPermissionUser] = useState(null);
   const [paginationData, setPaginationData] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
@@ -130,20 +127,17 @@ const User = () => {
   const [userVaultSelection, setUserVaultSelection] = useState({});
 
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
-  const isAdmin = useSelector(selectIsAdmin);
   const { hasPermission } = usePermissions();
   const queryClient = useQueryClient();
 
-  const loggedUser = useSelector(selectAuthUser);
 
   // ── Derived permission flags ──
-  const canViewUserDetail = useMemo(() => isSuperAdmin || (isAdmin && hasPermission("user.details")), [isSuperAdmin, isAdmin, hasPermission]);
-
-  const canManagePermissions = useMemo(() => isSuperAdmin || (isAdmin && hasPermission("permission.view")), [isSuperAdmin, isAdmin, hasPermission]);
-
-  const canCreateRole = useMemo(() => isSuperAdmin || (isAdmin && hasPermission("role.create")), [isSuperAdmin, isAdmin, hasPermission]);
-
-  const canCreateUser = useMemo(() => isSuperAdmin || (isAdmin && hasPermission("user.create")), [isSuperAdmin, isAdmin, hasPermission]);
+  const canViewUserDetail = useMemo(() => isSuperAdmin || hasPermission("user.details"), [isSuperAdmin, hasPermission]);
+  const canCreateUser = useMemo(() => isSuperAdmin || hasPermission("user.create"), [isSuperAdmin, hasPermission]);
+  const canManageUserPermissions = useMemo(
+    () => isSuperAdmin || hasPermission("role.manage_permissions"),
+    [isSuperAdmin, hasPermission],
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchTerm), 500);
@@ -207,33 +201,24 @@ const User = () => {
     },
   });
 
-  // ── React Query: Permissions ──
   const { data: permissions = [] } = useQuery({
     queryKey: ["permissions"],
     queryFn: async () => {
       const res = await axiosConfig.get("/permissions");
-      return res.data.data ?? res.data ?? [];
+      return res?.data?.data ?? res?.data ?? [];
     },
   });
 
-  const handlePermissionsSaved = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["users"] });
-  }, [queryClient]);
-
-  const handlePermissionsClose = useCallback(() => {
-    setDrawerOpen(false);
-    queryClient.invalidateQueries({ queryKey: ["users"] });
-  }, [queryClient]);
-
+  // ── React Query: Permissions ──
   // ── Filtered users — hide superadmins from non-superadmin viewers ──
   const filteredUsers = useMemo(() => {
     if (isSuperAdmin) return users;
-    return users.filter((user) => !user.roles?.some((role) => SUPERADMIN_NAMES.has(role.name)));
+    return users.filter((user) => !user.roles?.some((role) => isSuperAdminRole(role.slug || role.name)));
   }, [users, isSuperAdmin]);
 
   // ── Stable non-superadmin roles list, sorted to match the capability matrix drawer ──
   const visibleRoles = useMemo(() => {
-    const filtered = roles.filter((role) => !SUPERADMIN_NAMES.has(role.name));
+    const filtered = roles.filter((role) => !isSuperAdminRole(role.slug || role.name));
     return [...filtered].sort((a, b) => {
       const ai = ROLE_COLUMN_ORDER.indexOf(a.name.toLowerCase());
       const bi = ROLE_COLUMN_ORDER.indexOf(b.name.toLowerCase());
@@ -242,6 +227,11 @@ const User = () => {
       return aPos - bPos;
     });
   }, [roles]);
+
+  const genericRoles = useMemo(
+    () => roles.filter((role) => role.type === "generic" && !isSuperAdminRole(role.slug || role.name)),
+    [roles],
+  );
 
   // ── Vault selection handler ──
   const handleVaultChange = useCallback((userId, vaultId) => {
@@ -258,16 +248,15 @@ const User = () => {
     [canViewUserDetail],
   );
 
-  const handleOpenPermissions = useCallback((row) => {
-    setSelectedUser(row);
-    setDrawerOpen(true);
-  }, []);
-
   const handleCloseModal = useCallback((val) => {
     setOpenModel(val);
   }, []);
 
   const handleUserCreated = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["users"] });
+  }, [queryClient]);
+
+  const handlePermissionSaved = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["users"] });
   }, [queryClient]);
 
@@ -311,23 +300,6 @@ const User = () => {
     };
 
     // ── Manage (permissions) column ──
-    const manageColumn = canManagePermissions
-      ? {
-          title: "MANAGE",
-          key: "manage",
-          className: "text-left w-40",
-          render: (row) => (
-            <button
-              onClick={() => handleOpenPermissions(row)}
-              className="flex items-center gap-2 border shadow border-slate-300 px-4 py-1.5 rounded-lg text-[#1a2b4b] font-bold text-[11px] uppercase tracking-widest hover:bg-[#1a2b4b] hover:text-white transition-all active:scale-95"
-            >
-              <Settings2 className="w-3.5 h-3.5" />
-              Permissions
-            </button>
-          ),
-        }
-      : null;
-
     // ── Role columns — checked based on selected vault's role list ──
     const roleColumns = visibleRoles.map((role) => ({
       title: roleLabel(role.name).toUpperCase(),
@@ -363,16 +335,37 @@ const User = () => {
       },
     }));
 
-    return [identityColumn, ...(manageColumn ? [manageColumn] : []), ...roleColumns];
+    const permissionColumn = {
+      title: "MANAGE",
+      key: "permissions",
+      className: "text-center w-[180px]",
+      noClip: true,
+      render: (row) => (
+        <div className="flex justify-center">
+          {canManageUserPermissions && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedPermissionUser(row);
+                setOpenPermissionViewer(true);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#d7dee9] text-[10px] font-bold uppercase tracking-[0.18em] text-[#1a2b4b] shadow-sm hover:border-blue-200 hover:text-blue-600 transition-all"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              Permissions
+            </button>
+          )}
+        </div>
+      ),
+    };
+
+    return [identityColumn, permissionColumn, ...roleColumns];
   }, [
     visibleRoles,
-    canManagePermissions,
     canViewUserDetail,
-    isSuperAdmin,
-    loggedUser,
+    canManageUserPermissions,
     userVaultSelection,
     handleOpenUserView,
-    handleOpenPermissions,
     handleVaultChange,
   ]);
 
@@ -389,14 +382,6 @@ const User = () => {
         </div>
 
         <div className="flex gap-4">
-          {canCreateRole && (
-            <button
-              onClick={() => setRoleDrawerOpen(true)}
-              className="flex items-center gap-2 px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 font-bold text-xs lg:text-sm shadow-sm hover:shadow-md transition-all"
-            >
-              <Shield className="w-4 h-4" /> Create Role
-            </button>
-          )}
           {canCreateUser && (
             <button
               onClick={() => setOpenModel(true)}
@@ -431,12 +416,15 @@ const User = () => {
       <DataTable columns={columns} data={filteredUsers} paginationData={paginationData} changePage={handlePageChange} isLoading={isUsersLoading} className="h-[calc(100vh-200px)]" />
 
       <UserViewDrawer isOpen={openUserViewDrawer} onClose={() => setOpenUserViewDrawer(false)} userId={selectedUserId} />
+      <PermissionViewer
+        isOpen={openPermissionViewer}
+        onClose={() => setOpenPermissionViewer(false)}
+        user={selectedPermissionUser}
+        permissions={permissions}
+        onSaved={handlePermissionSaved}
+      />
 
-      {openModel && <CreateNewUserModal setOpenModal={handleCloseModal} roles={roles} onUserCreated={handleUserCreated} />}
-
-      {roleDrawerOpen && <RoleDrawer isOpen={roleDrawerOpen} onClose={() => setRoleDrawerOpen(false)} rolesList={roles} />}
-
-      <PermissionViewer isOpen={drawerOpen} user={selectedUser} onSaved={handlePermissionsSaved} onClose={handlePermissionsClose} permissions={permissions} />
+      {openModel && <CreateNewUserModal setOpenModal={handleCloseModal} roles={genericRoles} onUserCreated={handleUserCreated} />}
     </div>
   );
 };

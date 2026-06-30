@@ -1,7 +1,8 @@
 import { useSelector, useDispatch } from "react-redux";
 import { useToast } from "./useToast";
-import { fetchUserPermissions, selectIsSuperAdmin } from "../store/authSlice";
+import { fetchUserPermissions } from "../store/authSlice";
 import { useCallback, useMemo } from "react";
+import { isSuperAdminRole, normalizePermissionName, normalizeRoleSlug } from "../utils/roleLabel";
 
 export const usePermissions = () => {
   const dispatch = useDispatch();
@@ -10,20 +11,18 @@ export const usePermissions = () => {
   const authState = useSelector((state) => state.auth);
   const { user, roles, permissions, loading, error } = authState;
 
-  // Check for Super Admin status once based on roles
-  const isSuperAdmin = useMemo(() => {
-    return roles.some((name) => 
-      ["Super Admin", "superadmin", "super_admin"].includes(name)
-    );
-  }, [roles]);
+  const isSuperAdmin = useMemo(
+    () => roles.some((name) => isSuperAdminRole(name)),
+    [roles],
+  );
 
   const hasPermission = useCallback(
     (perm) => {
       // 1. Super Admin always has permission
       if (isSuperAdmin) return true;
-      
-      // 2. Regular check
-      return Array.isArray(permissions) && permissions.includes(perm);
+
+      const normalized = normalizePermissionName(perm);
+      return Array.isArray(permissions) && permissions.includes(normalized);
     },
     [permissions, isSuperAdmin]
   );
@@ -39,7 +38,7 @@ export const usePermissions = () => {
 
   const hasRole = useCallback(
     (roleName) => {
-      return Array.isArray(roles) && roles.includes(roleName);
+      return Array.isArray(roles) && roles.some((name) => normalizeRoleSlug(name) === normalizeRoleSlug(roleName));
     },
     [roles]
   );

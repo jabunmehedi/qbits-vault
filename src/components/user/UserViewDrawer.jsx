@@ -12,7 +12,7 @@ import { useQueryClient, useMutation } from "@tanstack/react-query";
 import axiosConfig from "../../utils/axiosConfig";
 import { selectIsAdmin, selectIsSuperAdmin } from "../../store/authSlice";
 import { useSelector } from "react-redux";
-import { roleLabel } from "../../utils/roleLabel";
+import { isSuperAdminRole, roleLabel } from "../../utils/roleLabel";
 import UserChangePasswordModal from "./UserChangePasswordModal";
 import { useToast } from "../../hooks/useToast";
 import UserMigrationModal from "./UserMigrationModal";
@@ -546,7 +546,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                       </h4>
                       <div className="grid grid-cols-2 text-black gap-3">
                         {rolesList
-                          ?.filter((role) => role.name !== "super-admin" && role.name !== "Super Admin")
+                          ?.filter((role) => role.type === "specific" && !isSuperAdminRole(role.slug || role.name))
                           .slice()
                           .sort((a, b) => {
                             const ORDER = [

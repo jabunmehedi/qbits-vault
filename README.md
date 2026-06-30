@@ -103,9 +103,8 @@ All routes under `/` require auth via `<PrivateRoute>`. Most also require a name
 | `/reconcile` | `reconciliation.view` |
 | `/reports` | `report.view` |
 | `/profile` | (open to auth users) |
-| `/settings/activity-log` | `setting.log` |
-| `/settings/config-vault-audit` | `setting.config_audit_view` |
-| `/settings/system-preferences` | `setting.default_view` |
+| `/logs` | `log.view` |
+| `/reconcile/config-vault-audit` | `reconciliation.config_audit_view` |
 | `/login` | public |
 | `/reset-password` | public |
 
@@ -125,8 +124,8 @@ All routes under `/` require auth via `<PrivateRoute>`. Most also require a name
 There are two independent permission layers that work together:
 
 **1. Role-wise permissions (global)**
-- Powered by Spatie Roles & Permissions on the API side.
-- A user is assigned a global role (e.g. `Admin`, `reconciler`) which carries named permissions (`cash-in.view`, `reconciliation.approve`, etc.).
+- Powered by the API's custom role and permission tables.
+- A user is assigned a global role (e.g. `Admin`) which carries named permissions (`cash-in.view`, `report.view`, etc.).
 - These are returned on login and stored in `authSlice` (`roles` + `permissions` arrays).
 - Used for **page-level and action-level gating** — controls who can see a route or trigger a button anywhere in the app.
 

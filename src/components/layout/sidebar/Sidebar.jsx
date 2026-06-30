@@ -1,40 +1,40 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation, Link } from "react-router-dom";
-import { FiHome, FiSettings, FiLogOut, FiSend, FiX, FiChevronDown } from "react-icons/fi";
+import { FiHome, FiLogOut, FiSend, FiX, FiChevronDown, FiFileText } from "react-icons/fi";
 import { AiOutlineAudit, AiOutlineUser } from "react-icons/ai";
 import { CiInboxOut, CiVault as VaultIcon } from "react-icons/ci";
 import { Logout } from "../../../services/Auth";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { useSelector } from "react-redux";
 import { selectAuthUser, selectIsSuperAdmin } from "../../../store/authSlice";
-import { UserIcon } from "lucide-react";
+import { Shield, UserIcon } from "lucide-react";
 
 const baseStorageUrl = import.meta.env.VITE_REACT_APP_STORAGE_URL;
 
 const menuItems = [
   { icon: FiHome, label: "Overview", path: "/" },
+  { icon: Shield, label: "Roles", permission: "role.view", path: "/roles" },
   { icon: AiOutlineUser, label: "Users", permission: "user.view", path: "/users" },
   { icon: VaultIcon, label: "Vaults", permission: "vault.view", path: "/vault" },
   { icon: FiSend, label: "Cash In", permission: "cash-in.view", path: "/cashin" },
   { icon: CiInboxOut, label: "Cash Out", permission: "cash-out.view", path: "/cashout" },
-  { icon: AiOutlineAudit, label: "Reconcile", permission: "reconciliation.view", path: "/reconcile" },
+  {
+    icon: AiOutlineAudit,
+    label: "Reconcile",
+    permission: "reconciliation.view",
+    children: [
+      { label: "Reconcile Workbench", permission: "reconciliation.view", path: "/reconcile" },
+      { label: "Config Vault Audit", permission: "reconciliation.config_audit_view", path: "/reconcile/config-vault-audit" },
+    ],
+  },
   {
     icon: AiOutlineAudit,
     label: "Reports",
     permission: "report.view",
     path: "/reports",
   },
-  {
-    icon: FiSettings,
-    label: "Settings",
-    permission: "setting.view",
-    children: [
-      { label: "Config Vault Audit", permission: "setting.config_audit_view", path: "/settings/config-vault-audit" },
-      // { label: "System Preferences", permission: "setting.default_view", path: "/settings/system-preferences" },
-      { label: "Logs", permission: "setting.log", path: "/settings/activity-log" },
-    ],
-  },
+  { icon: FiFileText, label: "Logs", permission: "log.view", path: "/logs" },
 ];
 
 export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDrawerOpen, sidebarWidthClass, setIsMinimized }) {
@@ -44,7 +44,13 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
   const { hasPermission } = usePermissions();
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
 
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [openSection, setOpenSection] = useState("");
+
+  useEffect(() => {
+    if (pathname.startsWith("/reconcile")) {
+      setOpenSection("Reconcile");
+    }
+  }, [pathname]);
 
   const isActive = (path) => path && (pathname === path || pathname.startsWith(`${path}/`));
 
@@ -112,7 +118,7 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
             })
             .map((item) => {
               const hasChildren = !!item.children;
-              const active = isActive(item.path);
+              const active = hasChildren ? item.children?.some((subItem) => isActive(subItem.path)) : isActive(item.path);
 
               if (hasChildren) {
                 return (
@@ -122,7 +128,7 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
                         if (isMinimized && !isMobile) {
                           setIsMinimized(false);
                         }
-                        setIsSettingsOpen(!isSettingsOpen);
+                        setOpenSection(openSection === item.label ? "" : item.label);
                       }}
                       className={`
                         w-full group text-[13px] font-semibold flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all duration-150 cursor-pointer
@@ -136,14 +142,14 @@ export default function Sidebar({ isMobile, isMinimized, isDrawerOpen, setIsDraw
                       {showLabel && (
                         <FiChevronDown
                           size={14}
-                          className={`transform transition-transform duration-200 text-slate-400 ${isSettingsOpen ? "rotate-180" : ""}`}
+                          className={`transform transition-transform duration-200 text-slate-400 ${openSection === item.label ? "rotate-180" : ""}`}
                         />
                       )}
                     </button>
 
                     {/* Smooth Animate Submenu Dropdown */}
                     <AnimatePresence>
-                      {isSettingsOpen && showLabel && (
+                      {openSection === item.label && showLabel && (
                         <motion.div
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: "auto" }}

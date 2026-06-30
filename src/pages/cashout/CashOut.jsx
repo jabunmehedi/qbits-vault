@@ -782,7 +782,7 @@ const CashOut = () => {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {(isSuperAdmin || hasPermission("cash-out.create")) && (
+          {(isSuperAdmin || hasPermission("cash-out.request")) && (
             <button
               onClick={() => {
                 setEditCashOutData(null);

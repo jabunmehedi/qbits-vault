@@ -1,6 +1,7 @@
 // store/authSlice.js
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import axiosConfig from "../utils/axiosConfig";
+import { isSuperAdminRole, normalizePermissionName, normalizeRoleSlug } from "../utils/roleLabel";
 
 // ── Thunk: fetch fresh user from API (replaces separate authUser slice) ────────
 export const fetchAuthUser = createAsyncThunk("auth/fetchAuthUser", async (_, { getState, rejectWithValue }) => {
@@ -25,14 +26,15 @@ export const fetchUserPermissions = createAsyncThunk("auth/fetchPermissions", as
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const extractRolesAndPermissions = (user) => {
-  // Extract role names
-  const roles = user.roles?.map((r) => r.name) || [];
+  const roles = user.roles?.map((r) => normalizeRoleSlug(r.slug || r.name)) || [];
 
-  // Extract permission names from the top-level 'permissions' array
-  const permissions = user.permissions?.map((p) => p.name) || [];
+  const rawPermissions = Array.isArray(user.effective_permissions)
+    ? user.effective_permissions
+    : user.permissions?.map((p) => p.name) || [];
 
-  // Logic for Super Admin: Often, you want Super Admins to pass all permission checks
-  const isSuperAdmin = roles.some((name) => ["Super Admin", "super-admin", "Superadmin"].includes(name));
+  const permissions = [...new Set(rawPermissions.map((permission) => normalizePermissionName(permission)).filter(Boolean))];
+
+  const isSuperAdmin = roles.some((name) => isSuperAdminRole(name));
 
   return { roles, permissions, isSuperAdmin };
 };
@@ -136,7 +138,8 @@ export const selectIsFullyVerified = (state) => {
   return !!(u.email_verified_at && u.phone_verified_at && u.current_address && (u.verified == true || u.verified == 1));
 };
 export const selectIsSuperAdmin = (state) =>
-  state.auth.roles.some((name) => ["Superadmin", "Super Admin", "superadmin", "super_admin", "super-admin"].includes(name));
-export const selectIsAdmin = (state) => state.auth.roles.some((name) => ["admin", "Admin"].includes(name));
+  state.auth.roles.some((name) => isSuperAdminRole(name));
+export const selectIsAdmin = (state) => state.auth.roles.some((name) => normalizeRoleSlug(name) === "admin");
 
-export const selectHasPermission = (permission) => (state) => state.auth.permissions.includes(permission);
+export const selectHasPermission = (permission) => (state) =>
+  state.auth.permissions.includes(normalizePermissionName(permission));

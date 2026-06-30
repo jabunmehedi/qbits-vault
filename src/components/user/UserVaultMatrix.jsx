@@ -1,5 +1,5 @@
 import { FaCheckCircle } from "react-icons/fa";
-import { roleLabel } from "../../utils/roleLabel";
+import { isSuperAdminRole, roleLabel } from "../../utils/roleLabel";
 
 const UserVaultMatrix = ({
   vaultList,
@@ -65,7 +65,7 @@ const UserVaultMatrix = ({
           </h4>
           <div className="grid grid-cols-2 text-black gap-3">
             {rolesList
-              ?.filter((role) => role.name !== "super-admin" && role.name !== "Super Admin")
+              ?.filter((role) => !isSuperAdminRole(role.slug || role.name))
               .map((role) => {
                 const isEnabled = activeRoles.includes(role.id);
                 return (
