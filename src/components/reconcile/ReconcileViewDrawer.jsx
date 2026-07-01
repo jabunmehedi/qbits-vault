@@ -25,7 +25,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const [submittingBagId, setSubmittingBagId] = useState(null);
   // eslint-disable-next-line no-unused-vars -- setter used by the Validate By toggle, currently commented out
   const [validateBy, setValidateBy] = useState({ amount: true /*, weight: false */ });
-  const [reconcileVerified, setReconcileVerified] = useState();
+  const [reconcilerStatus, setReconcilerStatus] = useState();
   const [canSubmitFromApi, setCanSubmitFromApi] = useState(false);
   const [reconclieStatus, setReconcileStatus] = useState();
   const [targetVaultId, setTargetVaultId] = useState(null);
@@ -211,7 +211,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
           } else {
             setCurrentStep("counting");
           }
-          setReconcileVerified(res?.data?.verifier_status);
+          setReconcilerStatus(res?.data?.reconciler_status);
           setCanSubmitFromApi(res?.data?.can_submit ?? false);
           setReconcileStatus(res?.data?.status);
           setTargetVaultId(res?.data?.vault_id);
@@ -499,13 +499,13 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
           [bag.id]: true,
         }));
 
-        // Keep verify-gating state fresh so the Verify button can surface as soon
+        // Keep sign-off gating state fresh so the action can surface as soon
         // as the last bag is done — without needing to reopen the drawer.
-        setReconcileVerified(refreshRes?.data?.verifier_status);
+        setReconcilerStatus(refreshRes?.data?.reconciler_status);
         setReconcileStatus(refreshRes?.data?.status);
         setCanSubmitFromApi(refreshRes?.data?.can_submit ?? false);
         setRequiredReconcilers(refreshRes?.data?.required_reconcilers || []);
-        // Keep the full reconcile snapshot fresh too so the verify modal
+        // Keep the full reconcile snapshot fresh too so the sign-off modal
         // (ReconclieDetails) shows the live counted_balance without a reload.
         setReconcileData(refreshRes?.data || null);
         refetch?.();
@@ -557,12 +557,12 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     refetch();
   };
 
-  // Re-pull verifier-related state after a verify/reject action.
-  const refreshVerifierState = async () => {
+  // Re-pull reconciler-related state after a verify/reject action.
+  const refreshReconcilerState = async () => {
     const res = await ViewReconcile(reconcileId);
     if (!res?.data) return;
 
-    setReconcileVerified(res.data.verifier_status);
+    setReconcilerStatus(res.data.reconciler_status);
     setCanSubmitFromApi(res.data.can_submit ?? false);
     setReconcileStatus(res.data.status);
     setReconcileData(res.data);
@@ -575,7 +575,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     }
 
     // Also refresh bags/submitted state so the final-submit gate re-evaluates
-    // consistently right after verify (otherwise it can stay disabled until the
+    // consistently right after sign-off (otherwise it can stay disabled until the
     // drawer is reopened).
     const bagsArray = res.data.vault?.bags || [];
     const varianceBagsArray = res.data.variance_bags || [];
@@ -588,14 +588,14 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     try {
       const res = await VerifyReconcile(reconcileId);
       if (!res?.success) {
-        addToast({ message: res?.message || "Failed to verify reconciliation", type: "error" });
+        addToast({ message: res?.message || "Failed to sign off reconciliation", type: "error" });
         return;
       }
-      await refreshVerifierState();
-      addToast({ message: "Reconcile verified successfully", type: "success" });
+      await refreshReconcilerState();
+      addToast({ message: "Reconcile signed off successfully", type: "success" });
       refetch?.();
     } catch (err) {
-      console.error("Failed to verify Reconcile:", err);
+      console.error("Failed to sign off Reconcile:", err);
     } finally {
       setVerifyLoading(false);
       setVerifyOpen(false);
@@ -603,13 +603,14 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   };
 
   // After a reject the backend wipes the counted values, so the auditor must
-  // re-count from scratch. Unlike refreshVerifierState (which merges), this fully
+  // re-count from scratch. Unlike refreshReconcilerState (which only refreshes
+  // reconciler-gating state), this fully
   // REPLACES the working state so old "Done" bags/scans/notes don't linger.
   const reloadAfterReject = async () => {
     const res = await ViewReconcile(reconcileId);
     if (!res?.data) return;
 
-    setReconcileVerified(res.data.verifier_status);
+    setReconcilerStatus(res.data.reconciler_status);
     setCanSubmitFromApi(res.data.can_submit ?? false);
     setReconcileStatus(res.data.status);
     setReconcileData(res.data);
@@ -628,7 +629,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const handleReject = async (note) => {
     setVerifyLoading(true);
     try {
-      const res = await RejectReconcile(reconcileId, note, "verifier");
+      const res = await RejectReconcile(reconcileId, note, "reconciler");
       if (!res?.success) {
         addToast({ message: res?.message || "Failed to reject reconciliation", type: "error" });
         return;
@@ -649,7 +650,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
   const allBagsDone = racks.length > 0 && racks.every((rack) => rack.bags.every((bag) => submittedBags[bag.id]));
   const currentUserId = Number(user?.id);
 
-  // Only reconcilers verify a reconciliation. Whether the user holds the reconciler
+  // Only reconcilers sign off a reconciliation. Whether the user holds the reconciler
   // role for this vault (mirrors canPerformCounting). Used as a fallback so a
   // legitimate reconciler still sees the button even if the backend hasn't yet
   // snapshotted them into required_reconcilers — the verify endpoint re-syncs and
@@ -663,11 +664,11 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
 
   const hasCurrentUserVerified = requiredReconcilers.some((v) => Number(v.user_id) === currentUserId && !!v.verified);
   const isInRequiredReconcilers = requiredReconcilers.some((v) => Number(v.user_id) === currentUserId);
-  // The current user is a pending reconciler when they haven't verified yet and
+  // The current user is a pending reconciler when they haven't signed off yet and
   // are either already in the required list or hold the reconciler role here.
   const isPendingReconciler = !hasCurrentUserVerified && (isInRequiredReconcilers || isReconcilerByRole);
   const canShowVerifyButton =
-    isPendingReconciler && allBagsDone && reconcileVerified !== "verified" && reconcileVerified !== "rejected";
+    isPendingReconciler && allBagsDone && reconcilerStatus !== "verified" && reconcilerStatus !== "rejected";
 
   const canEndAudit = (() => {
     if (isSuperAdmin) return true;
@@ -676,11 +677,11 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
     const auditInitiatorRoleId = user?.roles?.find((role) => role?.name?.toLowerCase() === "audit initiator")?.id;
     return activeAssignment?.roles?.some((roleId) => Number(roleId) === auditInitiatorRoleId) || false;
   })();
-  const canSubmitReconcileButton = canEndAudit && allBagsDone && (canSubmitFromApi || reconcileVerified === "verified");
+  const canSubmitReconcileButton = canEndAudit && allBagsDone && (canSubmitFromApi || reconcilerStatus === "verified");
 
   // Initiator/super-admin override: once the scheduled audit window has expired,
   // they can force-submit the in-progress reconcile with a mandatory note,
-  // bypassing the verification workflow entirely.
+  // bypassing the reconciler sign-off workflow entirely.
   const canForceSubmit = canEndAudit && reconclieStatus === "counting" && scheduleStatus === "expired";
 
   return (
@@ -709,7 +710,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                 <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-2xl font-bold">📋</div>
                 <div>
                   <h2 className="text-xl font-bold text-gray-800">Ready to start audit?</h2>
-                  <p className="text-sm text-gray-400 mt-1">Vault reconciliation expects specific totals for verification.</p>
+                  <p className="text-sm text-gray-400 mt-1">Vault reconciliation expects specific totals for reconciler sign-off.</p>
 
                   {scheduledTimestamp && (
                     <div className="mt-3">
@@ -773,7 +774,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                   {scheduleStatus === "expired" && reconclieStatus !== "completed" && (
                     <div className="bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl p-3.5 font-medium">
                       🛑 Audit window expired — the scheduled session closed (+6hrs passed).
-                      {canForceSubmit && " You can submit this reconciliation with a note, bypassing verification."}
+                      {canForceSubmit && " You can submit this reconciliation with a note, bypassing reconciler sign-off."}
                     </div>
                   )}
 
@@ -1027,9 +1028,9 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
                       </button>
                     ) : (
                       <>
-                        {/* Verify and Submit can appear together: a reconciler who is
-                            also the audit initiator verifies, then submits. Once every
-                            reconciler has verified, the Verify button drops away and the
+                        {/* Sign off and Submit can appear together: a reconciler who is
+                            also the audit initiator signs off, then submits. Once every
+                            reconciler has signed off, the action drops away and the
                             read-only view is all that remains for non-submitters. */}
                         {canShowVerifyButton && (
                           <VerifyButton
@@ -1124,14 +1125,14 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
             <div>
               <h3 className="text-base font-bold text-gray-800">Submit Reconciliation with Note</h3>
               <p className="text-xs text-gray-400 mt-0.5">
-                The scheduled audit window has expired. Provide a reason to submit this reconciliation now — this will complete it without the verification workflow.
+                The scheduled audit window has expired. Provide a reason to submit this reconciliation now — this will complete it without the reconciler sign-off workflow.
               </p>
             </div>
             <textarea
               rows={4}
               value={forceSubmitModal.note}
               onChange={(e) => setForceSubmitModal({ ...forceSubmitModal, note: e.target.value })}
-              placeholder="Explain why this reconciliation is being submitted without verification..."
+              placeholder="Explain why this reconciliation is being submitted without reconciler sign-off..."
               className="w-full border border-gray-200 text-gray-700 rounded-lg p-3 text-sm outline-none resize-none font-medium focus:ring-2 focus:ring-orange-100 focus:border-orange-500"
             />
             <div className="flex space-x-3 justify-end text-sm font-medium">
@@ -1188,7 +1189,7 @@ const ReconcileViewDrawer = ({ isOpen, onClose, reconcileId, reconcileTranId, re
         bagId={settleBagId}
         onClose={() => setSettleBagId(null)}
         onSettled={() => {
-          refreshVerifierState();
+          refreshReconcilerState();
           refetch?.();
         }}
       />

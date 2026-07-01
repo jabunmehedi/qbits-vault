@@ -111,30 +111,17 @@ const ReconcileDetails = ({ reconcile }) => {
           </div>
         </div>
 
-        {/* --- SECTION 3: RECONCILE VERIFIERS STATUS WORKFLOW --- */}
+        {/* --- SECTION 3: RECONCILE RECONCILERS STATUS WORKFLOW --- */}
         {(() => {
-          const verifiers = reconcile?.required_verifiers || [];
           const reconcilers = reconcile?.required_reconcilers || [];
-          // Merge both lists, deduplicate by user_id, reconciler entry takes verified status if both present
-          const seen = new Map();
-          [...verifiers, ...reconcilers].forEach((entry) => {
-            const uid = entry?.user_id;
-            if (!seen.has(uid)) {
-              seen.set(uid, entry);
-            } else if (entry?.verified) {
-              // If either record is verified, treat the user as verified
-              seen.set(uid, { ...seen.get(uid), verified: true });
-            }
-          });
-          const allEntries = [...seen.values()];
           return (
             <div>
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
-                Required Verification Workflow ({allEntries.length})
+                Required Reconciler Workflow ({reconcilers.length})
               </h3>
-              {allEntries.length > 0 ? (
+              {reconcilers.length > 0 ? (
                 <div className="space-y-2">
-                  {allEntries.map((entry) => (
+                  {reconcilers.map((entry) => (
                     <div
                       key={entry.id}
                       className="flex items-center justify-between border border-gray-100 rounded-xl p-3.5 bg-white shadow-2xs hover:border-gray-200 transition-colors"
@@ -151,7 +138,7 @@ const ReconcileDetails = ({ reconcile }) => {
                       <div className="flex items-center space-x-2">
                         <span className={`inline-block w-2 h-2 rounded-full ${entry?.verified ? "bg-green-500" : "bg-amber-400"}`} />
                         <span className="text-xs font-bold text-slate-600">
-                          {entry?.verified ? "Verified" : "Pending Action"}
+                          {entry?.verified ? "Signed off" : "Pending Action"}
                         </span>
                       </div>
                     </div>
@@ -159,7 +146,7 @@ const ReconcileDetails = ({ reconcile }) => {
                 </div>
               ) : (
                 <div className="text-center py-4 bg-gray-50 border border-gray-100 rounded-xl text-xs text-gray-400 font-medium">
-                  No specific assignees assigned to this verification check.
+                  No reconcilers assigned to this reconciliation.
                 </div>
               )}
             </div>

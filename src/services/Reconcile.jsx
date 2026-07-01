@@ -52,7 +52,7 @@ export const VerifyReconcile = async (id, action = "verify", note = "") => {
   }
 };
 
-export const RejectReconcile = async (id, note = "", type = "verifier") => {
+export const RejectReconcile = async (id, note = "", type = "reconciler") => {
   try {
     const response = await axiosConfig.post(`/reconcile/reject/${id}`, { note, type });
     return response?.data;

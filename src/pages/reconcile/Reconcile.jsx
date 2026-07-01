@@ -515,16 +515,6 @@ const Reconcile = () => {
         );
       },
     },
-   /* {
-      title: "Reconciler",
-      key: "reconciler",
-      className: "w-[14%]",
-      render: (row) => (
-        <div className="flex items-center gap-2">
-          <VerifierAvatars requiredVerifiers={row.required_reconcilers || []} />
-        </div>
-      ),
-    },*/
     {
       title: "Status",
       key: "status",

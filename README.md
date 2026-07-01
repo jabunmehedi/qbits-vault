@@ -131,7 +131,9 @@ There are two independent permission layers that work together:
 
 **2. Vault-wise permissions (per-vault)**
 - Stored in the `vault_assigns` table — a user can be assigned to one or more vaults (`status: active/inactive`), and each assignment carries a `roles` JSON column (array of role IDs for that vault).
-- Used by the API for **workflow scoping** — e.g. when a cash-in or reconcile is created for Vault A, the backend queries `vault_assigns` (filtered by `vault_id` + role ID) to build the required verifier/approver/reconciler lists for that specific vault.
+- Used by the API for **workflow scoping**.
+- Cash-In/Cash-Out uses vault-specific verifier and approver roles.
+- Reconciliation uses vault-specific reconciler roles.
 - The frontend receives `vault_assignments` nested on the user object (`GET /users/:id`) and uses it in the User Management drawer to display and edit vault memberships.
 
 **In short:** role-wise permissions answer *"can this user perform this action at all?"*; vault-wise permissions answer *"does this user participate in workflows for this specific vault?"*
@@ -142,8 +144,7 @@ There are two independent permission layers that work together:
 
 - **Cash-In / Cash-Out** — order/bag lifecycle management with drawer UI
 - **Vault Management** — vault CRUD, audit config
-- **Reconciliation** — balance matching with global state (`checkReconcile` slice)
-  > **Note:** The reconcile module no longer uses `reconcile_required_verifiers`. Use **`reconcile_required_reconcilers`** instead (frontend reads the `required_reconcilers` field). `required_verifiers` remains in use only for Cash-In / Cash-Out.
+- **Reconciliation** — balance matching with global state (`checkReconcile` slice). Reconciler workflow data is read from `required_reconcilers`.
 - **Reports** — charts (Recharts), export/print support
 - **User Management** — CRUD, role assignment
 - **KYC / Verification** — user verification workflow with QR/barcode scanning
