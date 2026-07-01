@@ -26,7 +26,7 @@ const CreateNewUserModal = ({ setOpenModal, onUserCreated, roles, roleSearch, se
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
 
-  const assignableRoles = roles.filter((role) => role?.type === "generic" && !isSuperAdminRole(role?.slug || role?.name));
+  const assignableRoles = roles.filter((role) => role?.scope === "global" && !isSuperAdminRole(role?.slug || role?.name));
   const filteredRoles = assignableRoles.filter((role) => role?.name?.toLowerCase().includes((roleSearch || "").toLowerCase()));
 
   const handleInputChange = (field, value) => {

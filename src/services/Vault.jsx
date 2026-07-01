@@ -8,6 +8,14 @@ export const GetVaults = async (params = {}) => {
     console.error(error?.response?.data?.message);
   }
 };
+export const GetVaultSummaries = async () => {
+  try {
+    const response = await axiosConfig.get(`/vault/summary`);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+  }
+};
 export const GetVault = async (vaultId) => {
   try {
     const response = await axiosConfig.get(`/vault/${vaultId}`);

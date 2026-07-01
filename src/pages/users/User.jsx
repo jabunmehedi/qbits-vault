@@ -13,7 +13,6 @@ import { usePermissions } from "../../hooks/usePermissions";
 import { useSelector } from "react-redux";
 import { isSuperAdminRole, roleLabel, ROLE_COLUMN_ORDER } from "../../utils/roleLabel";
 import { selectIsSuperAdmin } from "../../store/authSlice";
-import axiosConfig from "../../utils/axiosConfig";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -194,31 +193,22 @@ const User = () => {
 
   // ── React Query: Roles ──
   const { data: roles = [] } = useQuery({
-    queryKey: ["roles"],
+    queryKey: ["roles", "summary"],
     queryFn: async () => {
-      const res = await GetRoles();
+      const res = await GetRoles({ fields: "summary" });
       return res?.data ?? [];
-    },
-  });
-
-  const { data: permissions = [] } = useQuery({
-    queryKey: ["permissions"],
-    queryFn: async () => {
-      const res = await axiosConfig.get("/permissions");
-      return res?.data?.data ?? res?.data ?? [];
     },
   });
 
   // ── React Query: Permissions ──
   // ── Filtered users — hide superadmins from non-superadmin viewers ──
   const filteredUsers = useMemo(() => {
-    if (isSuperAdmin) return users;
-    return users.filter((user) => !user.roles?.some((role) => isSuperAdminRole(role.slug || role.name)));
-  }, [users, isSuperAdmin]);
+    return users;
+  }, [users]);
 
   // ── Stable non-superadmin roles list, sorted to match the capability matrix drawer ──
   const visibleRoles = useMemo(() => {
-    const filtered = roles.filter((role) => !isSuperAdminRole(role.slug || role.name));
+    const filtered = roles.filter((role) => role.scope === "vault" && !isSuperAdminRole(role.slug || role.name));
     return [...filtered].sort((a, b) => {
       const ai = ROLE_COLUMN_ORDER.indexOf(a.name.toLowerCase());
       const bi = ROLE_COLUMN_ORDER.indexOf(b.name.toLowerCase());
@@ -229,7 +219,7 @@ const User = () => {
   }, [roles]);
 
   const genericRoles = useMemo(
-    () => roles.filter((role) => role.type === "generic" && !isSuperAdminRole(role.slug || role.name)),
+    () => roles.filter((role) => role.scope === "global" && !isSuperAdminRole(role.slug || role.name)),
     [roles],
   );
 
@@ -316,9 +306,6 @@ const User = () => {
           const assignment = vaultAssignments.find((va) => va.vault_id === selectedVaultId);
           // assignment.roles is an array of role IDs (numbers)
           isSelected = assignment?.roles?.includes(role.id) ?? false;
-        } else {
-          // Fallback: no vault selected — use the user's global roles array
-          isSelected = row.roles?.some((r) => r.id === role.id) ?? false;
         }
 
         return (
@@ -420,7 +407,6 @@ const User = () => {
         isOpen={openPermissionViewer}
         onClose={() => setOpenPermissionViewer(false)}
         user={selectedPermissionUser}
-        permissions={permissions}
         onSaved={handlePermissionSaved}
       />
 

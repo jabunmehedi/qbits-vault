@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { ArchiveUser, DisableUser, GetRoles, GetUser, MigrateUser, UserArchiveCheck, UserNewPassword, VerifyKyc } from "../../services/User";
 import Avatar from "../helpers/Avatar";
 import { RiVerifiedBadgeFill } from "react-icons/ri";
-import { GetVaults, ToggleVaultAccess, UpdateVaultRoles } from "../../services/Vault";
+import { GetVaultSummaries, ToggleVaultAccess, UpdateVaultRoles } from "../../services/Vault";
 import { FaCheckCircle } from "react-icons/fa";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import axiosConfig from "../../utils/axiosConfig";
@@ -229,8 +229,8 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
       setUserAssignments([]);
 
       try {
-        const [vRes, rRes, uRes] = await Promise.all([GetVaults(), GetRoles(), GetUser(userId)]);
-        setVaultList(vRes?.data?.data || []);
+        const [vRes, rRes, uRes] = await Promise.all([GetVaultSummaries(), GetRoles({ scope: "vault", fields: "summary" }), GetUser(userId)]);
+        setVaultList(vRes?.data?.data || vRes?.data || []);
         setRolesList(rRes?.data || []);
 
         const userData = uRes?.data?.data || uRes?.data;
@@ -546,7 +546,7 @@ const UserViewDrawer = ({ isOpen, onClose, userId, refetch }) => {
                       </h4>
                       <div className="grid grid-cols-2 text-black gap-3">
                         {rolesList
-                          ?.filter((role) => role.type === "specific" && !isSuperAdminRole(role.slug || role.name))
+                          ?.filter((role) => role.scope === "vault" && !isSuperAdminRole(role.slug || role.name))
                           .slice()
                           .sort((a, b) => {
                             const ORDER = [

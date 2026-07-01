@@ -1,12 +1,15 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, UserIcon, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { UpdatePermissions } from "../../services/Permission";
+import { GetUser } from "../../services/User";
 import { useToast } from "../../hooks/useToast";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
 import { usePermissions } from "../../hooks/usePermissions";
 import { permissionLabel, preparePermissionGroups } from "../../utils/roleLabel";
+import axiosConfig from "../../utils/axiosConfig";
 
 const baseStorageUrl = import.meta.env.VITE_REACT_APP_STORAGE_URL;
 
@@ -23,7 +26,7 @@ const Avatar = ({ src, name, size = "sm" }) => {
   );
 };
 
-const PermissionViewer = ({ isOpen, onClose, user, permissions, onSaved }) => {
+const PermissionViewer = ({ isOpen, onClose, user, onSaved }) => {
   const [selectedPerms, setSelectedPerms] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const { addToast } = useToast();
@@ -35,15 +38,43 @@ const PermissionViewer = ({ isOpen, onClose, user, permissions, onSaved }) => {
 
   const dispatch = useDispatch();
 
-  const loadpermissions = () => {
-    if (user?.permissions && isOpen) {
-      setSelectedPerms(user.permissions.map((p) => p.id));
-    }
-  };
+  const { data: permissions = [] } = useQuery({
+    queryKey: ["permissions"],
+    enabled: isOpen,
+    queryFn: async () => {
+      const res = await axiosConfig.get("/permissions");
+      return res?.data?.data ?? res?.data ?? [];
+    },
+  });
 
   useEffect(() => {
-    loadpermissions();
-  }, [user, isOpen]);
+    let active = true;
+
+    const loadPermissions = async () => {
+      if (!isOpen || !user?.id) return;
+
+      if (user?.permissions?.length) {
+        if (active) setSelectedPerms(user.permissions.map((p) => p.id));
+        return;
+      }
+
+      try {
+        const res = await GetUser(user.id);
+        const detailUser = res?.data?.data || res?.data;
+        if (!active) return;
+        setSelectedPerms((detailUser?.permissions || []).map((p) => p.id));
+      } catch (error) {
+        console.error("Failed to load user permissions:", error);
+        if (active) setSelectedPerms([]);
+      }
+    };
+
+    loadPermissions();
+
+    return () => {
+      active = false;
+    };
+  }, [user?.id, user?.permissions, isOpen]);
 
   const groupedPermissions = useMemo(() => preparePermissionGroups(permissions), [permissions]);
 
