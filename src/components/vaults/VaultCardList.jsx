@@ -5,7 +5,7 @@ import { ArrowUpRight, ChevronRight, Landmark, Layers, Loader2, Settings, Wallet
 import dayjs from "dayjs";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2 });
-const vaultBalance = (vault) => (vault?.bags || []).reduce((s, b) => s + parseFloat(b.current_amount || 0), 0);
+const vaultBalance = (vault) => Number(vault?.balance || 0);
 
 const VaultCardList = ({
   vaults = [],
@@ -103,7 +103,7 @@ const VaultCardList = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {vaults.map((vault) => {
               const balance = vaultBalance(vault);
-              const bagCount = vault?.bags?.length || 0;
+              const bagCount = Number(vault?.bags_count ?? 0);
               const isMenuOpen = activeActionMenuId === vault.id;
               const isConfirmingDelete = deleteConfirmId === vault.id;
 

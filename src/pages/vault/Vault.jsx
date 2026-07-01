@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CreateVault, DeleteVault, GetVault, GetVaults, MakeDefaultVault, UpdateVault } from "../../services/Vault";
-import { GetRoles } from "../../services/User";
 import { useForm } from "react-hook-form";
 import { Loader2, Plus, X } from "lucide-react";
 import toast from "react-hot-toast";
@@ -41,6 +40,7 @@ const Vault = () => {
   const [isApiDeleting, setIsApiDeleting] = useState(false);
   const [paginationData, setPaginationData] = useState();
   const currentPage = parseInt(searchParams.get("page") || "1");
+  const vaultDetailsCacheRef = useRef(new Map());
 
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const { hasPermission, hasRole } = usePermissions();
@@ -49,23 +49,16 @@ const Vault = () => {
   // Bag-create is a PER-VAULT capability (stored in the user's vault_assignments[].roles
   // as role ids), not a global role. Resolve the "bag create" role id once so we can check
   // the logged-in user's assignment for the specific vault being edited.
-  const [bagCreateRoleId, setBagCreateRoleId] = useState(null);
-  useEffect(() => {
-    let active = true;
-    GetRoles().then((res) => {
-      const role = (res?.data || []).find((r) => String(r.name).toLowerCase() === "bag create");
-      if (active) setBagCreateRoleId(role?.id ?? null);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   // ── Default vault ─────────────────────────────────────────────────────────────
   const dispatch = useDispatch();
   const user = useSelector(selectAuthUser);
   const [defaultVault, setDefaultVault] = useState(null);
   const [savingDefaultVaultId, setSavingDefaultVaultId] = useState(null);
+  const bagCreateRoleId = user?.roles?.find((role) => {
+    const normalized = String(role?.slug || role?.name || "").toLowerCase();
+    return normalized === "bag-create" || normalized === "bag create";
+  })?.id ?? null;
 
   // Does the logged-in user hold the bag-create role for THIS vault? Super admins always pass.
   // When creating a brand-new vault there is no assignment yet, so fall back to the global role.
@@ -150,6 +143,24 @@ const Vault = () => {
   useEffect(() => {
     bagsRef.current = bags;
   }, [bags]);
+
+  const invalidateVaultCache = (vaultId) => {
+    if (vaultId == null) return;
+    vaultDetailsCacheRef.current.delete(Number(vaultId));
+  };
+
+  const getVaultDetails = async (vaultId, { forceRefresh = false } = {}) => {
+    const normalizedId = Number(vaultId);
+    if (!forceRefresh && vaultDetailsCacheRef.current.has(normalizedId)) {
+      return vaultDetailsCacheRef.current.get(normalizedId);
+    }
+
+    const res = await GetVault(normalizedId);
+    const vaultData = res?.data ?? res;
+    vaultDetailsCacheRef.current.set(normalizedId, vaultData);
+
+    return vaultData;
+  };
 
   // ── Bag actions ───────────────────────────────────────────────────────────────
   const addBag = () => {
@@ -245,8 +256,7 @@ const Vault = () => {
 
   const openEditModal = async (vault) => {
     try {
-      const res = await GetVault(vault?.id || vault);
-      const vaultData = res?.data ?? res;
+      const vaultData = await getVaultDetails(vault?.id || vault);
 
       reset({
         name: vaultData.name || "",
@@ -285,14 +295,8 @@ const Vault = () => {
     setDrawerOpen(true);
     setLoadingBags(true);
     setExpandedBag(null);
-    if (vault.bags?.length > 0) {
-      setVaultBagsDetails(vault.bags);
-      setLoadingBags(false);
-      return;
-    }
     try {
-      const res = await GetVault(vault.id);
-      const vaultData = res?.data ?? res;
+      const vaultData = await getVaultDetails(vault.id);
       setVaultBagsDetails(vaultData?.bags || []);
     } catch {
       setVaultBagsDetails([]);
@@ -396,9 +400,11 @@ const Vault = () => {
         const res = await UpdateVault(editingVaultId, payload);
         if (res?.errors?.length > 0) {
           setDeleteErrors(res.errors);
+          invalidateVaultCache(editingVaultId);
           await fetchVaultData();
           return;
         }
+        invalidateVaultCache(editingVaultId);
         addToast({ type: "success", message: "Vault updated successfully." });
       } else {
         const res = await CreateVault(payload);
@@ -434,6 +440,7 @@ const Vault = () => {
       const serverErrors = error?.response?.data?.errors;
       if (serverErrors?.length > 0) {
         setDeleteErrors(serverErrors);
+        if (editingVaultId) invalidateVaultCache(editingVaultId);
         await fetchVaultData();
         return;
       }
@@ -462,6 +469,7 @@ const Vault = () => {
         addToast({ type: "error", message: res?.message });
         return;
       }
+      invalidateVaultCache(id);
       addToast({ type: "success", message: "Vault deleted successfully" });
       setDeletingVaultId(null);
       await fetchVaultData();
@@ -507,6 +515,7 @@ const Vault = () => {
         bag_min_bal_limit: thresholdMin === "" ? null : parseFloat(thresholdMin),
         bag_balance_limit: thresholdMax === "" ? null : parseFloat(thresholdMax),
       });
+      invalidateVaultCache(thresholdModalVault.id);
       addToast({ type: "success", message: `Thresholds updated for "${thresholdModalVault.name}".` });
       setThresholdModalOpen(false);
       await fetchVaultData();
