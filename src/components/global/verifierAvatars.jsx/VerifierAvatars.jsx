@@ -102,7 +102,7 @@ const VerifierAvatars = ({ requiredVerifiers = [], isRejected = false }) => {
                   )}
                 </div>
                 <button onClick={() => setIsOpen(false)} className="text-slate-500 hover:text-white">
-                  ✕
+                  x
                 </button>
               </div>
 
@@ -118,7 +118,7 @@ const VerifierAvatars = ({ requiredVerifiers = [], isRejected = false }) => {
                       <span className="text-xs font-semibold">{v.name || v.user?.name}</span>
                       <span className="text-[10px] text-slate-500">
                         {v.rejected_at
-                          ? `Rejected · ${dayjs(v.rejected_at).format("DD MMM, hh:mm A")}`
+                          ? `Rejected - ${dayjs(v.rejected_at).format("DD MMM, hh:mm A")}`
                           : v.verified_at || v.approved_at
                           ? dayjs(v.verified_at || v.approved_at).format("DD MMM, hh:mm A")
                           : "Pending"}
@@ -130,7 +130,7 @@ const VerifierAvatars = ({ requiredVerifiers = [], isRejected = false }) => {
                   </div>
                 ))}
               </div>
-              {/* Arrow — points toward the trigger avatar */}
+              {/* Arrow points toward the trigger avatar */}
               <div
                 className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-[#0B1120] border-slate-700 rotate-45 ${
                   coords.placement === "left"

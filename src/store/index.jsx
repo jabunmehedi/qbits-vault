@@ -10,7 +10,7 @@ const persistConfig = {
   key: "auth",
   version: 1,
   storage,
-  whitelist: ["user", "roles", "permissions", "token", "isHydrated"],
+  whitelist: ["user", "roles", "permissions", "token", "lastFetchedAt"],
 };
 
 const persistedReducer = persistReducer(persistConfig, authReducer);

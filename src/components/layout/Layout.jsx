@@ -1,12 +1,12 @@
 import { Outlet } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { FiMenu } from "react-icons/fi";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 
 import Sidebar from "./sidebar/Sidebar";
 import InitialVerification from "../initialVerification/InitialVerification";
 
-import { fetchAuthUser, selectIsSuperAdmin, selectIsFullyVerified } from "../../store/authSlice";
+import { selectAuthUser, selectIsSuperAdmin, selectIsFullyVerified } from "../../store/authSlice";
 
 const AppShell = ({ isMobile, isMinimized, isDrawerOpen, setIsDrawerOpen, sidebarWidthClass, contentMargin, children }) => (
   <div className="min-h-screen text-white relative overflow-hidden">
@@ -45,13 +45,9 @@ const Layout = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  const dispatch = useDispatch();
+  const user = useSelector(selectAuthUser);
   const isSuperAdmin = useSelector(selectIsSuperAdmin);
   const isFullyVerified = useSelector(selectIsFullyVerified);
-
-  useEffect(() => {
-    dispatch(fetchAuthUser());
-  }, [dispatch]);
 
   // ── Responsive sidebar ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -70,8 +66,8 @@ const Layout = () => {
   const contentMargin = isMobile ? "ml-0" : isMinimized ? "ml-16" : "";
 
   // ── Verification gate ────────────────────────────────────────────────────────
-  if (!isSuperAdmin && !isFullyVerified) {
-    return <InitialVerification onSuccess={() => dispatch(fetchAuthUser())} />;
+  if (user && !isSuperAdmin && !isFullyVerified) {
+    return <InitialVerification onSuccess={() => {}} />;
   }
 
   return (

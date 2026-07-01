@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import CustomModal from "../global/modal/CustomModal";
 import { AnimatePresence, motion } from "framer-motion";
 import { Building2, ChevronDown, Loader2 } from "lucide-react";
-import { GetLatestReconcile, StartReconcile, UpdateReconcile, ViewReconcile } from "../../services/Reconcile";
+import { StartReconcile, UpdateReconcile, ViewReconcile } from "../../services/Reconcile";
 import dayjs from "dayjs";
 import { useToast } from "../../hooks/useToast";
 import { useSelector } from "react-redux";
@@ -11,7 +11,6 @@ import { selectAuthUser } from "../../store/authSlice";
 
 const ReconcileModal = ({ isClose, refetch, reconcileId, defaultVaultId, onCreated }) => {
   const [selectedVaultId, setSelectedVaultId] = useState(null);
-  const [latestReconcileData, setLatestReconcileData] = useState([]);
   const [vaults, setVaults] = useState([]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
@@ -35,7 +34,6 @@ const ReconcileModal = ({ isClose, refetch, reconcileId, defaultVaultId, onCreat
     if (user?.vault_assignments?.length === 0) return;
     const assignVaults = user?.vault_assignments?.filter((assign) => assign.status === "active");
     setVaults(assignVaults);
-    GetLatestReconcile().then((res) => setLatestReconcileData(res?.data || []));
   }, [user?.vault_assignments]);
 
   useEffect(() => {
@@ -104,10 +102,7 @@ const ReconcileModal = ({ isClose, refetch, reconcileId, defaultVaultId, onCreat
         await UpdateReconcile(reconcileId, payload);
         addToast({ type: "success", message: "Reconciliation rescheduled successfully" });
       } else {
-        const res = await StartReconcile({
-          ...payload,
-          from_date: latestReconcileData?.to_date || auditDate,
-        });
+        const res = await StartReconcile(payload);
         if (!res?.success) {
           addToast({ type: "error", message: res?.message || "Failed to start reconciliation. Please try again." });
           return;

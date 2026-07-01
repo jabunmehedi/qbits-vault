@@ -16,6 +16,14 @@ export const GetVaultSummaries = async () => {
     console.error(error?.response?.data?.message);
   }
 };
+export const GetVaultSummaryById = async (vaultId) => {
+  try {
+    const response = await axiosConfig.get(`/vault/${vaultId}/summary`);
+    return response?.data;
+  } catch (error) {
+    console.error(error?.response?.data?.message);
+  }
+};
 export const GetVault = async (vaultId) => {
   try {
     const response = await axiosConfig.get(`/vault/${vaultId}`);

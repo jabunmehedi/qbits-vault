@@ -5,7 +5,7 @@ import { ChangePassword, GetUser, UpdateUser } from "../../services/User";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchAuthUser, patchAuthUser, selectAuthUser } from "../../store/authSlice";
+import { patchAuthUser, selectAuthUser } from "../../store/authSlice";
 import { useToast } from "../../hooks/useToast";
 import { roleLabel } from "../../utils/roleLabel";
 
@@ -189,8 +189,6 @@ const Profile = () => {
     if (!user?.id) return;
 
     GetUser(user?.id).then((res) => {
-      dispatch(fetchAuthUser());
-
       setName(res?.data?.data?.name || "");
       setEmail(res?.data?.data?.email || "");
       setPhone(res?.data?.data?.phone || "");
@@ -198,7 +196,7 @@ const Profile = () => {
       setAvatar(res?.data?.data?.img || "");
       setUserPermissions(res?.data?.data?.permissions || []);
     });
-  }, [user?.id, dispatch]);
+  }, [user?.id]);
 
   const handleUpdateProfile = async () => {
     const errors = {};
@@ -230,7 +228,12 @@ const Profile = () => {
       if (updatedUser.img) setAvatar(updatedUser.img);
       if (updatedUser.phone !== undefined) setPhone(updatedUser.phone);
 
-      await dispatch(fetchAuthUser());
+      dispatch(patchAuthUser({
+        name: updatedUser.name,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        img: updatedUser.img,
+      }));
 
       addToast({ type: "success", message: "Profile updated successfully." });
       setSelectedFile(null);

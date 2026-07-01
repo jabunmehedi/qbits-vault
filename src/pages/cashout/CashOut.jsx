@@ -7,8 +7,6 @@ import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 import { AnimatePresence, motion } from "framer-motion";
 import { CashOutVerifierCell, CashOutCustodianCell, CashOutCashierCell } from "../../components/cashout/CashOutActionCells";
 import dayjs from "dayjs";
-import { GetVaults } from "../../services/Vault";
-import CashOutConfirmationModal from "../../components/cashout/CashOutConfirmationModal";
 import { ApproveCashOut, CustodianRejectCashReceived, CustodianVerifyCashReceived, DeleteCashOut, GetCashOut, GetCashOuts, RejectCashOut, ResendCashOut, VerifyCashOut } from "../../services/Cash";
 import { useSelector } from "react-redux";
 import { usePermissions } from "../../hooks/usePermissions";
@@ -16,15 +14,14 @@ import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
 import CashOutRequestDrawer from "../../components/cashout/CashOutRequestDrawer";
 import { useToast } from "../../hooks/useToast";
 import { GetCashOutLedger } from "../../services/Ledger";
-import { HiDotsHorizontal } from "react-icons/hi";
 
 const BagIds = ({ bags }) => {
-  if (!bags?.cash_out_bags?.length) return <span className="text-gray-400">—</span>;
+  if (!bags?.bag_labels?.length) return <span className="text-gray-400">—</span>;
   return (
     <div className="flex flex-wrap gap-x-1 gap-y-0.5 w-full">
-      {bags.cash_out_bags.map((bag, i) => (
-        <span key={bag.id || `bag-${i}`} className="whitespace-nowrap text-gray-700">
-          {bag?.bag?.barcode} - RN#{bag?.bag?.rack_number}{i < bags.cash_out_bags.length - 1 ? "," : ""}
+      {bags.bag_labels.map((bag, i) => (
+        <span key={`${bag.barcode || "bag"}-${i}`} className="whitespace-nowrap text-gray-700">
+          {bag?.barcode} - RN#{bag?.rack_number}{i < bags.bag_labels.length - 1 ? "," : ""}
         </span>
       ))}
     </div>
@@ -153,14 +150,9 @@ const CashOutActionCell = ({ row, isSuperAdmin, hasPermission, activeActionMenuI
 };
 
 const CashOut = () => {
-  const [vaults, setVaults] = useState([]);
-  const [selectedVaultId, setSelectedVaultId] = useState(null);
-  const [selectedRows, setSelectedRows] = useState([]);
   const [cashOuts, setCashOuts] = useState([]);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [editCashOutData, setEditCashOutData] = useState(null);
   const [openCashOutReqDrawer, setOpenCashOutReqDrawer] = useState(false);
-  const [selectedBagsTotalAmount, setSelectedBagsTotalAmount] = useState(0);
   const [verifyLoading, setVerifyLoading] = useState(null);
   const [activeCustodianId, setActiveCustodianId] = useState(null);
   const [activeVerifyId, setActiveVerifyId] = useState(null);
@@ -177,15 +169,6 @@ const CashOut = () => {
   const { filters, updateFilters, resetFilters } = usePersistedFilters("cashout_filters", DEFAULT_FILTERS);
   const [paginationData, setPaginationData] = useState({});
   const [loading, setLoading] = useState(false);
-
-  const toggleRow = (rowId, e) => {
-    e.stopPropagation();
-  };
-
-  useEffect(() => {
-    // Fetch vaults
-    GetVaults().then((res) => setVaults(res.data?.data || []));
-  }, []);
 
   const fetchCashOutLits = useCallback(() => {
     setLoading(true);
@@ -645,7 +628,7 @@ const CashOut = () => {
       title: "Vault name",
       key: "name",
       className: "w-[7%]",
-      render: (row) => <span className="text-[#1a73e8] font-semibold">{row?.vault?.name}</span>,
+      render: (row) => <span className="text-[#1a73e8] font-semibold">{row?.vault_name}</span>,
     },
     {
       title: "Tran ID",
@@ -815,17 +798,6 @@ const CashOut = () => {
       {openCashOutReqDrawer && (
         <CashOutRequestDrawer isOpen={openCashOutReqDrawer} onClose={() => setOpenCashOutReqDrawer(false)} refetch={refetch} editData={editCashOutData} />
       )}
-
-      <CashOutConfirmationModal
-        showConfirmModal={showConfirmModal}
-        setShowConfirmModal={setShowConfirmModal}
-        // totalEnteredAmount={totalEnteredAmount}
-        // denominations={denominations}
-        selectedRows={selectedRows}
-        selectedVaultId={selectedVaultId}
-        amounts={selectedBagsTotalAmount}
-        refetch={refetch}
-      />
     </div>
   );
 };

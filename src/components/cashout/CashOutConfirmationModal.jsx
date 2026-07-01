@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AiOutlineWarning } from "react-icons/ai";
-import { GetVaultBagById, GetVaults } from "../../services/Vault";
+import { GetVaultBagById } from "../../services/Vault";
 import { useNavigate } from "react-router-dom";
 import { Hash, Package, X } from "lucide-react";
 import { CreateCashOut } from "../../services/Cash";
@@ -11,7 +11,6 @@ export default function CashOutConfirmationModal({ amounts, selectedRows, select
   const [selectedVault, setSelectedVault] = useState(null);
   const [selectedBag, setSelectedBag] = useState(null);
   const [availableBags, setAvailableBags] = useState([]);
-  const [vaults, setVaults] = useState([]);
 
   // Search states
   const [vaultSearch, setVaultSearch] = useState("");
@@ -27,20 +26,6 @@ export default function CashOutConfirmationModal({ amounts, selectedRows, select
   const vaultRef = useRef(null);
   const bagRef = useRef(null);
   const navigate = useNavigate();
-
-  // fetch all vaults
-  const fetchVaultData = async () => {
-    try {
-      const res = await GetVaults();
-      setVaults(res?.data?.data || []);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  useEffect(() => {
-    fetchVaultData();
-  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {

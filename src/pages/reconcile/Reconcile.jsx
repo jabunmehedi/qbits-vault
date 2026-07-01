@@ -7,7 +7,7 @@ import { ArrowLeft, Building2, CalendarClock, Eye, Landmark, Loader2, Plus, Scal
 import { useSelector } from "react-redux";
 import ReconcileViewDrawer from "../../components/reconcile/ReconcileViewDrawer";
 import { selectAuthUser, selectIsSuperAdmin } from "../../store/authSlice";
-import { GetVaults } from "../../services/Vault";
+import { GetVaultSummaryById, GetVaults } from "../../services/Vault";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import customParseFormat from "dayjs/plugin/customParseFormat";
@@ -17,14 +17,15 @@ import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 import DateRangePicker from "../../components/global/dateRangePicker/DateRangePicker";
 import ReconcileFilterDrawer from "../../components/global/cashFilters/ReconcileFilterDrawer";
 
-const RECONCILE_DEFAULT_FILTERS = { search: "", from_date: "", to_date: "", preset: "all", per_page: 10, status: "", variance_filter: "", min_expected: "", max_expected: "", min_counted: "", max_counted: "", settlement_status: "" };
-const PER_PAGE_OPTIONS = [10, 25, 50, 100];
+const RECONCILE_DEFAULT_FILTERS = { search: "", from_date: "", to_date: "", preset: "all", per_page: 500, page: 1, status: "", variance_filter: "", min_expected: "", max_expected: "", min_counted: "", max_counted: "", settlement_status: "" };
+const PER_PAGE_OPTIONS = [50, 100, 250, 500, 1000];
 
 dayjs.extend(customParseFormat);
 dayjs.extend(utc);
 
 const fmt = (n) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
-const vaultBalance = (vault) => (vault?.bags || []).reduce((sum, bag) => sum + parseFloat(bag.current_amount || 0), 0);
+const vaultBalance = (vault) => parseFloat(vault?.balance || 0);
+const vaultBagCount = (vault) => Number(vault?.bags_count ?? vault?.total_bags ?? vault?.bags?.length ?? 0);
 const bagDifference = (bag) => Number(bag?.pivot?.difference ?? 0);
 const reconcileVariance = (row) => {
   // Variance = expected − counted, so it always agrees with the Expected and
@@ -66,8 +67,8 @@ const displayStatus = (row) => (isScheduleExpired(row) ? "expired" : row?.status
 
 const Reconcile = () => {
   const [reconcileData, setReconcileData] = useState([]);
-  const [latestReconcileByVault, setLatestReconcileByVault] = useState({});
   const [vaults, setVaults] = useState([]);
+  const [selectedVaultDetails, setSelectedVaultDetails] = useState(null);
   const [vaultsLoading, setVaultsLoading] = useState(true);
   const [openReconcileModel, setOpenReconcileModel] = useState();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -87,6 +88,12 @@ const Reconcile = () => {
   const [searchInput, setSearchInput] = useState("");
   const { filters: reconcileFilters, updateFilters: updateReconcileFilters, resetFilters: resetReconcileFilters } = usePersistedFilters("reconcile_filters", RECONCILE_DEFAULT_FILTERS);
 
+  useEffect(() => {
+    if (!PER_PAGE_OPTIONS.includes(Number(reconcileFilters.per_page))) {
+      updateReconcileFilters({ per_page: RECONCILE_DEFAULT_FILTERS.per_page }, { resetPage: false });
+    }
+  }, [reconcileFilters.per_page, updateReconcileFilters]);
+
   // Debounce search
   useEffect(() => {
     const t = setTimeout(() => {
@@ -98,39 +105,32 @@ const Reconcile = () => {
   const advancedFilterCount = [reconcileFilters.status, reconcileFilters.from_date, reconcileFilters.variance_filter, reconcileFilters.settlement_status, reconcileFilters.min_expected, reconcileFilters.min_counted].filter(Boolean).length;
 
   useEffect(() => {
+    setVaultsLoading(true);
+
+    if (activeVaultId) {
+      GetVaultSummaryById(activeVaultId)
+        .then((res) => {
+          setSelectedVaultDetails(res?.data || null);
+          setVaults([]);
+        })
+        .finally(() => setVaultsLoading(false));
+      return;
+    }
+
+    setSelectedVaultDetails(null);
     GetVaults()
       .then((res) => {
         setVaults(res?.data?.data || []);
       })
       .finally(() => setVaultsLoading(false));
-  }, []);
-
-  const fetchLatestReconcileByVault = useCallback(() => {
-    GetReconciles({ per_page: 200 }).then((res) => {
-      const items = res?.data?.data ?? [];
-      const map = {};
-      items.forEach((r) => {
-        const vid = String(r.vault_id || r.vault?.id);
-        if (!map[vid]) map[vid] = r;
-      });
-      setLatestReconcileByVault(map);
-    });
-  }, []);
-
-  useEffect(() => {
-    fetchLatestReconcileByVault();
-  }, [fetchLatestReconcileByVault]);
-
-  useEffect(() => {
-    if (!activeVaultId) fetchLatestReconcileByVault();
-  }, [activeVaultId, fetchLatestReconcileByVault]);
+  }, [activeVaultId]);
 
   const filteredVaults = useMemo(() => {
     if (isSuperAdmin) return vaults;
     return vaults.filter((vault) => user?.vault_assignments?.some((assign) => Number(assign.vault_id) === Number(vault.id) && assign.status === "active"));
   }, [isSuperAdmin, user?.vault_assignments, vaults]);
 
-  const activeVault = activeVaultId ? filteredVaults.find((vault) => Number(vault.id) === Number(activeVaultId)) : null;
+  const activeVault = activeVaultId ? selectedVaultDetails : null;
   const isVaultSelectionLoading = activeVaultId && (vaultsLoading || waitingForAssignments);
 
   // Deep-link: /reconcile?vault=X&open=<reconcileId>&tran=<tranId> opens the reconcile
@@ -238,7 +238,7 @@ const Reconcile = () => {
   const latestReconcile = visibleReconcileData[0] || null;
   const latestVariance = reconcileVariance(latestReconcile);
   const activeVaultBalance = vaultBalance(activeVault);
-  const activeVaultBagCount = activeVault?.bags?.length || 0;
+  const activeVaultBagCount = vaultBagCount(activeVault);
 
   const renderSelectedVaultSummary = () => {
     if (!activeVault) return null;
@@ -350,8 +350,6 @@ const Reconcile = () => {
 
         <div className="p-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredVaults.map((vault) => {
-            const latestRec = latestReconcileByVault[String(vault.id)];
-            const activeStatus = latestRec && latestRec.status !== "completed" ? latestRec.status : null;
             return (
               <button
                 key={vault.id}
@@ -373,23 +371,8 @@ const Reconcile = () => {
                   </div>
                   <div className="flex flex-col items-end gap-1.5 shrink-0">
                     <span className="bg-emerald-50 border border-emerald-100 text-emerald-600 text-[11px] font-bold px-2.5 py-1 rounded-full">
-                      {vault?.bags?.length || 0} Bag{(vault?.bags?.length || 0) !== 1 ? "s" : ""}
+                      {vaultBagCount(vault)} Bag{vaultBagCount(vault) !== 1 ? "s" : ""}
                     </span>
-                    {activeStatus && (
-                      <span className={`capitalize text-[11px] font-bold px-2.5 py-1 rounded-full border ${
-                        activeStatus === "pending"
-                          ? "bg-yellow-50 border-yellow-200 text-yellow-600"
-                          : activeStatus === "counting"
-                          ? "bg-blue-50 border-blue-200 text-[#1a73e8]"
-                          : activeStatus === "counted"
-                          ? "bg-blue-50 border-blue-200 text-[#1a73e8]"
-                          : activeStatus === "expired"
-                          ? "bg-red-50 border-red-200 text-red-500"
-                          : "bg-orange-50 border-orange-200 text-orange-500"
-                      }`}>
-                        {activeStatus}
-                      </span>
-                    )}
                   </div>
                 </div>
 

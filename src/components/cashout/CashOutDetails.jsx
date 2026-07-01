@@ -1,13 +1,38 @@
+import { useQuery } from "@tanstack/react-query";
 import { HiOutlineHashtag, HiOutlineUser, HiOutlineInboxIn, HiOutlineCash, HiOutlineDownload, HiOutlineDocumentText } from "react-icons/hi";
+import { Loader2 } from "lucide-react";
+import { GetCashOut } from "../../services/Cash";
 
-const CashOutDetails = ({ cashOut }) => {
-  if (!cashOut) return null;
+const CashOutDetails = ({ cashOut, cashOutId }) => {
+  const shouldFetch = !!cashOutId && !cashOut;
 
-  const totalAmount = parseFloat(cashOut.cash_out_amount).toLocaleString();
-  const requestAmount = parseFloat(cashOut.request_amount).toLocaleString();
-  const custodianReceivedFormatted = parseFloat(cashOut.custodian?.amount).toLocaleString();
-  const bagBarcode = cashOut?.cash_out_bags?.map((bag) => bag?.bag?.barcode).join(", ") || "N/A";
-  const tranId = cashOut.tran_id;
+  const {
+    data: fetchedCashOut,
+    isLoading,
+    isFetching,
+  } = useQuery({
+    queryKey: ["cashOutDetails", cashOutId],
+    queryFn: () => GetCashOut(cashOutId),
+    enabled: shouldFetch,
+    staleTime: 1000 * 60 * 5,
+    placeholderData: (previousData) => previousData,
+  });
+
+  const detail = cashOut || fetchedCashOut?.data?.data || fetchedCashOut?.data || fetchedCashOut || null;
+
+  if (!detail) {
+    return (
+      <div className="min-h-[320px] flex items-center justify-center">
+        <Loader2 className={`w-5 h-5 text-slate-400 animate-spin ${isLoading || isFetching ? "opacity-100" : "opacity-0"}`} />
+      </div>
+    );
+  }
+
+  const totalAmount = parseFloat(detail.cash_out_amount).toLocaleString();
+  const requestAmount = parseFloat(detail.request_amount).toLocaleString();
+  const custodianReceivedFormatted = parseFloat(detail.custodian?.amount || 0).toLocaleString();
+  const bagBarcode = detail?.cash_out_bags?.map((bag) => bag?.bag?.barcode).join(", ") || "N/A";
+  const tranId = detail.tran_id;
 
   return (
     <div className="w-full space-y-6 text-left">
@@ -17,12 +42,12 @@ const CashOutDetails = ({ cashOut }) => {
         <h2 className="text-4xl font-black text-indigo-600 tracking-tight">৳{totalAmount}</h2>
         <div className="mt-3 flex justify-center gap-2">
           <span
-            className={`px-3 py-1 ${cashOut.verifier_status == "verified" ? "bg-green-50 text-green-600" : "bg-yellow-50 text-yellow-600"} text-[10px] font-bold rounded-full border border-yellow-100 uppercase`}
+            className={`px-3 py-1 ${detail.verifier_status == "verified" ? "bg-green-50 text-green-600" : "bg-yellow-50 text-yellow-600"} text-[10px] font-bold rounded-full border border-yellow-100 uppercase`}
           >
-            Verifier: {cashOut.verifier_status}
+            Verifier: {detail.verifier_status}
           </span>
           <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full border border-blue-100 uppercase">
-            Vault: {cashOut.vault?.name}
+            Vault: {detail.vault?.name}
           </span>
         </div>
       </div>
@@ -47,13 +72,13 @@ const CashOutDetails = ({ cashOut }) => {
       </div>
 
       {/* Purpose / Note entered by the requester during cash-out submission */}
-      {cashOut.note && (
+      {detail.note && (
         <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
           <div className="flex items-center gap-2 text-slate-400 mb-1">
             <HiOutlineDocumentText className="text-sm" />
             <span className="text-[10px] font-bold uppercase tracking-wider">Purpose / Note</span>
           </div>
-          <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap break-words">{cashOut.note}</p>
+          <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap break-words">{detail.note}</p>
         </div>
       )}
 
@@ -90,10 +115,10 @@ const CashOutDetails = ({ cashOut }) => {
         <div className="flex items-center gap-2">
           <HiOutlineUser className="text-sm" />
           <span className="text-[10px]">
-            Prepared by <span className="font-bold text-slate-600">{cashOut.user?.name}</span>
+            Prepared by <span className="font-bold text-slate-600">{detail.user?.name}</span>
           </span>
         </div>
-        <span className="text-[9px] font-mono opacity-50">{new Date(cashOut.created_at).toLocaleDateString()}</span>
+        <span className="text-[9px] font-mono opacity-50">{new Date(detail.created_at).toLocaleDateString()}</span>
       </div>
     </div>
   );

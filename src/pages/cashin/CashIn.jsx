@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import JsBarcode from "jsbarcode";
 import { Plus, Loader2 } from "lucide-react";
 import DataTable from "../../components/global/dataTable/DataTable";
@@ -7,8 +8,6 @@ import { useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ApproveCashIn, DeleteCashIn, GetCashIn, GetCashIns, RejectCashIn, ResendCashIn, VerifyCashIn } from "../../services/Cash";
 import VerificationCell from "../../components/cashin/VerificationCell";
-import { GetCashInLedger } from "../../services/Ledger";
-import { HiDotsHorizontal } from "react-icons/hi";
 import CashInRequestDrawer from "../../components/cashin/CashInRequestDrawer";
 import { usePermissions } from "../../hooks/usePermissions";
 import OrderDetailsDrawer from "../../components/cashin/orderDetailsDrawer/OrderDetailsDrawer";
@@ -21,27 +20,15 @@ import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 
 const DEFAULT_FILTERS = { search: "", from_date: "", to_date: "", preset: "all", per_page: 500, page: 1, vault_id: "", verifier_status: "", approver_status: "", min_amount: "", max_amount: "" };
 
-const DENOM_NOTES = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
-const INITIAL_DENOMINATIONS = Object.fromEntries(DENOM_NOTES.map((n) => [n, 0]));
-
 const CashIn = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [editCashInData, setEditCashInData] = useState(null);
   const [requestVaultId, setRequestVaultId] = useState(null);
-  const [cashIns, setCashIns] = useState([]);
-  const [cashInsLoaded, setCashInsLoaded] = useState(false);
   const [selectedRows, setSelectedRows] = useState([]);
-  const [paginationData, setPaginationData] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [amounts, setAmounts] = useState({});
-  const [denominations, setDenominations] = useState(INITIAL_DENOMINATIONS);
-  const [transactionId, setTransactionId] = useState(null);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const [openCashInReqDrawer, setOpenCashInReqDrawer] = useState(false);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [openOrderDetailsDrawer, setOpenOrderDetailsDrawer] = useState(false);
-  const [editLoading, setEditLoading] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [activeVerifyId, setActiveVerifyId] = useState(null);
@@ -56,35 +43,33 @@ const CashIn = () => {
   const { addToast } = useToast();
   const { filters, updateFilters, resetFilters } = usePersistedFilters("cashin_filters", DEFAULT_FILTERS);
 
-  const fetchCashInsData = useCallback(() => {
-    setLoading(true);
-    GetCashIns({
-      search: filters.search || undefined,
-      from_date: filters.from_date || undefined,
-      to_date: filters.to_date || undefined,
-      per_page: filters.per_page,
-      page: filters.page,
-      vault_id: filters.vault_id || undefined,
-      verifier_status: filters.verifier_status || undefined,
-      approver_status: filters.approver_status || undefined,
-      min_amount: filters.min_amount || undefined,
-      max_amount: filters.max_amount || undefined,
-    })
-      .then((res) => {
-        setCashIns(res?.data?.data || []);
-        setCashInsLoaded(true);
-        setPaginationData(res?.data?.pagination || {});
-      })
-      .catch((err) => {
-        console.error("Error fetching cash-ins:", err);
-        setCashIns([]);
-        setCashInsLoaded(true);
-        setPaginationData({});
-      })
-      .finally(() => setLoading(false));
-  }, [filters]);
+  const cashInQueryParams = useMemo(() => ({
+    search: filters.search || undefined,
+    from_date: filters.from_date || undefined,
+    to_date: filters.to_date || undefined,
+    per_page: filters.per_page,
+    page: filters.page,
+    vault_id: filters.vault_id || undefined,
+    verifier_status: filters.verifier_status || undefined,
+    approver_status: filters.approver_status || undefined,
+    min_amount: filters.min_amount || undefined,
+    max_amount: filters.max_amount || undefined,
+  }), [filters]);
 
-  useEffect(() => {
+  const {
+    data: cashInsResponse,
+    isFetching: loading,
+    refetch: fetchCashInsData,
+  } = useQuery({
+    queryKey: ["cashIns", cashInQueryParams],
+    queryFn: () => GetCashIns(cashInQueryParams),
+    placeholderData: (previousData) => previousData,
+  });
+
+  const cashIns = cashInsResponse?.data?.data || [];
+  const paginationData = cashInsResponse?.data?.pagination || {};
+
+  const refreshCashInsData = useCallback(() => {
     fetchCashInsData();
   }, [fetchCashInsData]);
 
@@ -123,35 +108,23 @@ const CashIn = () => {
     updateFilters({ page }, { resetPage: false });
   };
 
-  const totalEnteredAmount = selectedRows.reduce((sum, row) => sum + (parseFloat(amounts[row.id]) || 0), 0);
-
-  const generateTransactionId = () =>
-    `TXN-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 9999)
-      .toString()
-      .padStart(4, "0")}`;
-
-  const confirmAndComplete = () => {
-    setTransactionId(generateTransactionId());
-    setShowConfirmModal(false);
-    setSearchParams({ step: 4 });
-  };
-
   const downloadCashInLedger = async (cashIn) => {
     try {
-      const response = await GetCashInLedger(cashIn.id);
-      if (!response.success) throw new Error(response.message || "Failed to fetch ledger data");
-
-      const { vault, verifiers, approvers } = response.data;
-      const cashInAmount = parseFloat(cashIn.cash_in_amount || 0);
+      const cashInDetailResponse = await GetCashIn(cashIn.id);
+      const cashInDetail = cashInDetailResponse?.data?.data || cashInDetailResponse?.data || cashInDetailResponse || cashIn;
+      const cashInAmount = parseFloat(cashInDetail.cash_in_amount || 0);
+      const vaultCode = cashInDetail.vault?.vault_code || cashIn.vault_code || "-";
+      const verifierNames = cashInDetail.required_verifiers?.map((verifier) => verifier?.user?.name).filter(Boolean) || [];
+      const approvers = cashInDetail.required_approvers || [];
 
       const amountFmt = (n) => parseFloat(n).toLocaleString("en-US", { minimumFractionDigits: 2 });
 
       // Barcode encoding the cash-in transaction id, rendered to a PNG for the print window
       const barcodeDataUrl = (() => {
-        if (!cashIn.tran_id) return "";
+        if (!cashInDetail.tran_id) return "";
         try {
           const canvas = document.createElement("canvas");
-          JsBarcode(canvas, String(cashIn.tran_id), { format: "CODE128", displayValue: false, width: 2, height: 55, margin: 0 });
+          JsBarcode(canvas, String(cashInDetail.tran_id), { format: "CODE128", displayValue: false, width: 2, height: 55, margin: 0 });
           return canvas.toDataURL("image/png");
         } catch (err) {
           console.error("Barcode generation failed:", err);
@@ -184,8 +157,8 @@ const CashIn = () => {
 
       // Build a safe number-keyed map so string/number key mismatch doesn't cause [object Object]
       const denomMap = {};
-      if (cashIn.denominations) {
-        Object.entries(cashIn.denominations).forEach(([k, v]) => {
+      if (cashInDetail.denominations) {
+        Object.entries(cashInDetail.denominations).forEach(([k, v]) => {
           denomMap[parseInt(k)] = parseInt(v) || 0;
         });
       }
@@ -198,36 +171,36 @@ const CashIn = () => {
 <head>
   <meta charset="utf-8">
   <meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
-  <title>Cash-In Ledger — ${cashIn.tran_id}</title>
+  <title>Cash-In Ledger - ${cashIn.tran_id}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; font-size: 13px; color: #1f2937; background: #9ca3af; }
     .page { max-width: 820px; margin: 24px auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.18); min-height: 277mm; display: flex; flex-direction: column; }
     .content { flex: 1; }
 
-    /* ── Header ── */
+    /* Header */
     .ledger-header { background: #1f2937; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 16px; }
     .header-title { font-size: 17px; font-weight: 800; letter-spacing: 2.5px; }
     .bag-badge { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.05; }
     .bag-badge-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; color: rgba(255,255,255,0.6); }
     .bag-badge-value { font-size: 26px; font-weight: 800; letter-spacing: 1px; font-family: monospace; }
 
-    /* ── Content ── */
+    /* Content */
     .content { padding: 14px 16px; }
 
-    /* ── Info grid ── */
+    /* Info grid */
     .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px 24px; margin-bottom: 12px; }
     .info-item { padding: 2px 0 5px; }
     .info-label { font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 2px; }
     .info-value { font-size: 13px; font-weight: 600; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; display: flex; align-items: center; gap: 5px; min-height: 18px; }
 
-    /* ── Sections ── */
+    /* Sections */
     .section { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 8px; page-break-inside: avoid; break-inside: avoid; }
     .section-hd { background: #f3f4f6; border-bottom: 1px solid #d1d5db; padding: 7px 14px; display: flex; align-items: center; justify-content: space-between; }
     .section-hd-left { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; color: #1f2937; text-transform: uppercase; }
     .section-body { padding: 8px 14px; }
 
-    /* ── Denomination table ── */
+    /* Denomination table */
     .denom-table { width: 100%; border-collapse: collapse; }
     .denom-table th { background: #374151; color: #fff; padding: 8px 12px; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }
     .denom-table th:first-child { text-align: left; }
@@ -240,25 +213,25 @@ const CashIn = () => {
     .denom-table tr:last-child td { border-bottom: none; }
     .grand-total-val { font-size: 14px; font-weight: 800; color: #111827; }
 
-    /* ── Field rows ── */
+    /* Field rows */
     .field-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
     .field-row:last-child { margin-bottom: 0; }
     .field-label { font-size: 12px; font-weight: 600; color: #475569; white-space: nowrap; min-width: 120px; }
     .field-line { flex: 1; border-bottom: 1px solid #cbd5e1; padding-bottom: 2px; min-height: 18px; font-size: 12px; color: #1e293b; }
     .field-area { flex: 1; border: 1px solid #e2e8f0; border-radius: 4px; min-height: 36px; padding: 4px 8px; font-size: 12px; color: #1e293b; }
 
-    /* ── Sign-off (verifiers / cashiers): compact, boxed, header-less ── */
+    /* Sign-off (verifiers / cashiers): compact, boxed, header-less */
     .signoff { border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 14px; margin-bottom: 8px; page-break-inside: avoid; break-inside: avoid; }
     .signoff-row { display: flex; flex-wrap: wrap; gap: 3px 24px; padding: 3px 0; align-items: baseline; page-break-inside: avoid; break-inside: avoid; }
     .signoff-row .field-row { flex: 1; min-width: 170px; margin-bottom: 0; }
     .signoff-row .field-label { min-width: auto; }
 
-    /* ── Barcode ── */
+    /* Barcode */
     .barcode-block { text-align: center; margin: 14px 0 2px; padding-top: 12px; border-top: 1px dashed #cbd5e1; page-break-inside: avoid; break-inside: avoid; }
     .barcode-img { height: 55px; max-width: 100%; }
     .barcode-text { font-family: monospace; font-size: 11px; letter-spacing: 2px; margin-top: 3px; color: #475569; }
 
-    /* ── Footer ── */
+    /* Footer */
     .footer { text-align: center; padding: 8px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; }
 
     @media print {
@@ -275,7 +248,7 @@ const CashIn = () => {
     <span class="header-title">CASH IN LEDGER</span>
     <div class="bag-badge">
       <span class="bag-badge-label">BAG NO</span>
-      <span class="bag-badge-value">${cashIn.bags?.barcode || "—"}</span>
+      <span class="bag-badge-value">${cashInDetail.bags?.barcode || cashIn.bag_barcode || "-"}</span>
     </div>
   </div>
 
@@ -285,30 +258,30 @@ const CashIn = () => {
     <div class="info-grid">
       <div class="info-item">
         <div class="info-label">Vault Name:</div>
-        <div class="info-value">${cashIn.vault?.name || vault.vault_code || "—"}</div>
+        <div class="info-value">${cashInDetail.vault?.name || cashIn.vault_name || vaultCode}</div>
       </div>
       <div class="info-item">
         <div class="info-label">Vault Code:</div>
-        <div class="info-value">${vault.vault_code || "—"}</div>
+        <div class="info-value">${vaultCode}</div>
       </div>
       <div class="info-item">
         <div class="info-label">Cash In Transaction ID:</div>
-        <div class="info-value" style="font-family:monospace">${cashIn.tran_id || "—"}</div>
+        <div class="info-value" style="font-family:monospace">${cashInDetail.tran_id || "-"}</div>
       </div>
       <div class="info-item">
         <div class="info-label">Date &amp; Time:</div>
         <div class="info-value">
-          ${dayjs(cashIn.created_at).format("DD/MM/YYYY hh:mm A")}
+          ${dayjs(cashInDetail.created_at).format("DD/MM/YYYY hh:mm A")}
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         </div>
       </div>
       <div class="info-item">
         <div class="info-label">Prepared By:</div>
-        <div class="info-value">${cashIn.user?.name || "—"}</div>
+        <div class="info-value">${cashInDetail.user?.name || "-"}</div>
       </div>
       <div class="info-item">
         <div class="info-label">Verified By:</div>
-        <div class="info-value">${verifiers?.length > 0 ? verifiers.map((v) => v.name).filter(Boolean).join(", ") : "—"}</div>
+        <div class="info-value">${verifierNames.length > 0 ? verifierNames.join(", ") : "-"}</div>
       </div>
     </div>
 
@@ -360,8 +333,8 @@ const CashIn = () => {
     <div class="signoff">
       ${approvers?.length > 0 ? approvers.map((a) => `
         <div class="signoff-row">
-          <div class="field-row"><span class="field-label">Cashier:</span><span class="field-line">${a?.name || ""}</span></div>
-          <div class="field-row"><span class="field-label">Date:</span><span class="field-line">${a?.approved_at || ""}</span></div>
+          <div class="field-row"><span class="field-label">Cashier:</span><span class="field-line">${a?.user?.name || "-"}</span></div>
+          <div class="field-row"><span class="field-label">Date:</span><span class="field-line">${a?.approved_at || "-"}</span></div>
           <div class="field-row"><span class="field-label">Signature:</span><span class="field-line"></span></div>
         </div>`).join("") : `
         <div class="signoff-row">
@@ -375,7 +348,7 @@ const CashIn = () => {
     <!-- Barcode (encodes cash-in transaction id) -->
     <div class="barcode-block">
       <img class="barcode-img" src="${barcodeDataUrl}" alt="Cash-in transaction barcode" />
-      <div class="barcode-text">${cashIn.tran_id}</div>
+      <div class="barcode-text">${cashInDetail.tran_id}</div>
     </div>` : ""}
 
   </div>
@@ -391,31 +364,30 @@ const CashIn = () => {
     }
   };
 
-  const ExpandableOrderIds = ({ orders, onIdClick }) => {
-    if (!orders || orders.length === 0) return <span className="text-gray-400">—</span>;
+  const ExpandableOrderIds = ({ orderIds, onIdClick }) => {
+    if (!orderIds || orderIds.length === 0) return <span className="text-gray-400">-</span>;
 
     return (
       <div className="flex flex-wrap gap-x-1 gap-y-0.5 w-full">
-        {orders.map((order, i) => (
+        {orderIds.map((orderId, i) => (
           <span
-            key={order.order_id || `order-${i}`}
-            onClick={() => onIdClick(order)}
+            key={orderId || `order-${i}`}
+            onClick={() => onIdClick(orderId)}
             className="whitespace-nowrap hover:text-[#1a73e8] hover:underline cursor-pointer"
           >
-            {order?.order_id}
-            {i < orders.length - 1 ? "," : ""}
+            {orderId}
+            {i < orderIds.length - 1 ? "," : ""}
           </span>
         ))}
       </div>
     );
   };
-  const handleOpenDetails = (orderData) => {
-    setSelectedOrderDetails(orderData);
+  const handleOpenDetails = (orderId) => {
+    setSelectedOrderDetails({ order_id: orderId });
     setOpenOrderDetailsDrawer(true);
   };
 
   const handleEditClick = async (id) => {
-    setEditLoading(id);
     try {
       const res = await GetCashIn(id);
 
@@ -423,8 +395,6 @@ const CashIn = () => {
       setOpenCashInReqDrawer(true);
     } catch (err) {
       console.error("Failed to fetch cash-in:", err);
-    } finally {
-      setEditLoading(null);
     }
   };
 
@@ -433,7 +403,7 @@ const CashIn = () => {
     try {
       const res = await ResendCashIn(id);
       if (res?.success) {
-        fetchCashInsData();
+        refreshCashInsData();
         addToast({ message: "Cash-in request resent successfully", type: "success" });
       } else {
         const msg = typeof res?.message === "object" ? res?.message?.message : res?.message;
@@ -454,7 +424,7 @@ const CashIn = () => {
       const res = await DeleteCashIn(id);
 
       if (res?.success === true) {
-        fetchCashInsData();
+        refreshCashInsData();
         addToast({ message: "Cash-in deleted successfully", type: "success" });
       }
     } catch (err) {
@@ -473,7 +443,7 @@ const CashIn = () => {
         addToast({ message: res?.message, type: "error" });
         return;
       }
-      fetchCashInsData();
+      refreshCashInsData();
       addToast({ message: "Cash-in verified successfully", type: "success" });
     } catch (err) {
       console.error("Failed to verify cash-in:", err);
@@ -491,7 +461,7 @@ const CashIn = () => {
         addToast({ message: res?.message, type: "error" });
         return;
       }
-      fetchCashInsData();
+      refreshCashInsData();
       addToast({ message: "Cash-in rejected", type: "success" });
     } catch (err) {
       console.error("Failed to reject cash-in:", err);
@@ -509,7 +479,7 @@ const CashIn = () => {
         addToast({ message: res?.message, type: "error" });
         return;
       }
-      fetchCashInsData();
+      refreshCashInsData();
       addToast({ message: "Cash-in rejected", type: "success" });
     } catch (err) {
       console.error("Failed to reject cash-in:", err);
@@ -527,7 +497,7 @@ const CashIn = () => {
         addToast({ message: res?.message, type: "error" });
         return;
       }
-      fetchCashInsData();
+      refreshCashInsData();
       addToast({ message: "Cash-in approved successfully", type: "success" });
     } catch (err) {
       console.error("Failed to verify cash-in:", err);
@@ -541,17 +511,14 @@ const CashIn = () => {
       title: "Vault",
       key: "name",
       className: "w-[10%]",
-      render: (row) => <span className="text-[#1a73e8] font-semibold">{row.vault?.name}</span>,
+      render: (row) => <span className="text-[#1a73e8] font-semibold">{row.vault_name}</span>,
     },
     {
       title: "Bag",
       key: "bag",
       className: "w-[6%]",
       render: (row) => (
-        <span>
-          {/* {row?.bags?.barcode}-RN{row?.bags?.rack_number} */}
-          {row?.bags?.barcode}
-        </span>
+        <span>{row?.bag_barcode}</span>
       ),
     },
     {
@@ -566,8 +533,8 @@ const CashIn = () => {
       className: "w-[26%]",
       render: (row) => (
         <ExpandableOrderIds
-          orders={row?.orders}
-          onIdClick={(order) => handleOpenDetails(order)}
+          orderIds={row?.order_ids}
+          onIdClick={(orderId) => handleOpenDetails(orderId)}
         />
       ),
     },
@@ -790,7 +757,7 @@ const CashIn = () => {
         filters={filters}
         onChange={updateFilters}
         onReset={resetFilters}
-        searchPlaceholder="Search vault, bag, tran ID, order ID, amount…"
+        searchPlaceholder="Search vault, bag, tran ID, order ID, amount..."
       />
 
       <DataTable
@@ -821,7 +788,7 @@ const CashIn = () => {
           initialVaultId={requestVaultId}
           isOpen={openCashInReqDrawer}
           onClose={() => setOpenCashInReqDrawer(false)}
-          refetch={fetchCashInsData}
+          refetch={refreshCashInsData}
         />
       )}
 

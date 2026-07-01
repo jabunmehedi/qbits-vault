@@ -1,21 +1,9 @@
-import { useDispatch, useSelector } from "react-redux";
-import { fetchReconciliationStatus, selectIsLockedForOperations } from "../../store/checkReconcile";
 import VerifierAvatars from "../global/verifierAvatars.jsx/VerifierAvatars";
 import VerifyButton from "../verifyButton/VerifyButton";
 import CashInDetails from "./CashInDetails";
-import { useEffect } from "react";
 
 const ApprovalCell = ({ row, user, activeApproveId, setActiveApproveId, verifyLoading, handleApprovedClick, handleRejectClick }) => {
-  const dispatch = useDispatch();
-
-  useEffect(() => {
-    if (row?.vault_id) {
-      dispatch(fetchReconciliationStatus(row.vault_id));
-    }
-  }, [dispatch, row?.vault_id]);
-
-  // Safe Execution: This selector runs ONLY when a valid vault_id exists
-  const isLocked = useSelector((state) => selectIsLockedForOperations(state, row.vault_id));
+  const isLocked = row?.is_reconciliation_locked === true;
 
   const isApproverShowButton = row?.required_approvers?.some((approver) => approver?.user_id === user?.id && !approver?.approved);
   const isVerified = row?.verifier_status === "verified";
@@ -36,7 +24,7 @@ const ApprovalCell = ({ row, user, activeApproveId, setActiveApproveId, verifyLo
           title="Approve"
           rejectTitle="Reject this cash-in?"
         >
-          <CashInDetails cashIn={row} />
+          <CashInDetails cashInId={row.id} />
         </VerifyButton>
       ) : (
         isLocked && !isApproved && (

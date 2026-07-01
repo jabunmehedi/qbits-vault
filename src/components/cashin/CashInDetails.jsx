@@ -1,11 +1,36 @@
+import { useQuery } from "@tanstack/react-query";
 import { HiOutlineHashtag, HiOutlineUser, HiOutlineInboxIn } from "react-icons/hi";
+import { Loader2 } from "lucide-react";
+import { GetCashIn } from "../../services/Cash";
 
-const CashInDetails = ({ cashIn }) => {
-  if (!cashIn) return null;
+const CashInDetails = ({ cashIn, cashInId }) => {
+  const shouldFetch = !!cashInId && !cashIn;
 
-  const totalAmount = parseFloat(cashIn.cash_in_amount).toLocaleString();
-  const bagBarcode = cashIn.bags?.barcode || "N/A";
-  const tranId = cashIn.tran_id;
+  const {
+    data: fetchedCashIn,
+    isLoading,
+    isFetching,
+  } = useQuery({
+    queryKey: ["cashInDetails", cashInId],
+    queryFn: () => GetCashIn(cashInId),
+    enabled: shouldFetch,
+    staleTime: 1000 * 60 * 5,
+    placeholderData: (previousData) => previousData,
+  });
+
+  const detail = cashIn || fetchedCashIn?.data?.data || fetchedCashIn?.data || fetchedCashIn || null;
+
+  if (!detail) {
+    return (
+      <div className="min-h-[320px] flex items-center justify-center">
+        <Loader2 className={`w-5 h-5 text-slate-400 animate-spin ${isLoading || isFetching ? "opacity-100" : "opacity-0"}`} />
+      </div>
+    );
+  }
+
+  const totalAmount = parseFloat(detail.cash_in_amount).toLocaleString();
+  const bagBarcode = detail.bags?.barcode || "N/A";
+  const tranId = detail.tran_id;
 
   return (
     <div className="w-full space-y-6 text-left">
@@ -15,12 +40,12 @@ const CashInDetails = ({ cashIn }) => {
         <h2 className="text-4xl font-black text-indigo-600 tracking-tight">৳{totalAmount}</h2>
         <div className="mt-3 flex justify-center gap-2">
           <span
-            className={`px-3 py-1 ${cashIn.verifier_status == "verified" ? "bg-green-50 text-green-600" : "bg-yellow-50 text-yellow-600"} text-[10px] font-bold rounded-full border border-yellow-100 uppercase`}
+            className={`px-3 py-1 ${detail.verifier_status == "verified" ? "bg-green-50 text-green-600" : "bg-yellow-50 text-yellow-600"} text-[10px] font-bold rounded-full border border-yellow-100 uppercase`}
           >
-            Verifier: {cashIn.verifier_status}
+            Verifier: {detail.verifier_status}
           </span>
           <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full border border-blue-100 uppercase">
-            Vault: {cashIn.vault?.name}
+            Vault: {detail.vault?.name}
           </span>
         </div>
       </div>
@@ -50,7 +75,7 @@ const CashInDetails = ({ cashIn }) => {
         <div className="space-y-3">
           <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1">Linked Orders</h4>
           <div className="space-y-1 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
-            {cashIn.orders?.map((order) => (
+            {detail.orders?.map((order) => (
               <div key={order.id} className="p-3 rounded-xl border border-slate-100 bg-white hover:border-indigo-100 transition-all">
                 <div className="flex items-center gap-3 mb-1">
                   {/* <div className="w-7 h-7 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-[10px] font-bold uppercase">
@@ -80,7 +105,7 @@ const CashInDetails = ({ cashIn }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {Object.entries(cashIn.denominations || {})
+                {Object.entries(detail.denominations || {})
                   .filter(([_, count]) => count > 0)
                   .sort((a, b) => b[0] - a[0])
                   .map(([note, count]) => (
@@ -111,10 +136,10 @@ const CashInDetails = ({ cashIn }) => {
         <div className="flex items-center gap-2">
           <HiOutlineUser className="text-sm" />
           <span className="text-[10px]">
-            Prepared by <span className="font-bold text-slate-600">{cashIn.user?.name}</span>
+            Prepared by <span className="font-bold text-slate-600">{detail.user?.name}</span>
           </span>
         </div>
-        <span className="text-[9px] font-mono opacity-50">{new Date(cashIn.created_at).toLocaleDateString()}</span>
+        <span className="text-[9px] font-mono opacity-50">{new Date(detail.created_at).toLocaleDateString()}</span>
       </div>
     </div>
   );

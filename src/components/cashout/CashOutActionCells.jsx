@@ -3,13 +3,12 @@ import VerifyButton from "../verifyButton/VerifyButton";
 import CashOutDetails from "./CashOutDetails";
 import CustodianAvatar from "./CustodianAvatar";
 import CashOutCustodianModal from "./CashOutCustodianModal";
-import { useReconcileLock } from "../../hooks/useReconcileLock";
 
 const LockedNote = () => <span className="text-red-500 font-medium text-xs whitespace-nowrap">Cash out is locked</span>;
 
 // ── Verifiers column ──────────────────────────────────────────────────────────
 export const CashOutVerifierCell = ({ row, user, activeVerifyId, setActiveVerifyId, verifyLoading, handleVerify, handleRejectVerify }) => {
-  const isLocked = useReconcileLock(row?.vault_id);
+  const isLocked = row?.is_reconciliation_locked === true;
   const isVerifierShowButton = row?.required_verifiers?.some((verifier) => verifier?.user_id === user?.id && !verifier?.verified);
   const isVerified = row?.verifier_status === "verified";
   const isRejected = row?.verifier_status === "rejected" || row?.approver_status === "rejected";
@@ -28,7 +27,7 @@ export const CashOutVerifierCell = ({ row, user, activeVerifyId, setActiveVerify
           title="Verify"
           rejectTitle="Reject this cash-out?"
         >
-          <CashOutDetails cashOut={row} />
+          <CashOutDetails cashOutId={row.id} />
         </VerifyButton>
       ) : (
         isLocked && !isVerified && !isRejected && <LockedNote />
@@ -39,7 +38,7 @@ export const CashOutVerifierCell = ({ row, user, activeVerifyId, setActiveVerify
 
 // ── Custodian column ──────────────────────────────────────────────────────────
 export const CashOutCustodianCell = ({ row, user, activeCustodianId, setActiveCustodianId, verifyLoading, handleCustodianVerify, handleCustodianReject }) => {
-  const isLocked = useReconcileLock(row?.vault_id);
+  const isLocked = row?.is_reconciliation_locked === true;
   const isVerifierShowButton = row?.custodian?.custodian_id === user?.id && row?.custodian?.status === "pending";
   const isVerified = row?.verifier_status === "verified";
   const isRejected = row?.verifier_status === "rejected" || row?.approver_status === "rejected";
@@ -60,7 +59,7 @@ export const CashOutCustodianCell = ({ row, user, activeCustodianId, setActiveCu
           title="Receive"
           rejectTitle="Reject change amount?"
         >
-          <CashOutCustodianModal cashOut={row} />
+          <CashOutCustodianModal cashOutId={row.id} />
         </VerifyButton>
       ) : (
         isLocked && row?.custodian?.status === "pending" && !isRejected && <LockedNote />
@@ -71,7 +70,7 @@ export const CashOutCustodianCell = ({ row, user, activeCustodianId, setActiveCu
 
 // ── Cashiers (approvers) column ───────────────────────────────────────────────
 export const CashOutCashierCell = ({ row, user, activeApproveId, setActiveApproveId, verifyLoading, handleApprove, handleRejectApprove }) => {
-  const isLocked = useReconcileLock(row?.vault_id);
+  const isLocked = row?.is_reconciliation_locked === true;
   const isApproverShowButton = row?.required_approvers?.some((approver) => approver?.user_id === user?.id && !approver?.approved);
   const isVerified = row?.verifier_status === "verified";
   const isApproved = row?.approver_status === "approved";
@@ -92,7 +91,7 @@ export const CashOutCashierCell = ({ row, user, activeApproveId, setActiveApprov
           title="Approve"
           rejectTitle="Reject this cash-out?"
         >
-          <CashOutDetails cashOut={row} />
+          <CashOutDetails cashOutId={row.id} />
         </VerifyButton>
       ) : (
         isLocked && !isApproved && !isRejected && <LockedNote />

@@ -3,6 +3,8 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import axiosConfig from "../utils/axiosConfig";
 import { isSuperAdminRole, normalizePermissionName, normalizeRoleSlug } from "../utils/roleLabel";
 
+const AUTH_USER_FRESH_MS = 1000 * 60 * 15;
+
 // ── Thunk: fetch fresh user from API (replaces separate authUser slice) ────────
 export const fetchAuthUser = createAsyncThunk("auth/fetchAuthUser", async (_, { getState, rejectWithValue }) => {
   try {
@@ -17,6 +19,28 @@ export const fetchAuthUser = createAsyncThunk("auth/fetchAuthUser", async (_, { 
     return rejectWithValue(err.response?.data?.message || "Failed to fetch user");
   }
 });
+
+export const bootstrapAuthUser = createAsyncThunk(
+  "auth/bootstrapAuthUser",
+  async (_, { dispatch, getState }) => {
+    const { token, user, lastFetchedAt } = getState().auth;
+
+    if (!token) return null;
+
+    const hasFreshUser = !!user?.id && !!lastFetchedAt && (Date.now() - lastFetchedAt) < AUTH_USER_FRESH_MS;
+    if (hasFreshUser) return user;
+
+    return dispatch(fetchAuthUser()).unwrap();
+  },
+  {
+    condition: (_, { getState }) => {
+      const { token, bootstrapStatus, loading } = getState().auth;
+      if (!token) return false;
+      if (bootstrapStatus === "pending" || loading) return false;
+      return true;
+    },
+  },
+);
 
 // ── Kept for backwards-compat (roles/permissions refresh) ─────────────────────
 export const fetchUserPermissions = createAsyncThunk("auth/fetchPermissions", async (_, { dispatch }) => {
@@ -49,6 +73,8 @@ const authSlice = createSlice({
     roles: [],
     permissions: [],
     token: getInitialToken(),
+    lastFetchedAt: null,
+    bootstrapStatus: "idle",
     loading: false,
     error: null,
   },
@@ -61,6 +87,8 @@ const authSlice = createSlice({
       state.roles = roles;
       state.permissions = permissions;
       state.token = access_token;
+      state.lastFetchedAt = Date.now();
+      state.bootstrapStatus = "succeeded";
       state.loading = false;
       state.error = null;
 
@@ -72,6 +100,8 @@ const authSlice = createSlice({
       state.roles = [];
       state.permissions = [];
       state.token = null;
+      state.lastFetchedAt = null;
+      state.bootstrapStatus = "idle";
       state.loading = false;
       state.error = null;
 
@@ -102,11 +132,21 @@ const authSlice = createSlice({
         state.user = user; // full fresh user from API
         state.roles = roles;
         state.permissions = permissions;
+        state.lastFetchedAt = Date.now();
         state.loading = false;
       })
       .addCase(fetchAuthUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+      .addCase(bootstrapAuthUser.pending, (state) => {
+        state.bootstrapStatus = "pending";
+      })
+      .addCase(bootstrapAuthUser.fulfilled, (state) => {
+        state.bootstrapStatus = "succeeded";
+      })
+      .addCase(bootstrapAuthUser.rejected, (state) => {
+        state.bootstrapStatus = "failed";
       });
   },
 });
@@ -118,6 +158,7 @@ export default authSlice.reducer;
 export const selectAuthUser = (state) => state.auth.user;
 export const selectAuthLoading = (state) => state.auth.loading;
 export const selectAuthToken = (state) => state.auth.token;
+export const selectAuthBootstrapStatus = (state) => state.auth.bootstrapStatus;
 export const selectRoles = (state) => state.auth.roles;
 export const selectPermissions = (state) => state.auth.permissions;
 

@@ -3,7 +3,7 @@ import Drawer from "../global/drawer/Drawer";
 import { MdArrowOutward, MdOutlineCalculate, MdRestartAlt } from "react-icons/md";
 import DataTable from "../global/dataTable/DataTable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { CheckBagAvailability, CreateCashIn, UpdateCashIn } from "../../services/Cash";
 import { GetOrders } from "../../services/Orders";
 import dayjs from "dayjs";
@@ -11,8 +11,8 @@ import { LuMinus, LuPlus } from "react-icons/lu";
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { RiCloseCircleLine } from "react-icons/ri";
 import ConfirmModal from "./ConfirmModal";
-import { useDispatch, useSelector } from "react-redux";
-import { fetchAuthUser, selectAuthUser } from "../../store/authSlice";
+import { useSelector } from "react-redux";
+import { selectAuthUser } from "../../store/authSlice";
 import VaultSelect from "./VaultSelect";
 import { AddBagToVault } from "../../services/Vault";
 import { useToast } from "../../hooks/useToast";
@@ -36,28 +36,14 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null, initia
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [selectedVault, setSelectedVault] = useState(null);
   const [error, setError] = useState(null);
-  const [user, setUser] = useState(null);
   const [showBagRequestModal, setShowBagRequestModal] = useState(false);
   const [bagCheckMessage, setBagCheckMessage] = useState("");
 
   const selectionTouchedIdsRef = useRef(new Set());
 
   const reduxUser = useSelector(selectAuthUser);
-  const dispatch = useDispatch();
-  const queryClient = useQueryClient();
+  const user = reduxUser;
   const { addToast } = useToast();
-
-  useEffect(() => {
-    if (reduxUser) {
-      setUser(reduxUser);
-    }
-  }, [reduxUser]);
-
-  useEffect(() => {
-    if (isOpen) {
-      dispatch(fetchAuthUser());
-    }
-  }, [isOpen, dispatch]);
 
   const handleClose = useCallback(() => {
     setStep(1);
@@ -69,15 +55,14 @@ const CashInRequestDrawer = ({ isOpen, onClose, refetch, editData = null, initia
     setSelectedVault(null);
     setError(null);
     selectionTouchedIdsRef.current = new Set();
-    // Drop cached pages so the next open starts fresh from the first cursor page.
-    queryClient.removeQueries({ queryKey: ["cashInOrders"] });
     onClose();
-  }, [onClose, queryClient]);
+  }, [onClose]);
 
   // ── Fetch deposit-eligible orders (cursor-paginated, infinite scroll) ──
   const { data, isLoading: loading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ["cashInOrders"],
     enabled: isOpen,
+    staleTime: 1000 * 60 * 5,
     initialPageParam: null,
     queryFn: async ({ pageParam }) => {
       const res = await GetOrders({ cursor: pageParam, per_page: 10 });

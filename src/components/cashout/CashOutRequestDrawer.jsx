@@ -4,8 +4,8 @@ import { MdArrowOutward } from "react-icons/md";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { CreateCashOut, UpdateCashOut, GetCashInsByVaultId } from "../../services/Cash";
-import { useSelector, useDispatch } from "react-redux";
-import { fetchAuthUser, selectAuthUser } from "../../store/authSlice";
+import { useSelector } from "react-redux";
+import { selectAuthUser } from "../../store/authSlice";
 import { useToast } from "../../hooks/useToast";
 import DataTable from "../global/dataTable/DataTable";
 import VaultSelect from "./CashOutVaultSelect";
@@ -42,14 +42,7 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
   //   const perPage = parseInt(searchParams.get("per_page") || "10");
 
   const user = useSelector(selectAuthUser);
-  const dispatch = useDispatch();
   const { addToast } = useToast();
-
-  useEffect(() => {
-    if (isOpen) {
-      dispatch(fetchAuthUser());
-    }
-  }, [isOpen, dispatch]);
 
   // ── Reset on close ──
   const handleClose = useCallback(() => {
@@ -141,7 +134,7 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
 
   // Cash-out empties the bag, so the available amount is the bag's current balance
   // (post-reconcile reality), not the original cash-in amount.
-  const bagAmount = (o) => parseFloat(o?.bags?.current_amount ?? o?.cash_in_amount) || 0;
+  const bagAmount = (o) => parseFloat(o?.bag_current_amount ?? o?.bags?.current_amount ?? o?.cash_in_amount) || 0;
   const totalSelectedBagAmount = selectedRows.reduce((sum, o) => sum + bagAmount(o), 0);
 
   // Difference calculator matching your rule: Requested Amount - Selected Bag sum
@@ -278,7 +271,7 @@ const CashOutRequestDrawer = ({ isOpen, onClose, refetch, editData = null }) => 
       title: "Bag ID",
       key: "order_id",
       className: "w-[18%]",
-      render: (row) => <span className="block truncate font-mono font-semibold text-black/70">{row.bags?.barcode}</span>,
+      render: (row) => <span className="block truncate font-mono font-semibold text-black/70">{row?.bag_barcode || row?.bags?.barcode}</span>,
     },
     {
       title: "Transaction ID",
